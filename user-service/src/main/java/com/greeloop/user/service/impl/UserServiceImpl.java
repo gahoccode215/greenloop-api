@@ -1,5 +1,8 @@
 package com.greeloop.user.service.impl;
 
+import com.greeloop.user.dto.response.UserProfileResponse;
+import com.greeloop.user.entity.User;
+import com.greeloop.user.exception.UserNotFoundException;
 import com.greeloop.user.repository.UserRepository;
 import com.greeloop.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -25,4 +28,20 @@ public class UserServiceImpl implements UserService
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
 
+    @Override
+    public UserProfileResponse getMyProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        log.info("Retrieved profile for user: {}", user.getEmail());
+
+        return UserProfileResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .role(user.getRole().getName())
+                .isActive(user.getIsActive())
+                .build();
+    }
 }

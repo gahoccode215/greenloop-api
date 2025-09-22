@@ -54,9 +54,14 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
 
             // Add user info to headers for downstream services
             try {
+                log.info("Extract JWT");
                 String userId = jwtUtil.extractUserId(token);
+                log.info("Extract user ID: {}", userId);
                 String username = jwtUtil.extractUsername(token);
+                log.info("Extract username: {}", username);
                 String role = jwtUtil.extractRole(token);
+
+                log.info("Extract role: {}", role);
 
                 ServerHttpRequest modifiedRequest = request.mutate()
                         .header("X-User-ID", userId)
@@ -65,7 +70,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                         .build();
 
                 log.debug("JWT validated for user: {} with role: {}", username, role);
-
+                log.info("Downstream services");
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
             } catch (Exception e) {

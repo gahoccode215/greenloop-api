@@ -18,9 +18,11 @@ public class GatewayConfig {
         return builder.routes()
                 .route("user-service-auth", r -> r
                         .path("/api/v1/auth/**")
+                        .uri("lb://user-service"))
+                .route("user-service-protected", r -> r
+                        .path("/api/v1/users/**")
                         .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                         .uri("lb://user-service"))
-
                 .build();
     }
 }
