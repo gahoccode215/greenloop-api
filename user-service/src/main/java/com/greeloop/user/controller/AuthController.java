@@ -1,5 +1,6 @@
 package com.greeloop.user.controller;
 
+import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RegisterRequest;
 import com.greeloop.user.dto.response.ApiResponseDTO;
 import com.greeloop.user.dto.response.AuthResponse;
@@ -22,6 +23,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponseDTO<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Đăng nhập thành công", response, HttpStatus.OK)
+        );
+    }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> register(

@@ -6,7 +6,9 @@ import com.greeloop.user.dto.request.RegisterRequest;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.entity.Role;
 import com.greeloop.user.entity.User;
+import com.greeloop.user.exception.AccountDisabledException;
 import com.greeloop.user.exception.EmailAlreadyExistsException;
+import com.greeloop.user.exception.InvalidCredentialsException;
 import com.greeloop.user.exception.RoleNotFoundException;
 import com.greeloop.user.repository.RoleRepository;
 import com.greeloop.user.repository.UserRepository;
@@ -31,7 +33,30 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        return null;
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException();
+        }
+
+        if (!user.getIsActive()) {
+            throw new AccountDisabledException();
+        }
+
+        // Generate JWT token
+        String token = jwtUtil.generateToken(user);
+
+        log.info("User logged in: {}", user.getEmail());
+
+        return AuthResponse.builder()
+                .token(token)
+                .type("Bearer")
+                .userId(user.getId())
+                .email(user.getEmail())
+                .role(user.getRole().getName())
+                .expiresIn(jwtUtil.getExpirationTime())
+                .build();
     }
 
     @Transactional
