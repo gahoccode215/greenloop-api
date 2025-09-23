@@ -45,17 +45,20 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Generate JWT token
-        String token = jwtUtil.generateToken(user);
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
 
         log.info("User logged in: {}", user.getEmail());
 
         return AuthResponse.builder()
-                .token(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .type("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())
                 .role(user.getRole().getName())
                 .expiresIn(jwtUtil.getExpirationTime())
+                .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
                 .build();
     }
 
@@ -77,17 +80,22 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         user = userRepository.save(user);
-        String token = jwtUtil.generateToken(user);
+
+        // Generate cả access token và refresh token
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
 
         log.info("New user registered: {}", user.getEmail());
 
         return AuthResponse.builder()
-                .token(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .type("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())
                 .role(user.getRole().getName())
                 .expiresIn(jwtUtil.getExpirationTime())
+                .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
                 .build();
     }
 }

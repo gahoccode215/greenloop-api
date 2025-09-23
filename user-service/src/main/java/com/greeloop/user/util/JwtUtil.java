@@ -22,6 +22,9 @@ public class JwtUtil {
     @Value("${spring.security.jwt.expiration}")
     private Long expiration;
 
+    @Value("${spring.security.jwt.refresh-expiration}")
+    private Long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
@@ -33,13 +36,23 @@ public class JwtUtil {
         claims.put("firstName", user.getFirstName());
         claims.put("lastName", user.getLastName());
         claims.put("role", user.getRole().getName());
+        claims.put("type", "ACCESS");
 
-        return createToken(claims, user.getEmail());
+        return createToken(claims, user.getEmail(), expiration);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateRefreshToken(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId().toString());
+        claims.put("email", user.getEmail());
+        claims.put("type", "REFRESH");
+
+        return createToken(claims, user.getEmail(), refreshExpiration);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, Long tokenExpiration) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration);
+        Date expiryDate = new Date(now.getTime() + tokenExpiration);
 
         return Jwts.builder()
                 .claims(claims)
@@ -52,5 +65,8 @@ public class JwtUtil {
 
     public Long getExpirationTime() {
         return expiration;
+    }
+    public Long getRefreshExpirationTime() {
+        return refreshExpiration;
     }
 }

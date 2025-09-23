@@ -21,7 +21,7 @@ spring:
     jwt:
       secret: bXlTZWNyZXRLZXlGb3JHcmVlbkxvb3BBdXRoU2VydmljZVNob3VsZEJlQXRMZWFzdDI1NkJpdHNMb25n
       expiration: 86400000 # 24 hours
-
+      refresh-expiration: 604800000 # 7 days
 server:
   port: 8081
 
