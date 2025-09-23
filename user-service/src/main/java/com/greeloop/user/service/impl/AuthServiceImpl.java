@@ -2,6 +2,7 @@ package com.greeloop.user.service.impl;
 
 import com.greeloop.user.constant.RoleConstants;
 import com.greeloop.user.dto.request.LoginRequest;
+import com.greeloop.user.dto.request.RefreshTokenRequest;
 import com.greeloop.user.dto.request.RegisterRequest;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.entity.Role;
@@ -96,6 +97,37 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole().getName())
                 .expiresIn(jwtUtil.getExpirationTime())
                 .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
+                .build();
+    }
+
+    @Override
+    public AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken) {
+        if (!jwtUtil.validateToken(request.getRefreshToken()) ||
+                !jwtUtil.isRefreshToken(request.getRefreshToken())) {
+            throw new InvalidCredentialsException();
+        }
+
+        if (oldAccessToken != null) {
+            log.info("Attempting to blacklist old access token");
+            jwtUtil.blacklistToken(oldAccessToken);
+        }
+
+        // Extract user từ token
+        String email = jwtUtil.extractUsername(request.getRefreshToken());
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (!user.getIsActive()) {
+            throw new AccountDisabledException();
+        }
+
+        // Generate access token mới
+        String newAccessToken = jwtUtil.generateToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .type("Bearer")
+                .expiresIn(jwtUtil.getExpirationTime())
                 .build();
     }
 }

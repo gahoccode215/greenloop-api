@@ -4,6 +4,7 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -13,12 +14,20 @@ import java.util.Date;
 @Slf4j
 public class JwtUtil {
 
+    private final RedisTemplate<String, String> redisTemplate;
+
+
     @Value("${spring.security.jwt.secret}")
     private String secret;
+
+    public JwtUtil(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
+
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -35,6 +44,15 @@ public class JwtUtil {
     public <T> T extractClaim(String token, java.util.function.Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
+    }
+
+    private boolean isBlacklisted(String jti) {
+        if (jti == null) return false;
+        try {
+            return redisTemplate.hasKey("bl:" + jti);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private Claims extractAllClaims(String token) {
@@ -56,8 +74,10 @@ public class JwtUtil {
 
     public boolean validateToken(String token) {
         try {
-            extractAllClaims(token);
-            return !isTokenExpired(token);
+            Claims claims = extractAllClaims(token);
+            String jti = claims.get("jti", String.class);
+
+            return !isTokenExpired(token) && !isBlacklisted(jti);
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Token validation failed: {}", e.getMessage());
             return false;
