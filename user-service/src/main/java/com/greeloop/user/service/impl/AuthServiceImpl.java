@@ -2,6 +2,7 @@ package com.greeloop.user.service.impl;
 
 import com.greeloop.user.constant.JwtConstants;
 import com.greeloop.user.constant.RoleConstants;
+import com.greeloop.user.dto.request.ChangePasswordRequest;
 import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RefreshTokenRequest;
 import com.greeloop.user.dto.request.RegisterRequest;
@@ -15,6 +16,7 @@ import com.greeloop.user.service.AuthService;
 import com.greeloop.user.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -135,6 +137,30 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
         jwtUtil.blacklistToken(accessToken);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String accessToken, ChangePasswordRequest request) {
+
+        String email = jwtUtil.extractUsername(accessToken);
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User không tồn tại " + email));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new PasswordChangeException("Mật khẩu hiện tại không đúng");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new PasswordChangeException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Blacklist force logout
+//        jwtUtil.blacklistToken(accessToken);
+        log.info("Password changed successfully for user: {}", email);
     }
 
 

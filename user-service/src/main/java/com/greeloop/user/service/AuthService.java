@@ -1,5 +1,6 @@
 package com.greeloop.user.service;
 
+import com.greeloop.user.dto.request.ChangePasswordRequest;
 import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RefreshTokenRequest;
 import com.greeloop.user.dto.request.RegisterRequest;
@@ -14,5 +15,7 @@ public interface AuthService {
     AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken);
 
     void logout(String accessToken);
+
+    void changePassword(String accessToken, ChangePasswordRequest request);
 }
 

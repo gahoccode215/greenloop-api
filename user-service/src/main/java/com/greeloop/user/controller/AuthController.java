@@ -1,5 +1,6 @@
 package com.greeloop.user.controller;
 
+import com.greeloop.user.dto.request.ChangePasswordRequest;
 import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RefreshTokenRequest;
 import com.greeloop.user.dto.request.RegisterRequest;
@@ -56,16 +57,18 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader("Authorization") String authHeader, HttpServletRequest request) {
-        try {
-            String accessToken = authHeader.substring(7);
-            authService.logout(accessToken);
-            return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ApiResponseDTO.error("Đăng xuất thất bại", HttpStatus.INTERNAL_SERVER_ERROR, request.getRequestURI()));
-        }
+    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader("Authorization") String authHeader) {
+        String accessToken = authHeader.substring(7);
+        authService.logout(accessToken);
+        return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
 
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponseDTO<String>> changePassword(@RequestHeader("Authorization") String authHeader, @Valid @RequestBody ChangePasswordRequest request) {
+        String accessToken = authHeader.substring(7);
+        authService.changePassword(accessToken, request);
+        return ResponseEntity.ok(ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
     }
 
 }
