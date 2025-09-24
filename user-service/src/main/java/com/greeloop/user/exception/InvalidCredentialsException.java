@@ -4,6 +4,6 @@ import org.springframework.http.HttpStatus;
 
 public class InvalidCredentialsException extends BusinessException {
     public InvalidCredentialsException() {
-        super("Email hoặc mật khẩu không đúng", HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
+        super("Invalid credentials", HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
     }
 }

@@ -1,5 +1,6 @@
 package com.greeloop.user.util;
 
+import com.greeloop.user.constant.JwtConstants;
 import com.greeloop.user.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -21,6 +22,7 @@ import java.util.function.Function;
 public class JwtUtil {
 
     private final RedisTemplate<String, String> redisTemplate;
+
     @Value("${spring.security.jwt.secret}")
     private String secret;
 
@@ -40,23 +42,23 @@ public class JwtUtil {
 
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getId().toString());
-        claims.put("email", user.getEmail());
-        claims.put("firstName", user.getFirstName());
-        claims.put("lastName", user.getLastName());
-        claims.put("role", user.getRole().getName());
-        claims.put("jti", UUID.randomUUID().toString());
-        claims.put("type", "ACCESS");
+        claims.put(JwtConstants.CLAIM_USER_ID, user.getId().toString());
+        claims.put(JwtConstants.CLAIM_EMAIL, user.getEmail());
+        claims.put(JwtConstants.CLAIM_FIRST_NAME, user.getFirstName());
+        claims.put(JwtConstants.CLAIM_LAST_NAME, user.getLastName());
+        claims.put(JwtConstants.CLAIM_ROLE, user.getRole().getName());
+        claims.put(JwtConstants.CLAIM_JTI, UUID.randomUUID().toString());
+        claims.put(JwtConstants.CLAIM_TYPE, JwtConstants.TOKEN_TYPE_ACCESS);
 
         return createToken(claims, user.getEmail(), expiration);
     }
 
     public String generateRefreshToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getId().toString());
-        claims.put("email", user.getEmail());
-        claims.put("type", "REFRESH");
-        claims.put("jti", UUID.randomUUID().toString());
+        claims.put(JwtConstants.CLAIM_USER_ID, user.getId().toString());
+        claims.put(JwtConstants.CLAIM_EMAIL, user.getEmail());
+        claims.put(JwtConstants.CLAIM_TYPE, JwtConstants.TOKEN_TYPE_REFRESH);
+        claims.put(JwtConstants.CLAIM_JTI, UUID.randomUUID().toString());
 
         return createToken(claims, user.getEmail(), refreshExpiration);
     }
@@ -65,21 +67,26 @@ public class JwtUtil {
     public boolean validateToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
-            String jti = claims.get("jti", String.class);
+            String jti = claims.get(JwtConstants.CLAIM_JTI, String.class);
 
             return !isTokenExpired(token) && !isBlacklisted(jti);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
+
     public void blacklistToken(String token) {
         try {
-            String jti = extractClaim(token, claims -> claims.get("jti", String.class));
+            String jti = extractClaim(token, claims -> claims.get(JwtConstants.CLAIM_JTI, String.class));
             Date expiration = extractClaim(token, Claims::getExpiration);
             long ttl = expiration.getTime() - System.currentTimeMillis();
 
             if (ttl > 0) {
-                redisTemplate.opsForValue().set("bl:" + jti, "1", Duration.ofMillis(ttl));
+                redisTemplate.opsForValue().set(
+                        JwtConstants.REDIS_BLACKLIST_PREFIX + jti,
+                        "1",
+                        Duration.ofMillis(ttl)
+                );
             }
         } catch (Exception e) {
             log.error("Failed to blacklist token: {}", e.getMessage());
@@ -89,14 +96,16 @@ public class JwtUtil {
     private boolean isBlacklisted(String jti) {
         if (jti == null) return false;
         try {
-            return redisTemplate.hasKey("bl:" + jti);
+            return redisTemplate.hasKey(JwtConstants.REDIS_BLACKLIST_PREFIX + jti);
         } catch (Exception e) {
             return false;
         }
     }
+
     public boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
@@ -105,24 +114,28 @@ public class JwtUtil {
     public Long getExpirationTime() {
         return expiration;
     }
+
     public Long getRefreshExpirationTime() {
         return refreshExpiration;
     }
+
     public String getJti(String token) {
-        return extractClaim(token, claims -> claims.get("jti", String.class));
+        return extractClaim(token, claims -> claims.get(JwtConstants.CLAIM_JTI, String.class));
     }
 
     public boolean isRefreshToken(String token) {
         try {
-            String tokenType = extractClaim(token, claims -> claims.get("type", String.class));
-            return "REFRESH".equals(tokenType);
+            String tokenType = extractClaim(token, claims -> claims.get(JwtConstants.CLAIM_TYPE, String.class));
+            return JwtConstants.TOKEN_TYPE_REFRESH.equals(tokenType);
         } catch (Exception e) {
             return false;
         }
     }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
+
     private Claims extractAllClaims(String token) {
         try {
             return Jwts.parser()
@@ -135,6 +148,7 @@ public class JwtUtil {
             throw e;
         }
     }
+
     private String createToken(Map<String, Object> claims, String subject, Long tokenExpiration) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + tokenExpiration);

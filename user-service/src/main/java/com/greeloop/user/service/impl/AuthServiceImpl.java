@@ -1,5 +1,6 @@
 package com.greeloop.user.service.impl;
 
+import com.greeloop.user.constant.JwtConstants;
 import com.greeloop.user.constant.RoleConstants;
 import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RefreshTokenRequest;
@@ -7,10 +8,7 @@ import com.greeloop.user.dto.request.RegisterRequest;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.entity.Role;
 import com.greeloop.user.entity.User;
-import com.greeloop.user.exception.AccountDisabledException;
-import com.greeloop.user.exception.EmailAlreadyExistsException;
-import com.greeloop.user.exception.InvalidCredentialsException;
-import com.greeloop.user.exception.RoleNotFoundException;
+import com.greeloop.user.exception.*;
 import com.greeloop.user.repository.RoleRepository;
 import com.greeloop.user.repository.UserRepository;
 import com.greeloop.user.service.AuthService;
@@ -38,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new InvalidCredentialsException();
+            throw new LoginException();
         }
 
         if (!user.getIsActive()) {
@@ -130,4 +128,14 @@ public class AuthServiceImpl implements AuthService {
                 .expiresIn(jwtUtil.getExpirationTime())
                 .build();
     }
+
+    @Override
+    public void logout(String accessToken) {
+        if (accessToken == null || !jwtUtil.validateToken(accessToken)) {
+            throw new InvalidCredentialsException();
+        }
+        jwtUtil.blacklistToken(accessToken);
+    }
+
+
 }

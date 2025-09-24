@@ -16,6 +16,10 @@ public class JwtUtil {
 
     private final RedisTemplate<String, String> redisTemplate;
 
+    private final String CLAIM_USER_ID = "userId";
+    private final String CLAIM_ROLE = "role";
+    private final String JTI = "jti";
+    private final String REDIS_BLACKLIST_PREFIX = "bl:";
 
     @Value("${spring.security.jwt.secret}")
     private String secret;
@@ -34,11 +38,11 @@ public class JwtUtil {
     }
 
     public String extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", String.class));
+        return extractClaim(token, claims -> claims.get(CLAIM_USER_ID, String.class));
     }
 
     public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
+        return extractClaim(token, claims -> claims.get(CLAIM_ROLE, String.class));
     }
 
     public <T> T extractClaim(String token, java.util.function.Function<Claims, T> claimsResolver) {
@@ -49,7 +53,7 @@ public class JwtUtil {
     private boolean isBlacklisted(String jti) {
         if (jti == null) return false;
         try {
-            return redisTemplate.hasKey("bl:" + jti);
+            return redisTemplate.hasKey(REDIS_BLACKLIST_PREFIX + jti);
         } catch (Exception e) {
             return false;
         }
@@ -75,7 +79,7 @@ public class JwtUtil {
     public boolean validateToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
-            String jti = claims.get("jti", String.class);
+            String jti = claims.get(JTI, String.class);
 
             return !isTokenExpired(token) && !isBlacklisted(jti);
         } catch (JwtException | IllegalArgumentException e) {

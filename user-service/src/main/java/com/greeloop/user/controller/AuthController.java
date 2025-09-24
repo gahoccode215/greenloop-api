@@ -42,7 +42,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization") String authHeader) {
 
         log.info("Refresh request - Auth header: {}", authHeader);
         String oldAccessToken = null;
@@ -54,4 +54,18 @@ public class AuthController {
                 ApiResponseDTO.success("Làm mới token thành công", response, HttpStatus.OK)
         );
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader("Authorization") String authHeader, HttpServletRequest request) {
+        try {
+            String accessToken = authHeader.substring(7);
+            authService.logout(accessToken);
+            return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    ApiResponseDTO.error("Đăng xuất thất bại", HttpStatus.INTERNAL_SERVER_ERROR, request.getRequestURI()));
+        }
+
+    }
+
 }
