@@ -46,18 +46,18 @@ public class User implements UserDetails {
     @Column(name = "is_email_verified")
     private Boolean isEmailVerified = false;
 
-    @Column(name = "email_verification_token")
+    @Column(name = "email_verification_otp")
     private String emailVerificationToken;
 
-    @Column(name = "verification_token_expires_at")
-    private LocalDateTime verificationTokenExpiresAt;
+    @Column(name = "email_verification_otp_expires_at")
+    private LocalDateTime emailVerificationTokenExpiresAt;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
     @Column(name = "is_active")
-    private Boolean isActive = true;
+    private Boolean isActive = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

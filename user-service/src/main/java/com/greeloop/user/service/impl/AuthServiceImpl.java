@@ -1,7 +1,9 @@
 package com.greeloop.user.service.impl;
 
-import com.greeloop.user.constant.JwtConstants;
+
+import com.greeloop.user.config.properties.RabbitMQProperties;
 import com.greeloop.user.constant.RoleConstants;
+import com.greeloop.user.dto.event.UserRegistrationEvent;
 import com.greeloop.user.dto.request.ChangePasswordRequest;
 import com.greeloop.user.dto.request.LoginRequest;
 import com.greeloop.user.dto.request.RefreshTokenRequest;
@@ -14,12 +16,17 @@ import com.greeloop.user.repository.RoleRepository;
 import com.greeloop.user.repository.UserRepository;
 import com.greeloop.user.service.AuthService;
 import com.greeloop.user.util.JwtUtil;
+import com.greeloop.user.util.OtpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +37,9 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-
+    private final OtpUtil otpUtil;
+    private final RabbitMQProperties rabbitMQProperties;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -72,12 +81,18 @@ public class AuthServiceImpl implements AuthService {
 
         Role userRole = roleRepository.findByName(RoleConstants.USER)
                 .orElseThrow(() -> new RoleNotFoundException(RoleConstants.USER));
+        // Generate OTP
+        String emailVerificationOtp  = otpUtil.generateOtp();
+        LocalDateTime emailVerificationOtpExpiresAt  = otpUtil.getOtpExpiryTime();
 
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(userRole)
-                .isActive(true)
+                .isActive(false)
+                .isEmailVerified(false)
+                .emailVerificationToken(emailVerificationOtp)
+                .emailVerificationTokenExpiresAt(emailVerificationOtpExpiresAt)
                 .build();
 
         user = userRepository.save(user);
@@ -87,6 +102,18 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtil.generateRefreshToken(user);
 
         log.info("New user registered: {}", user.getEmail());
+
+        UserRegistrationEvent userRegistrationEvent = UserRegistrationEvent.builder()
+                        .email(user.getEmail())
+                        .otpCode(emailVerificationOtp)
+                        .otpExpiryTime(emailVerificationOtpExpiresAt)
+                        .build();
+
+        rabbitTemplate.convertAndSend(
+                rabbitMQProperties.getExchange().getName(),
+                rabbitMQProperties.getRouting().getKey(),
+                userRegistrationEvent
+        );
 
         return AuthResponse.builder()
                 .accessToken(accessToken)

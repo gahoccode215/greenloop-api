@@ -37,7 +37,7 @@ public class AuthController {
             @Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponseDTO.success("Đăng ký thành công", response, HttpStatus.CREATED)
+                ApiResponseDTO.success("Đăng ký tài khoản thành công. Vui lòng kiểm tra email để kích hoạt", response, HttpStatus.CREATED)
         );
     }
 
