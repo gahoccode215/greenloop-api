@@ -16,6 +16,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
   data:
     redis:
@@ -35,5 +40,11 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka
 
-
+rabbitmq:
+  exchange:
+    name: user.exchange
+  queue:
+    name: user.queue
+  routing:
+    key: user.tracking
 
