@@ -116,6 +116,7 @@ public class AuthServiceImpl implements AuthService {
                 .isEmailVerified(false)
                 .emailVerificationToken(emailVerificationOtp)
                 .emailVerificationTokenExpiresAt(emailVerificationOtpExpiresAt)
+                .provider("LOCAL")
                 .build();
         userRepository.save(newUser);
         log.info("New user registered: {}", newUser.getEmail());

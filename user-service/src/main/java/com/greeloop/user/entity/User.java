@@ -59,6 +59,9 @@ public class User implements UserDetails {
     @Column(name = "is_active")
     private Boolean isActive = false;
 
+    @Column(name = "provider")
+    private String provider;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

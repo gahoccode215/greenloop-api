@@ -8,9 +8,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> login(
@@ -67,15 +71,51 @@ public class AuthController {
         authService.changePassword(accessToken, request);
         return ResponseEntity.ok(ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
     }
+
     @PostMapping("/verify-email")
     public ResponseEntity<ApiResponseDTO<String>> verifyEmail(@RequestBody VerifyEmailRequest request) {
         authService.verifyEmailOtp(request.getEmail(), request.getOtp());
         return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
+
     @PostMapping("/resend-otp")
     public ResponseEntity<ApiResponseDTO<String>> resendOtp(@RequestBody ResendOtpRequest request) {
         authService.resendOtp(request.getEmail());
         return ResponseEntity.ok(ApiResponseDTO.success("Gửi lại mã OTP thành công. Vui lòng kiểm tra email", null, HttpStatus.OK));
+    }
+
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(@RequestParam String key, HttpServletRequest request) {
+        try {
+            String redisKey = "oauth2_success:" + key;
+            Map<String, Object> tokenData = (Map<String, Object>) redisTemplate.opsForValue().getAndDelete(redisKey);
+
+            if (tokenData == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponseDTO.error("Invalid or expired authentication key", HttpStatus.UNAUTHORIZED, request.getRequestURI() ));
+            }
+
+            AuthResponse response = AuthResponse.builder()
+                    .accessToken((String) tokenData.get("accessToken"))
+                    .refreshToken((String) tokenData.get("refreshToken"))
+                    .type((String) tokenData.get("type"))
+                    .userId((Long) tokenData.get("userId"))
+                    .email((String) tokenData.get("email"))
+                    .role((String) tokenData.get("role"))
+                    .expiresIn((Long) tokenData.get("expiresIn"))
+                    .refreshExpiresIn((Long) tokenData.get("refreshExpiresIn"))
+                    .build();
+
+            log.info("Successfully exchanged temp key for user: {}", tokenData.get("email"));
+            return ResponseEntity.ok(
+                    ApiResponseDTO.success("Successfully exchanged temp key", response, HttpStatus.OK)
+            );
+
+        } catch (Exception e) {
+            log.error("Error exchanging temp key", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR, request.getRequestURI()));
+        }
     }
 
 }

@@ -18,7 +18,7 @@ public class GatewayConfig {
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
                 .route("user-service", r -> r
-                        .path("/api/v1/**")
+                        .path("/api/v1/**", "/oauth2/**", "/login/**")
                         .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                         .uri("lb://user-service"))
                 .build();

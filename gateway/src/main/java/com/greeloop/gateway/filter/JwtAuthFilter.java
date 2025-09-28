@@ -24,7 +24,12 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/auth/verify-email",
-            "/api/v1/auth/resend-otp"
+            "/api/v1/auth/resend-otp",
+            "/api/v1/auth/oauth2/exchange",
+            "/oauth2/authorization/google",
+            "/login/oauth2/code/google",
+            "/oauth2/",
+            "/login/"
     );
 
     public JwtAuthFilter(JwtUtil jwtUtil) {
