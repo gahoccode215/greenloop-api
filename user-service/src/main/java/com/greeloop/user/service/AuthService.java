@@ -20,6 +20,7 @@ public interface AuthService {
 
     void verifyEmailOtp(String email, String otp);
 
-    
+    void resendOtp(String email);
+
 }
 

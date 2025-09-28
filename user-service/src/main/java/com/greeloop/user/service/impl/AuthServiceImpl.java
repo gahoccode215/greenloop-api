@@ -22,6 +22,7 @@ import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -80,17 +81,34 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     @Override
     public void register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException();
+        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        if (user != null) {
+            if (user.getIsEmailVerified()) {
+                throw new EmailAlreadyExistsException();
+            } else {
+                // Email chưa xác thực, cập nhật OTP mới và gửi lại OTP
+                String emailVerificationOtp = otpUtil.generateOtp();
+                LocalDateTime emailVerificationOtpExpiresAt = otpUtil.getOtpExpiryTime();
+                user.setPassword(passwordEncoder.encode(request.getPassword()));
+                user.setEmailVerificationToken(emailVerificationOtp);
+                user.setEmailVerificationTokenExpiresAt(emailVerificationOtpExpiresAt);
+                userRepository.save(user);
+                log.info("Resend OTP for unverified email: {}", user.getEmail());
+                UserRegistrationEvent event = UserRegistrationEvent.builder()
+                        .email(user.getEmail())
+                        .otpCode(emailVerificationOtp)
+                        .otpExpiryTime(emailVerificationOtpExpiresAt)
+                        .build();
+                streamBridge.send("userRegistration-out-0", event);
+                return;
+            }
         }
-
+        // Email chưa tồn tại, tạo user mới
         Role userRole = roleRepository.findByName(RoleConstants.USER)
                 .orElseThrow(() -> new RoleNotFoundException(RoleConstants.USER));
-        // Generate OTP
-        String emailVerificationOtp  = otpUtil.generateOtp();
-        LocalDateTime emailVerificationOtpExpiresAt  = otpUtil.getOtpExpiryTime();
-
-        User user = User.builder()
+        String emailVerificationOtp = otpUtil.generateOtp();
+        LocalDateTime emailVerificationOtpExpiresAt = otpUtil.getOtpExpiryTime();
+        User newUser = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(userRole)
@@ -99,19 +117,14 @@ public class AuthServiceImpl implements AuthService {
                 .emailVerificationToken(emailVerificationOtp)
                 .emailVerificationTokenExpiresAt(emailVerificationOtpExpiresAt)
                 .build();
-
-        user = userRepository.save(user);
-
-        log.info("New user registered: {}", user.getEmail());
-
-        UserRegistrationEvent userRegistrationEvent = UserRegistrationEvent.builder()
-                        .email(user.getEmail())
-                        .otpCode(emailVerificationOtp)
-                        .otpExpiryTime(emailVerificationOtpExpiresAt)
-                        .build();
-
-
-        streamBridge.send("userRegistration-out-0", userRegistrationEvent);
+        userRepository.save(newUser);
+        log.info("New user registered: {}", newUser.getEmail());
+        UserRegistrationEvent event = UserRegistrationEvent.builder()
+                .email(newUser.getEmail())
+                .otpCode(emailVerificationOtp)
+                .otpExpiryTime(emailVerificationOtpExpiresAt)
+                .build();
+        streamBridge.send("userRegistration-out-0", event);
 
     }
 
@@ -183,7 +196,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EmailNotFoundException(email));
         if (user.getIsEmailVerified()) {
-            throw new VerifyEmailException("Email đã được xác thực", "INVALID_OTP");
+            throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
         }
         if (!user.getEmailVerificationToken().equals(otp)) {
             throw new VerifyEmailException("Mã OTP không đúng", "INVALID_OTP");
@@ -196,6 +209,26 @@ public class AuthServiceImpl implements AuthService {
         user.setEmailVerificationToken(null);
         user.setEmailVerificationTokenExpiresAt(null);
         userRepository.save(user);
+    }
+
+    @Override
+    public void resendOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EmailNotFoundException(email));
+        if (user.getIsEmailVerified()) {
+            throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
+        }
+        String newOtp = otpUtil.generateOtp();
+        LocalDateTime newExpiry = otpUtil.getOtpExpiryTime();
+        user.setEmailVerificationToken(newOtp);
+        user.setEmailVerificationTokenExpiresAt(newExpiry);
+        userRepository.save(user);
+        UserRegistrationEvent event = UserRegistrationEvent.builder()
+                .email(user.getEmail())
+                .otpCode(newOtp)
+                .otpExpiryTime(newExpiry)
+                .build();
+        streamBridge.send("userRegistration-out-0", event);
     }
 
 

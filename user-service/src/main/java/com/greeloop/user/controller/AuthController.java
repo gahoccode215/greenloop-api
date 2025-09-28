@@ -72,5 +72,10 @@ public class AuthController {
         authService.verifyEmailOtp(request.getEmail(), request.getOtp());
         return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponseDTO<String>> resendOtp(@RequestBody ResendOtpRequest request) {
+        authService.resendOtp(request.getEmail());
+        return ResponseEntity.ok(ApiResponseDTO.success("Gửi lại mã OTP thành công. Vui lòng kiểm tra email", null, HttpStatus.OK));
+    }
 
 }
