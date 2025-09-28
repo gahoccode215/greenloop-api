@@ -1,0 +1,48 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  cloud:
+    function:
+      definition: userRegistrationConsumer
+    stream:
+      function:
+        definition: userRegistrationConsumer
+      bindings:
+        userRegistrationConsumer-in-0:
+          destination: user.exchange
+          group: notification-group
+          content-type: application/json
+
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:crosoficelldan@gmail.com}
+    password: ${MAIL_PASSWORD:azum kzcb ebsi etot}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+
+
+
+
