@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: notification-service
+  cloud:
+    function:
+      definition: userRegistrationConsumer
+    stream:
+      function:
+        definition: userRegistrationConsumer
+      bindings:
+        userRegistrationConsumer-in-0:
+          destination: user.exchange
+          group: notification-group
+          content-type: application/json
+
 
   rabbitmq:
     host: localhost
@@ -14,8 +26,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:your-email@gmail.com}
-    password: ${MAIL_PASSWORD:your-app-password}
+    username: ${MAIL_USERNAME:crosoficelldan@gmail.com}
+    password: ${MAIL_PASSWORD:azum kzcb ebsi etot}
     properties:
       mail:
         smtp:
@@ -30,13 +42,7 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
-rabbitmq:
-  exchange:
-    name: user.exchange
-  queue:
-    name: user.queue
-  routing:
-    key: user.tracking
+
 
 
 

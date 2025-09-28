@@ -1,9 +1,6 @@
 package com.greeloop.user.controller;
 
-import com.greeloop.user.dto.request.ChangePasswordRequest;
-import com.greeloop.user.dto.request.LoginRequest;
-import com.greeloop.user.dto.request.RefreshTokenRequest;
-import com.greeloop.user.dto.request.RegisterRequest;
+import com.greeloop.user.dto.request.*;
 import com.greeloop.user.dto.response.ApiResponseDTO;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.service.AuthService;
@@ -33,11 +30,11 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponseDTO<AuthResponse>> register(
+    public ResponseEntity<ApiResponseDTO<Void>> register(
             @Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
+        authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponseDTO.success("Đăng ký tài khoản thành công. Vui lòng kiểm tra email để kích hoạt", response, HttpStatus.CREATED)
+                ApiResponseDTO.success("Đăng ký tài khoản thành công. Vui lòng kiểm tra email để kích hoạt", null, HttpStatus.CREATED)
         );
     }
 
@@ -69,6 +66,11 @@ public class AuthController {
         String accessToken = authHeader.substring(7);
         authService.changePassword(accessToken, request);
         return ResponseEntity.ok(ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
+    }
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponseDTO<String>> verifyEmail(@RequestBody VerifyEmailRequest request) {
+        authService.verifyEmailOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
 
 }

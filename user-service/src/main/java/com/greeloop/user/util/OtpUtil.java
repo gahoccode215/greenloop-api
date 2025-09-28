@@ -1,5 +1,6 @@
 package com.greeloop.user.util;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
@@ -8,8 +9,12 @@ import java.time.LocalDateTime;
 @Component
 public class OtpUtil {
 
-    private static final int OTP_LENGTH = 6;
-    private static final int OTP_EXPIRY_MINUTES = 5;
+    @Value("${app.otp.length}")
+    private int OTP_LENGTH;
+
+    @Value("${app.otp.expiry-in-minutes}")
+    private int OTP_EXPIRY_MINUTES;
+
     private final SecureRandom random = new SecureRandom();
 
     public String generateOtp() {

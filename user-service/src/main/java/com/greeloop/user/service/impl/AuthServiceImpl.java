@@ -1,7 +1,6 @@
 package com.greeloop.user.service.impl;
 
 
-import com.greeloop.user.config.properties.RabbitMQProperties;
 import com.greeloop.user.constant.RoleConstants;
 import com.greeloop.user.dto.event.UserRegistrationEvent;
 import com.greeloop.user.dto.request.ChangePasswordRequest;
@@ -18,8 +17,11 @@ import com.greeloop.user.service.AuthService;
 import com.greeloop.user.util.JwtUtil;
 import com.greeloop.user.util.OtpUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,8 +40,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final OtpUtil otpUtil;
-    private final RabbitMQProperties rabbitMQProperties;
-    private final RabbitTemplate rabbitTemplate;
+    private final StreamBridge streamBridge;
+
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -48,6 +50,9 @@ public class AuthServiceImpl implements AuthService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new LoginException();
+        }
+        if(!user.getIsEmailVerified()){
+            throw new EmailNotVerifiedException();
         }
 
         if (!user.getIsActive()) {
@@ -74,9 +79,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Transactional
     @Override
-    public AuthResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException(request.getEmail());
+            throw new EmailAlreadyExistsException();
         }
 
         Role userRole = roleRepository.findByName(RoleConstants.USER)
@@ -97,10 +102,6 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
 
-        // Generate cả access token và refresh token
-        String accessToken = jwtUtil.generateToken(user);
-        String refreshToken = jwtUtil.generateRefreshToken(user);
-
         log.info("New user registered: {}", user.getEmail());
 
         UserRegistrationEvent userRegistrationEvent = UserRegistrationEvent.builder()
@@ -109,22 +110,9 @@ public class AuthServiceImpl implements AuthService {
                         .otpExpiryTime(emailVerificationOtpExpiresAt)
                         .build();
 
-        rabbitTemplate.convertAndSend(
-                rabbitMQProperties.getExchange().getName(),
-                rabbitMQProperties.getRouting().getKey(),
-                userRegistrationEvent
-        );
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .type("Bearer")
-                .userId(user.getId())
-                .email(user.getEmail())
-                .role(user.getRole().getName())
-                .expiresIn(jwtUtil.getExpirationTime())
-                .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
-                .build();
+        streamBridge.send("userRegistration-out-0", userRegistrationEvent);
+
     }
 
     @Override
@@ -188,6 +176,26 @@ public class AuthServiceImpl implements AuthService {
         // Blacklist force logout
 //        jwtUtil.blacklistToken(accessToken);
         log.info("Password changed successfully for user: {}", email);
+    }
+
+    @Override
+    public void verifyEmailOtp(String email, String otp) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EmailNotFoundException(email));
+        if (user.getIsEmailVerified()) {
+            throw new VerifyEmailException("Email đã được xác thực", "INVALID_OTP");
+        }
+        if (!user.getEmailVerificationToken().equals(otp)) {
+            throw new VerifyEmailException("Mã OTP không đúng", "INVALID_OTP");
+        }
+        if (user.getEmailVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new VerifyEmailException("Mã OTP đã hết hạn", "OTP_EXPIRED");
+        }
+        user.setIsEmailVerified(true);
+        user.setIsActive(true);
+        user.setEmailVerificationToken(null);
+        user.setEmailVerificationTokenExpiresAt(null);
+        userRepository.save(user);
     }
 
 

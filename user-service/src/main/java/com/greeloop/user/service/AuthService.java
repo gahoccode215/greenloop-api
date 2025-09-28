@@ -10,12 +10,16 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
-    AuthResponse register(RegisterRequest request);
+    void register(RegisterRequest request);
 
     AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken);
 
     void logout(String accessToken);
 
     void changePassword(String accessToken, ChangePasswordRequest request);
+
+    void verifyEmailOtp(String email, String otp);
+
+    
 }
 
