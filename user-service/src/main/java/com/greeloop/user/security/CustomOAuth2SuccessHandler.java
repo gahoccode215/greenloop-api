@@ -24,7 +24,7 @@ import java.util.UUID;
 public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisObjectTemplate;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -57,7 +57,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
                     "refreshExpiresIn", jwtUtil.getRefreshExpirationTime()
             );
 
-            redisTemplate.opsForValue().set(
+            redisObjectTemplate.opsForValue().set(
                     "oauth2_success:" + tempKey,
                     tokenData,
                     Duration.ofMinutes(5)

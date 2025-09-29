@@ -6,22 +6,34 @@ spring:
     name: notification-service
   cloud:
     function:
-      definition: userRegistrationConsumer
+      definition: userRegistrationConsumer;passwordResetConsumer
     stream:
       function:
-        definition: userRegistrationConsumer
+        definition: userRegistrationConsumer;passwordResetConsumer
       bindings:
         userRegistrationConsumer-in-0:
           destination: user.exchange
           group: notification-group
           content-type: application/json
+        passwordResetConsumer-in-0:
+          destination: user.exchange
+          group: notification-group
+          content-type: application/json
+      rabbit:
+        bindings:
+          userRegistrationConsumer-in-0:
+            consumer:
+              binding-routing-key: 'user.tracking'
+          passwordResetConsumer-in-0:
+            consumer:
+              binding-routing-key: 'user.password.reset'
 
 
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
   mail:
     host: smtp.gmail.com
