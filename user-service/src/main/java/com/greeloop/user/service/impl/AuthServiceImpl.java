@@ -210,7 +210,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void resendOtp(String email) {
+    public void resendVerificationOtp(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EmailNotFoundException(email));
         if (user.getIsEmailVerified()) {
@@ -227,6 +227,36 @@ public class AuthServiceImpl implements AuthService {
                 .otpExpiryTime(newExpiry)
                 .build();
         streamBridge.send("userRegistration-out-0", event);
+    }
+
+    @Override
+    @Transactional
+    public void resendPasswordResetOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EmailNotFoundException(email));
+        if (!user.getIsActive()) {
+            throw new AccountDisabledException();
+        }
+        if (user.getPasswordResetOtp() == null) {
+            throw new PasswordResetException("Không có yêu cầu đặt lại mật khẩu trước đó", "NO_RESET_REQUEST");
+        }
+        String newPasswordResetOtp = otpUtil.generateOtp();
+        LocalDateTime newPasswordResetExpiry = otpUtil.getOtpExpiryTime();
+
+        user.setPasswordResetOtp(newPasswordResetOtp);
+        user.setPasswordResetOtpExpiresAt(newPasswordResetExpiry);
+
+        userRepository.save(user);
+
+        PasswordResetEvent event = PasswordResetEvent.builder()
+                .email(user.getEmail())
+                .otpCode(newPasswordResetOtp)
+                .otpExpiryTime(newPasswordResetExpiry)
+                .build();
+
+        streamBridge.send("passwordReset-out-0", event);
+
+        log.info("Resent password reset OTP for: {}", email);
     }
 
     @Override

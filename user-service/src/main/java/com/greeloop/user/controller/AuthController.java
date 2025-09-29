@@ -78,9 +78,9 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
 
-    @PostMapping("/resend-otp")
+    @PostMapping("/resend-verify-email-otp")
     public ResponseEntity<ApiResponseDTO<String>> resendOtp(@RequestBody ResendOtpRequest request) {
-        authService.resendOtp(request.getEmail());
+        authService.resendVerificationOtp(request.getEmail());
         return ResponseEntity.ok(ApiResponseDTO.success("Gửi lại mã OTP thành công. Vui lòng kiểm tra email", null, HttpStatus.OK));
     }
 
@@ -101,6 +101,14 @@ public class AuthController {
                 ApiResponseDTO.success("Mật khẩu đã được đặt lại thành công", null, HttpStatus.OK)
         );
     }
+    @PostMapping("/resend-reset-password-otp")
+    public ResponseEntity<ApiResponseDTO<Void>> resendPasswordResetOtp(@RequestBody ResendOtpRequest request) {
+        authService.resendPasswordResetOtp(request.getEmail());
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Gửi lại OTP đặt lại mật khẩu thành công. Vui lòng kiểm tra email", null, HttpStatus.OK)
+        );
+    }
+
 
     @PostMapping("/oauth2/exchange")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(@RequestParam String key, HttpServletRequest request) {
