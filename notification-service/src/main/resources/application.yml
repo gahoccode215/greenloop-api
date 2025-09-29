@@ -1,0 +1,60 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  cloud:
+    function:
+      definition: userRegistrationConsumer;passwordResetConsumer
+    stream:
+      function:
+        definition: userRegistrationConsumer;passwordResetConsumer
+      bindings:
+        userRegistrationConsumer-in-0:
+          destination: user.exchange
+          group: notification-group
+          content-type: application/json
+        passwordResetConsumer-in-0:
+          destination: user.exchange
+          group: notification-group
+          content-type: application/json
+      rabbit:
+        bindings:
+          userRegistrationConsumer-in-0:
+            consumer:
+              binding-routing-key: 'user.tracking'
+          passwordResetConsumer-in-0:
+            consumer:
+              binding-routing-key: 'user.password.reset'
+
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:crosoficelldan@gmail.com}
+    password: ${MAIL_PASSWORD:azum kzcb ebsi etot}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+
+
+
+

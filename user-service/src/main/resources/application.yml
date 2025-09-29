@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: user-service
+  cloud:
+    stream:
+      bindings:
+        userRegistration-out-0:
+          destination: user.exchange
+          content-type: application/json
+        passwordReset-out-0:
+          destination: user.exchange
+          content-type: application/json
+      rabbit:
+        bindings:
+          userRegistration-out-0:
+            producer:
+              routing-key: '''user.tracking'''
+          passwordReset-out-0:
+            producer:
+              routing-key: '''user.password.reset'''
+
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:12345}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: profile, email
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+    jwt:
+      secret: ${JWT_SECRET:bXlTZWNyZXRLZXlGb3JHcmVlbkxvb3BBdXRoU2VydmljZVNob3VsZEJlQXRMZWFzdDI1NkJpdHNMb25n}
+      expiration: ${JWT_EXPIRATION:360000} # 1 hour
+      refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+
+
+app:
+  otp:
+    length: 6
+    expiry-in-minutes: 5

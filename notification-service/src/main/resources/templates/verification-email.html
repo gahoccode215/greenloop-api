@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Xác thực tài khoản GreenLoop</title>
+    <style>
+        body { background: #f4f4f4; font-family: Arial, sans-serif; }
+        .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; padding: 32px; }
+        .header { text-align: center; padding-bottom: 16px; }
+        .header img { width: 80px; }
+        .title { color: #2d8f6f; font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+        .content { font-size: 16px; color: #333; margin-bottom: 24px; }
+        .otp-box { background: #eafaf1; color: #2d8f6f; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px 0; text-align: center; border-radius: 6px; margin-bottom: 24px; }
+        .footer { font-size: 13px; color: #888; text-align: center; margin-top: 32px; }
+        @media (max-width: 600px) { .container { padding: 16px; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <img src="https://i.imgur.com/6b6psnA.png" alt="GreenLoop Logo" />
+    </div>
+    <div class="title">Xác thực tài khoản của bạn</div>
+    <div class="content">
+        Xin chào <b th:text="${email}"></b>,<br><br>
+        Cảm ơn bạn đã đăng ký tài khoản GreenLoop.<br>
+        Đây là mã OTP xác thực của bạn:
+    </div>
+    <div class="otp-box" th:text="${otp}"></div>
+    <div class="content">
+        Mã OTP này sẽ hết hạn sau <b>5 phút</b>.<br>
+        Nếu bạn không thực hiện đăng ký, vui lòng bỏ qua email này.
+    </div>
+    <div class="footer">
+        &copy; 2025 GreenLoop. All rights reserved.<br>
+        <a href="https://greenloop.com" style="color:#2d8f6f;text-decoration:none;">greenloop.com</a>
+    </div>
+</div>
+</body>
+</html>
