@@ -189,13 +189,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void verifyEmailOtp(String email, String otp) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EmailNotFoundException(email));
+    public void verifyEmailOtp(VerifyEmailOtpRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
         if (user.getIsEmailVerified()) {
             throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
         }
-        if (!user.getEmailVerificationToken().equals(otp)) {
+        if (!user.getEmailVerificationToken().equals(request.getOtp())) {
             throw new VerifyEmailException("Mã OTP không đúng", "INVALID_OTP");
         }
         if (user.getEmailVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {

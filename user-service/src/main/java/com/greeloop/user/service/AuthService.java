@@ -15,7 +15,7 @@ public interface AuthService {
 
     void changePassword(String accessToken, ChangePasswordRequest request);
 
-    void verifyEmailOtp(String email, String otp);
+    void verifyEmailOtp(VerifyEmailOtpRequest request);
 
     void resendVerificationOtp(String email);
 
