@@ -37,4 +37,24 @@ public class MailService {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
         }
     }
+    public void sendPasswordResetEmail(String to, String otp) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject("GreenLoop - Đặt lại mật khẩu");
+
+            Context context = new Context();
+            context.setVariable("email", to);
+            context.setVariable("otp", otp);
+
+            String html = templateEngine.process("password-reset-email.html", context);
+
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Sent password reset email to: {}", to);
+        } catch (MessagingException e) {
+            log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
+        }
+    }
 }

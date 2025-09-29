@@ -1,5 +1,6 @@
 package com.greenloop.notification;
 
+import com.greenloop.notification.payload.PasswordResetEvent;
 import com.greenloop.notification.payload.UserRegistrationEvent;
 import com.greenloop.notification.service.MailService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,15 @@ public class AuthEventConsumer {
             log.info("Received user registration event: {}", event.getEmail());
             log.info("Received user registration event: {}", event.getOtpCode());
             mailService.sendVerificationEmail(event.getEmail(), event.getOtpCode());
+        };
+    }
+
+    @Bean
+    public Consumer<PasswordResetEvent> passwordResetConsumer() {
+        return event -> {
+            log.info("Received password reset event: {}", event.getEmail());
+            log.info("Password reset OTP: {}", event.getOtpCode());
+            mailService.sendPasswordResetEmail(event.getEmail(), event.getOtpCode());
         };
     }
 

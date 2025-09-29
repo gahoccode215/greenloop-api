@@ -22,7 +22,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisObjectTemplate;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> login(
@@ -84,11 +84,29 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseDTO.success("Gửi lại mã OTP thành công. Vui lòng kiểm tra email", null, HttpStatus.OK));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponseDTO<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("OTP đặt lại mật khẩu đã được gửi đến email của bạn", null, HttpStatus.OK)
+        );
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponseDTO<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Mật khẩu đã được đặt lại thành công", null, HttpStatus.OK)
+        );
+    }
+
     @PostMapping("/oauth2/exchange")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(@RequestParam String key, HttpServletRequest request) {
         try {
             String redisKey = "oauth2_success:" + key;
-            Map<String, Object> tokenData = (Map<String, Object>) redisTemplate.opsForValue().getAndDelete(redisKey);
+            Map<String, Object> tokenData = (Map<String, Object>) redisObjectTemplate.opsForValue().getAndDelete(redisKey);
 
             if (tokenData == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

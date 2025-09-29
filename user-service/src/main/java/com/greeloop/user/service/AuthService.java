@@ -1,9 +1,6 @@
 package com.greeloop.user.service;
 
-import com.greeloop.user.dto.request.ChangePasswordRequest;
-import com.greeloop.user.dto.request.LoginRequest;
-import com.greeloop.user.dto.request.RefreshTokenRequest;
-import com.greeloop.user.dto.request.RegisterRequest;
+import com.greeloop.user.dto.request.*;
 import com.greeloop.user.dto.response.AuthResponse;
 
 public interface AuthService {
@@ -22,5 +19,8 @@ public interface AuthService {
 
     void resendOtp(String email);
 
+    void forgotPassword(ForgotPasswordRequest request);
+
+    void resetPassword(ResetPasswordRequest request);
 }
 

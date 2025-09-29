@@ -52,6 +52,12 @@ public class User implements UserDetails {
     @Column(name = "email_verification_otp_expires_at")
     private LocalDateTime emailVerificationTokenExpiresAt;
 
+    @Column(name = "password_reset_otp")
+    private String passwordResetOtp;
+
+    @Column(name = "password_reset_otp_expires_at")
+    private LocalDateTime passwordResetOtpExpiresAt;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;

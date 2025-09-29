@@ -2,11 +2,9 @@ package com.greeloop.user.service.impl;
 
 
 import com.greeloop.user.constant.RoleConstants;
+import com.greeloop.user.dto.event.PasswordResetEvent;
 import com.greeloop.user.dto.event.UserRegistrationEvent;
-import com.greeloop.user.dto.request.ChangePasswordRequest;
-import com.greeloop.user.dto.request.LoginRequest;
-import com.greeloop.user.dto.request.RefreshTokenRequest;
-import com.greeloop.user.dto.request.RegisterRequest;
+import com.greeloop.user.dto.request.*;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.entity.Role;
 import com.greeloop.user.entity.User;
@@ -17,19 +15,14 @@ import com.greeloop.user.service.AuthService;
 import com.greeloop.user.util.JwtUtil;
 import com.greeloop.user.util.OtpUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
-import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -130,6 +123,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken) {
         if (!jwtUtil.validateToken(request.getRefreshToken()) ||
                 !jwtUtil.isRefreshToken(request.getRefreshToken())) {
@@ -161,6 +155,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void logout(String accessToken) {
         if (accessToken == null || !jwtUtil.validateToken(accessToken)) {
             throw new InvalidCredentialsException();
@@ -193,6 +188,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void verifyEmailOtp(String email, String otp) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EmailNotFoundException(email));
@@ -213,6 +209,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void resendOtp(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EmailNotFoundException(email));
@@ -230,6 +227,55 @@ public class AuthServiceImpl implements AuthService {
                 .otpExpiryTime(newExpiry)
                 .build();
         streamBridge.send("userRegistration-out-0", event);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (!user.getIsActive()) {
+            throw new AccountDisabledException();
+        }
+        String passwordResetOtp = otpUtil.generateOtp();
+        LocalDateTime passwordResetOtpExpiresAt = otpUtil.getOtpExpiryTime();
+
+        user.setPasswordResetOtp(passwordResetOtp);
+        user.setPasswordResetOtpExpiresAt(passwordResetOtpExpiresAt);
+
+        userRepository.save(user);
+
+        PasswordResetEvent event = PasswordResetEvent.builder()
+                .email(user.getEmail())
+                .otpCode(passwordResetOtp)
+                .otpExpiryTime(passwordResetOtpExpiresAt)
+                .build();
+
+        streamBridge.send("passwordReset-out-0", event);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (user.getPasswordResetOtp() == null) {
+            throw new PasswordResetException("Không có yêu cầu đặt lại mật khẩu", "NO_RESET_REQUEST");
+        }
+        if (!user.getPasswordResetOtp().equals(request.getOtp())) {
+            throw new PasswordResetException("Mã OTP không đúng", "INVALID_OTP");
+        }
+        if (user.getPasswordResetOtpExpiresAt().isBefore(LocalDateTime.now())) {
+            user.setPasswordResetOtp(null);
+            user.setPasswordResetOtpExpiresAt(null);
+            userRepository.save(user);
+            throw new PasswordResetException("Mã OTP đã hết hạn", "OTP_EXPIRED");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordResetOtp(null);
+        user.setPasswordResetOtpExpiresAt(null);
+        userRepository.save(user);
+        log.info("Password reset successful for: {}", request.getEmail());
     }
 
 
