@@ -20,6 +20,8 @@ services:
   user-service:
     build: ./user-service
     container_name: user-service
+    environment:
+      DB_HOST: mysql
     ports:
       - "8081:8081"
     depends_on:
@@ -42,7 +44,7 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: mysq
+    container_name: mysql
     ports:
       - "3307:3306"
     environment:

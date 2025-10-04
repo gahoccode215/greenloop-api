@@ -21,6 +21,11 @@ public class GatewayConfig {
                         .path("/api/v1/**", "/oauth2/**", "/login/**")
                         .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                         .uri("lb://user-service"))
+
+                .route("user-service-docs", r -> r
+                        .path("/user-service/v3/api-docs")
+                        .filters(f -> f.rewritePath("/user-service/v3/api-docs", "/v3/api-docs"))
+                        .uri("lb://user-service"))
                 .build();
     }
 

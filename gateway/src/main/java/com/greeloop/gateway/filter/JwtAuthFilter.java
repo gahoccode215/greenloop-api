@@ -31,7 +31,11 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             "/oauth2/authorization/google",
             "/login/oauth2/code/google",
             "/oauth2/",
-            "/login/"
+            "/login/",
+            "/v3/api-docs",
+            "/swagger-ui",
+            "/swagger-ui.html",
+            "/webjars/swagger-ui"
     );
 
     public JwtAuthFilter(JwtUtil jwtUtil) {
