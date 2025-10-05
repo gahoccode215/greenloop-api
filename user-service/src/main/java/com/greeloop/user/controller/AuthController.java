@@ -74,7 +74,7 @@ public class AuthController {
 
     @PostMapping("/verify-email")
     public ResponseEntity<ApiResponseDTO<String>> verifyEmail(@RequestBody VerifyEmailRequest request) {
-        authService.verifyEmailOtp(request.getEmail());
+        authService.verifyEmailOtp(request);
         return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
 

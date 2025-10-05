@@ -18,6 +18,4 @@ Donated items are made available to people in need, while consigned items are di
 - Redis
 
 # CommandLine
-    - docker exec -it greenloop-redis redis-cli
-    - KEYS bl:*
-    - docker run -d --name greenloop-redis -p 6379:6379 redis:7.2-alpine
+- docker compose up --build -d

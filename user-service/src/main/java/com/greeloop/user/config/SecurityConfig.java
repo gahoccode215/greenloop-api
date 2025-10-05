@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -67,5 +68,18 @@ public class SecurityConfig {
                         .redirectionEndpoint(redirection -> redirection.baseUri("/login/oauth2/code/*"))
                 )
                 .build();
+    }
+    @Bean
+    public WebSecurityCustomizer ignoreResources() {
+        return webSecurity ->
+                webSecurity
+                        .ignoring()
+                        .requestMatchers(
+                                "/actuator/**",
+                                "/v3/**",
+                                "/webjars/**",
+                                "/swagger-ui*/*swagger-initializer.js",
+                                "/swagger-ui*/**",
+                                "/favicon.ico");
     }
 }
