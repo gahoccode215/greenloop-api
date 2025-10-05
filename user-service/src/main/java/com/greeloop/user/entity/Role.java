@@ -2,20 +2,18 @@
 package com.greeloop.user.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
 @Table(name = "roles")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Getter
+@Setter
 public class Role {
 
     @Id
@@ -27,23 +25,5 @@ public class Role {
 
     private String description;
 
-    @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
-    private Set<User> users;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }
