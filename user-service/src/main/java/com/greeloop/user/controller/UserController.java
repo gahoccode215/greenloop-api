@@ -2,12 +2,15 @@ package com.greeloop.user.controller;
 
 import com.greeloop.user.dto.response.ApiResponseDTO;
 import com.greeloop.user.dto.response.UserProfileResponse;
+import com.greeloop.user.dto.response.UserResponse;
 import com.greeloop.user.service.UserService;
-import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -31,5 +34,35 @@ public class UserController {
         );
     }
 
+    @Operation(
+            summary = "Get all users",
+            description = "Get paginated list of users. Access filtered by role: ADMIN sees all, MANAGER sees STAFF and CUSTOMER, STAFF sees CUSTOMER only"
+    )
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponseDTO<Page<UserResponse>>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "userId") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDir,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role,
+            Authentication authentication) {
 
+        String currentUserRole = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("");
+
+        log.info("User {} (role: {}) requesting users list with role filter: {}",
+                authentication.getName(), currentUserRole, role);
+
+        Page<UserResponse> users = userService.getAllUsers(
+                page, size, sortBy, sortDir, email, role, currentUserRole
+        );
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy danh sách tài khoản thành công", users, HttpStatus.OK)
+        );
+    }
 }
