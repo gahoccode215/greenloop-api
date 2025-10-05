@@ -4,6 +4,8 @@ import com.greeloop.user.dto.request.*;
 import com.greeloop.user.dto.response.ApiResponseDTO;
 import com.greeloop.user.dto.response.AuthResponse;
 import com.greeloop.user.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +21,18 @@ import java.util.Map;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Authentication", description = "APIs for user authentication and authorization management")
 public class AuthController {
 
     private final AuthService authService;
     private final RedisTemplate<String, Object> redisObjectTemplate;
 
     @PostMapping("/login")
+    @Operation(
+            summary = "User login",
+            description = "Authenticate user with email and password, returns access token and refresh token"
+    )
+
     public ResponseEntity<ApiResponseDTO<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
@@ -33,6 +41,10 @@ public class AuthController {
         );
     }
 
+    @Operation(
+            summary = "Register new user",
+            description = "Create new user account and send verification OTP to email"
+    )
     @PostMapping("/register")
     public ResponseEntity<ApiResponseDTO<Void>> register(
             @Valid @RequestBody RegisterRequest request) {
@@ -42,6 +54,10 @@ public class AuthController {
         );
     }
 
+    @Operation(
+            summary = "Refresh access token",
+            description = "Generate new access token using refresh token"
+    )
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization") String authHeader) {
@@ -57,6 +73,10 @@ public class AuthController {
         );
     }
 
+    @Operation(
+            summary = "User logout",
+            description = "Invalidate current access token and refresh token"
+    )
     @PostMapping("/logout")
     public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader("Authorization") String authHeader) {
         String accessToken = authHeader.substring(7);
@@ -65,6 +85,10 @@ public class AuthController {
 
     }
 
+    @Operation(
+            summary = "Change password",
+            description = "Change user password with old password verification"
+    )
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponseDTO<String>> changePassword(@RequestHeader("Authorization") String authHeader, @Valid @RequestBody ChangePasswordRequest request) {
         String accessToken = authHeader.substring(7);
@@ -72,18 +96,30 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
     }
 
+    @Operation(
+            summary = "Verify email",
+            description = "Verify user email with OTP code"
+    )
     @PostMapping("/verify-email")
     public ResponseEntity<ApiResponseDTO<String>> verifyEmail(@RequestBody VerifyEmailRequest request) {
         authService.verifyEmailOtp(request);
         return ResponseEntity.ok(ApiResponseDTO.success("Xác thực thành công", null, HttpStatus.OK));
     }
 
+    @Operation(
+            summary = "Resend verification OTP",
+            description = "Resend email verification OTP to user email"
+    )
     @PostMapping("/resend-verify-email-otp")
     public ResponseEntity<ApiResponseDTO<String>> resendOtp(@RequestBody ResendOtpRequest request) {
         authService.resendVerificationOtp(request.getEmail());
         return ResponseEntity.ok(ApiResponseDTO.success("Gửi lại mã OTP thành công. Vui lòng kiểm tra email", null, HttpStatus.OK));
     }
 
+    @Operation(
+            summary = "Forgot password",
+            description = "Request password reset and send OTP to user email"
+    )
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponseDTO<Void>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request) {
@@ -93,6 +129,10 @@ public class AuthController {
         );
     }
 
+    @Operation(
+            summary = "Reset password",
+            description = "Reset user password with OTP verification"
+    )
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponseDTO<Void>> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request) {
@@ -101,6 +141,11 @@ public class AuthController {
                 ApiResponseDTO.success("Mật khẩu đã được đặt lại thành công", null, HttpStatus.OK)
         );
     }
+
+    @Operation(
+            summary = "Resend password reset OTP",
+            description = "Resend password reset OTP to user email"
+    )
     @PostMapping("/resend-reset-password-otp")
     public ResponseEntity<ApiResponseDTO<Void>> resendPasswordResetOtp(@RequestBody ResendOtpRequest request) {
         authService.resendPasswordResetOtp(request.getEmail());
@@ -109,7 +154,10 @@ public class AuthController {
         );
     }
 
-
+    @Operation(
+            summary = "Exchange OAuth2 temporary key",
+            description = "Exchange temporary key from OAuth2 login for access token and refresh token"
+    )
     @PostMapping("/oauth2/exchange")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(@RequestParam String key, HttpServletRequest request) {
         try {

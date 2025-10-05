@@ -1,4 +1,4 @@
-package com.greenloop.event_service;
+package com.greenloop.event;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
