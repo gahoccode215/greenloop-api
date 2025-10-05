@@ -45,10 +45,8 @@ public class UserController {
             @PathVariable Long userId,
             Authentication authentication) {
 
-        String currentUserRole = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
-                .orElse("");
+        String currentUserRole = getCurrentRole(authentication);
+
 
         log.info("User {} (role: {}) requesting user details for userId: {}",
                 authentication.getName(), currentUserRole, userId);
@@ -71,10 +69,8 @@ public class UserController {
             @RequestBody UpdateUserRequest request,
             Authentication authentication) {
 
-        String currentUserRole = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
-                .orElse("");
+        String currentUserRole = getCurrentRole(authentication);
+
 
         UserResponse user = userService.updateUser(userId, request, currentUserRole);
 
@@ -94,10 +90,7 @@ public class UserController {
             @RequestParam("status") Boolean status,
             Authentication authentication) {
 
-        String currentUserRole = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
-                .orElse("");
+        String currentUserRole = getCurrentRole(authentication);
 
         userService.updateUserStatus(userId, currentUserRole, status);
 
@@ -123,10 +116,8 @@ public class UserController {
             @RequestParam(required = false) String role,
             Authentication authentication) {
 
-        String currentUserRole = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
-                .orElse("");
+        String currentUserRole = getCurrentRole(authentication);
+
 
         log.info("User {} (role: {}) requesting users list with role filter: {}",
                 authentication.getName(), currentUserRole, role);
@@ -139,5 +130,13 @@ public class UserController {
                 ApiResponseDTO.success("Lấy danh sách tài khoản thành công", users, HttpStatus.OK)
         );
     }
+
+    private String getCurrentRole(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("");
+    }
+
 
 }
