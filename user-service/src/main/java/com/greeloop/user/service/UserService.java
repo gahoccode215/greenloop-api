@@ -24,4 +24,5 @@ public interface UserService extends UserDetailsService
 
     UserResponse updateUser(Long userId, UpdateUserRequest request, String currentUserRole);
 
+    void updateUserStatus(Long userId, String currentUserRole, Boolean status);
 }

@@ -83,6 +83,30 @@ public class UserController {
         );
     }
 
+    @Operation(
+            summary = "Update user status",
+            description = "Activate or deactivate a user account. Only ADMIN, MANAGER (with permission) can update"
+    )
+    @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponseDTO<Void>> updateUserStatus(
+            @PathVariable Long userId,
+            @RequestParam("status") Boolean status,
+            Authentication authentication) {
+
+        String currentUserRole = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("");
+
+        userService.updateUserStatus(userId, currentUserRole, status);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật trạng thái tài khoản thành công", null, HttpStatus.OK)
+        );
+    }
+
+
 
     @Operation(
             summary = "Get all users",

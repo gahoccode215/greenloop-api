@@ -4,7 +4,6 @@ import com.greeloop.user.constant.RoleConstants;
 import com.greeloop.user.dto.request.UpdateUserRequest;
 import com.greeloop.user.dto.response.UserProfileResponse;
 import com.greeloop.user.dto.response.UserResponse;
-import com.greeloop.user.entity.Role;
 import com.greeloop.user.entity.User;
 import com.greeloop.user.exception.InvalidCredentialsException;
 import com.greeloop.user.exception.UserNotFoundException;
@@ -24,7 +23,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -152,6 +150,25 @@ public class UserServiceImpl extends BaseService<User, Long> implements UserServ
         return mapToUserResponse(user);
     }
 
+    @Override
+    @Transactional
+    public void updateUserStatus(Long userId, String currentUserRole, Boolean status) {
+        log.info("Updating status for user {} by role {}", userId, currentUserRole);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        validateRoleAccess(currentUserRole, user.getRole().getName());
+
+        if (status == null) {
+            throw new IllegalArgumentException("status must not be null");
+        }
+
+        user.setIsActive(status);
+        userRepository.save(user);
+
+        log.info("User {} status updated to {}", userId, status);
+    }
 
 
     private void validateRoleAccess(String currentUserRole, String targetRole) {
