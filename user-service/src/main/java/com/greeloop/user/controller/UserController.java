@@ -35,6 +35,32 @@ public class UserController {
     }
 
     @Operation(
+            summary = "Get user by ID",
+            description = "Get detailed information of a specific user. Access control: ADMIN can view all, MANAGER can view STAFF and CUSTOMER, STAFF can view CUSTOMER only"
+    )
+    @GetMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
+    public ResponseEntity<ApiResponseDTO<UserResponse>> getUserById(
+            @PathVariable Long userId,
+            Authentication authentication) {
+
+        String currentUserRole = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("");
+
+        log.info("User {} (role: {}) requesting user details for userId: {}",
+                authentication.getName(), currentUserRole, userId);
+
+        UserResponse user = userService.getUserById(userId, currentUserRole);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy thông tin người dùng thành công", user, HttpStatus.OK)
+        );
+    }
+
+
+    @Operation(
             summary = "Get all users",
             description = "Get paginated list of users. Access filtered by role: ADMIN sees all, MANAGER sees STAFF and CUSTOMER, STAFF sees CUSTOMER only"
     )
@@ -65,4 +91,5 @@ public class UserController {
                 ApiResponseDTO.success("Lấy danh sách tài khoản thành công", users, HttpStatus.OK)
         );
     }
+
 }

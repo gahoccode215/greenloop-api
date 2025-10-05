@@ -18,4 +18,6 @@ public interface UserService extends UserDetailsService
             String role,
             String currentUserRole
     );
+
+    UserResponse getUserById(Long userId, String currentUserRole);
 }

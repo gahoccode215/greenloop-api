@@ -1,7 +1,9 @@
 package com.greeloop.user.service.impl;
 
+import com.greeloop.user.constant.RoleConstants;
 import com.greeloop.user.dto.response.UserProfileResponse;
 import com.greeloop.user.dto.response.UserResponse;
+import com.greeloop.user.entity.Role;
 import com.greeloop.user.entity.User;
 import com.greeloop.user.exception.InvalidCredentialsException;
 import com.greeloop.user.exception.UserNotFoundException;
@@ -27,8 +29,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserServiceImpl extends BaseService<User, Long> implements UserService
-{
+public class UserServiceImpl extends BaseService<User, Long> implements UserService {
 
     private final UserRepository userRepository;
 
@@ -67,79 +68,85 @@ public class UserServiceImpl extends BaseService<User, Long> implements UserServ
     public Page<UserResponse> getAllUsers(int page, int size, String sortBy, String sortDir, String email, String role, String currentUserRole) {
         log.info("Getting users list - page: {}, size: {}, role filter: {}, current user role: {}",
                 page, size, role, currentUserRole);
-        // Validate role access
-        validateRoleAccess(currentUserRole, role);
 
-        // Get allowed roles based on current user role
-        List<String> allowedRoles = getAllowedRoles(currentUserRole);
+        // Nếu có filter role thì validate quyền filter
+        if (role != null && !role.trim().isEmpty()) {
+            validateRoleAccess(currentUserRole, role);
+        }
 
-        // Create pageable
+        // Tạo pageable
         Pageable pageable = createPageable(page, size, sortBy, sortDir);
 
-        // Build specification with filters
-        Specification<User> spec = buildUserSpecification(email, role, allowedRoles);
-
-        // Execute query
-        Page<User> usersPage = findAll(spec, pageable);
-
-        log.info("Found {} users", usersPage.getTotalElements());
-
-        return usersPage.map(this::mapToUserResponse);
-    }
-    private void validateRoleAccess(String currentUserRole, String requestedRole) {
-        if ("MANAGER".equals(currentUserRole) && requestedRole != null) {
-            List<String> allowedRoles = Arrays.asList("STAFF", "CUSTOMER");
-            if (!allowedRoles.contains(requestedRole)) {
-                throw new InvalidCredentialsException();
-            }
-        }
-
-        if ("STAFF".equals(currentUserRole) && requestedRole != null && !"CUSTOMER".equals(requestedRole)) {
-            throw new InvalidCredentialsException();
-        }
-    }
-
-    private List<String> getAllowedRoles(String currentUserRole) {
-        return switch (currentUserRole) {
-            case "ADMIN" -> null; // null = all roles
-            case "MANAGER" -> Arrays.asList("STAFF", "CUSTOMER");
-            case "STAFF" -> Arrays.asList("CUSTOMER");
-            default -> throw new InvalidCredentialsException();
-        };
-    }
-
-    private Specification<User> buildUserSpecification(String email, String role, List<String> allowedRoles) {
+        // Build specification với filter email và role
         SpecificationBuilder<User> builder = new SpecificationBuilder<>();
 
-        // Add email filter if provided
         if (email != null && !email.trim().isEmpty()) {
             builder.with(GenericSpecifications.fieldContains("email", email));
         }
 
-        // Add role filter based on permissions
-        if (allowedRoles == null) {
-            // ADMIN - can filter by any role
-            if (role != null && !role.trim().isEmpty()) {
-                builder.with((root, query, cb) ->
-                        cb.equal(root.get("role").get("name"), role)
-                );
-            }
+        if (role != null && !role.trim().isEmpty()) {
+            builder.with((root, query, cb) ->
+                    cb.equal(root.get("role").get("name"), role)
+            );
         } else {
-            // MANAGER/STAFF - restricted to allowed roles
-            if (role != null && !role.trim().isEmpty()) {
-                // Specific role requested (already validated)
-                builder.with((root, query, cb) ->
-                        cb.equal(root.get("role").get("name"), role)
-                );
-            } else {
-                // Show all allowed roles
+            // Nếu không filter role, thì filter theo role của user hiện tại
+            // ADMIN không bị giới hạn
+            if (!RoleConstants.ADMIN.equals(currentUserRole)) {
+                List<String> allowedRoles = switch (currentUserRole) {
+                    case RoleConstants.MANAGER -> List.of(RoleConstants.STAFF, RoleConstants.USER);
+                    case RoleConstants.STAFF -> List.of(RoleConstants.USER);
+                    default -> throw new InvalidCredentialsException();
+                };
                 builder.with((root, query, cb) ->
                         root.get("role").get("name").in(allowedRoles)
                 );
             }
         }
 
-        return builder.build();
+        Specification<User> spec = builder.build();
+
+        // Thực thi query
+        Page<User> usersPage = findAll(spec, pageable);
+
+        log.info("Found {} users", usersPage.getTotalElements());
+
+        return usersPage.map(this::mapToUserResponse);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(Long userId, String currentUserRole) {
+        log.info("Getting user by ID: {} - requested by role: {}", userId, currentUserRole);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        validateRoleAccess(currentUserRole, user.getRole().getName());
+
+        log.info("Successfully retrieved user: {}", user.getEmail());
+
+        return mapToUserResponse(user);
+    }
+
+
+    private void validateRoleAccess(String currentUserRole, String targetRole) {
+        if (RoleConstants.ADMIN.equals(currentUserRole)) {
+            return;
+        }
+        if (RoleConstants.MANAGER.equals(currentUserRole)) {
+            if (!List.of(RoleConstants.STAFF, RoleConstants.USER).contains(targetRole)) {
+                throw new InvalidCredentialsException();
+            }
+            return;
+        }
+        if (RoleConstants.STAFF.equals(currentUserRole)) {
+            if (!RoleConstants.USER.equals(targetRole)) {
+                throw new InvalidCredentialsException();
+            }
+            return;
+        }
+        throw new InvalidCredentialsException();
     }
 
     private UserResponse mapToUserResponse(User user) {
