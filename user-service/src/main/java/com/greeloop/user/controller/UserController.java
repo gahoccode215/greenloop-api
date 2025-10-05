@@ -1,5 +1,6 @@
 package com.greeloop.user.controller;
 
+import com.greeloop.user.dto.request.UpdateUserRequest;
 import com.greeloop.user.dto.response.ApiResponseDTO;
 import com.greeloop.user.dto.response.UserProfileResponse;
 import com.greeloop.user.dto.response.UserResponse;
@@ -56,6 +57,29 @@ public class UserController {
 
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Lấy thông tin người dùng thành công", user, HttpStatus.OK)
+        );
+    }
+
+    @Operation(
+            summary = "Update user",
+            description = "Update user info. Only ADMIN, MANAGER (with permission) can update"
+    )
+    @PutMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponseDTO<UserResponse>> updateUser(
+            @PathVariable Long userId,
+            @RequestBody UpdateUserRequest request,
+            Authentication authentication) {
+
+        String currentUserRole = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("");
+
+        UserResponse user = userService.updateUser(userId, request, currentUserRole);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật thông tin người dùng thành công", user, HttpStatus.OK)
         );
     }
 

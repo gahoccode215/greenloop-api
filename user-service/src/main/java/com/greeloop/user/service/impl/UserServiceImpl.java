@@ -1,6 +1,7 @@
 package com.greeloop.user.service.impl;
 
 import com.greeloop.user.constant.RoleConstants;
+import com.greeloop.user.dto.request.UpdateUserRequest;
 import com.greeloop.user.dto.response.UserProfileResponse;
 import com.greeloop.user.dto.response.UserResponse;
 import com.greeloop.user.entity.Role;
@@ -128,6 +129,29 @@ public class UserServiceImpl extends BaseService<User, Long> implements UserServ
 
         return mapToUserResponse(user);
     }
+
+    @Override
+    @Transactional
+    public UserResponse updateUser(Long userId, UpdateUserRequest request, String currentUserRole) {
+        log.info("Updating user {} by role {}", userId, currentUserRole);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        validateRoleAccess(currentUserRole, user.getRole().getName());
+
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
+        if (request.getIsActive() != null) user.setIsActive(request.getIsActive());
+
+        userRepository.save(user);
+
+        log.info("User {} updated successfully", userId);
+
+        return mapToUserResponse(user);
+    }
+
 
 
     private void validateRoleAccess(String currentUserRole, String targetRole) {
