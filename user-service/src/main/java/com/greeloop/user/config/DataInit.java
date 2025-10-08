@@ -22,6 +22,8 @@ public class DataInit implements CommandLineRunner {
     private void initializeRoles() {
         createRoleIfNotExists(RoleConstants.USER, RoleConstants.USER_DESC);
         createRoleIfNotExists(RoleConstants.ADMIN, RoleConstants.ADMIN_DESC);
+        createRoleIfNotExists(RoleConstants.MANAGER, RoleConstants.MANAGER_DESC);
+        createRoleIfNotExists(RoleConstants.STAFF, RoleConstants.STAFF_DESC);
 
         log.info("Default roles initialized successfully");
     }
