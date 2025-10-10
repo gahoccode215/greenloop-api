@@ -96,6 +96,7 @@ public class AuthServiceImpl implements AuthService {
                 // Email chưa xác thực, cập nhật OTP mới và gửi lại OTP
                 user.setPassword(passwordEncoder.encode(request.getPassword()));
                 userRepository.save(user);
+                storeEmailVerificationOtp(user.getEmail(), emailVerificationOtp);
                 log.info("Resend OTP for unverified email: {}", user.getEmail());
                 UserRegistrationEvent event = UserRegistrationEvent.builder()
                         .email(user.getEmail())
@@ -228,6 +229,7 @@ public class AuthServiceImpl implements AuthService {
                 .otpCode(newOtp)
                 .otpExpiryTime(otpUtil.getOtpExpiryTime())
                 .build();
+        log.info("Resend OTP for unverified email: {}", email);
         streamBridge.send("userRegistration-out-0", event);
     }
 

@@ -8,26 +8,21 @@ spring:
     function:
       definition: userRegistrationConsumer;passwordResetConsumer
     stream:
-      function:
-        definition: userRegistrationConsumer;passwordResetConsumer
       bindings:
         userRegistrationConsumer-in-0:
           destination: user.exchange
-          group: notification-group
-          content-type: application/json
+          group: registration-group
         passwordResetConsumer-in-0:
           destination: user.exchange
-          group: notification-group
-          content-type: application/json
+          group: password-reset-group
       rabbit:
         bindings:
           userRegistrationConsumer-in-0:
             consumer:
-              binding-routing-key: 'user.tracking'
+              binding-routing-key: user.registration
           passwordResetConsumer-in-0:
             consumer:
-              binding-routing-key: 'user.password.reset'
-
+              binding-routing-key: user.password.reset
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
@@ -51,10 +46,6 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
-
-
-
-
-
+  instance:
+    hostname: localhost
+    prefer-ip-address: false

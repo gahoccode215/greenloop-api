@@ -6,18 +6,16 @@ spring:
       bindings:
         userRegistration-out-0:
           destination: user.exchange
-          content-type: application/json
         passwordReset-out-0:
           destination: user.exchange
-          content-type: application/json
       rabbit:
         bindings:
           userRegistration-out-0:
             producer:
-              routing-key: '''user.tracking'''
+              routing-key-expression: '''user.registration'''
           passwordReset-out-0:
             producer:
-              routing-key: '''user.password.reset'''
+              routing-key-expression: '''user.password.reset'''
 
 
   datasource:
