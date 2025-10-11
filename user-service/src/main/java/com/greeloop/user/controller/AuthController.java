@@ -60,7 +60,7 @@ public class AuthController {
     )
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization") String authHeader) {
+            @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         log.info("Refresh request - Auth header: {}", authHeader);
         String oldAccessToken = null;
@@ -78,7 +78,7 @@ public class AuthController {
             description = "Invalidate current access token and refresh token"
     )
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         String accessToken = authHeader.substring(7);
         authService.logout(accessToken);
         return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
@@ -90,7 +90,7 @@ public class AuthController {
             description = "Change user password with old password verification"
     )
     @PostMapping("/change-password")
-    public ResponseEntity<ApiResponseDTO<String>> changePassword(@RequestHeader("Authorization") String authHeader, @Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<ApiResponseDTO<String>> changePassword(@RequestHeader(value = "Authorization", required = false) String authHeader, @Valid @RequestBody ChangePasswordRequest request) {
         String accessToken = authHeader.substring(7);
         authService.changePassword(accessToken, request);
         return ResponseEntity.ok(ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
