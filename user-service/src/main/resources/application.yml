@@ -5,18 +5,9 @@ spring:
     stream:
       bindings:
         userRegistration-out-0:
-          destination: user.exchange
+          destination: user-registration
         passwordReset-out-0:
-          destination: user.exchange
-      rabbit:
-        bindings:
-          userRegistration-out-0:
-            producer:
-              routing-key-expression: '''user.registration'''
-          passwordReset-out-0:
-            producer:
-              routing-key-expression: '''user.password.reset'''
-
+          destination: password-reset
 
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true

@@ -10,19 +10,11 @@ spring:
     stream:
       bindings:
         userRegistrationConsumer-in-0:
-          destination: user.exchange
-          group: registration-group
+          destination: user-registration
+          group: ${spring.application.name}
         passwordResetConsumer-in-0:
-          destination: user.exchange
-          group: password-reset-group
-      rabbit:
-        bindings:
-          userRegistrationConsumer-in-0:
-            consumer:
-              binding-routing-key: user.registration
-          passwordResetConsumer-in-0:
-            consumer:
-              binding-routing-key: user.password.reset
+          destination: password-reset
+          group: ${spring.application.name}
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
