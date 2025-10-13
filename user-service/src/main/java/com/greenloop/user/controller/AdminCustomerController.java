@@ -63,4 +63,15 @@ public class AdminCustomerController {
                 ApiResponseDTO.success("Lấy danh sách khách hàng thành công", customers, HttpStatus.OK)
         );
     }
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "Get customer detail",
+            description = "Retrieve detail information of a customer by id"
+    )
+    public ResponseEntity<ApiResponseDTO<CustomerResponse>> getCustomerDetail(@PathVariable Long id) {
+        CustomerResponse customer = adminCustomerService.getCustomerDetail(id);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK)
+        );
+    }
 }

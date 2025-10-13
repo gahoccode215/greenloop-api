@@ -1,9 +1,12 @@
 package com.greenloop.user.service.impl;
 
+import com.greenloop.user.constant.RoleConstants;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.entity.User;
+import com.greenloop.user.exception.CustomerNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminCustomerService;
+import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,10 +47,20 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return userRepository.findAll(spec, pageable).map(this::convertToResponse);
+        return userRepository.findAll(spec, pageable).map(this::mapUserToCustomerResponse);
     }
 
-    private CustomerResponse convertToResponse(User user) {
+    @Override
+    public CustomerResponse getCustomerDetail(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+        if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
+            throw new CustomerNotFoundException("Không tìm thấy khách hàng");
+        }
+        return mapUserToCustomerResponse(user);
+    }
+
+    private CustomerResponse mapUserToCustomerResponse(User user) {
         return CustomerResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
