@@ -26,7 +26,7 @@ public class DataInit implements CommandLineRunner {
     }
 
     private void initializeRoles() {
-        createRoleIfNotExists(RoleConstants.USER, RoleConstants.USER_DESC);
+        createRoleIfNotExists(RoleConstants.CUSTOMER, RoleConstants.CUSTOMER_DESC);
         createRoleIfNotExists(RoleConstants.ADMIN, RoleConstants.ADMIN_DESC);
         createRoleIfNotExists(RoleConstants.MANAGER, RoleConstants.MANAGER_DESC);
         createRoleIfNotExists(RoleConstants.STAFF, RoleConstants.STAFF_DESC);
@@ -45,19 +45,15 @@ public class DataInit implements CommandLineRunner {
         }
     }
     private void initializeUsers() {
-        Role userRole = roleRepository.findByName(RoleConstants.USER).orElse(null);
+        Role userRole = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
         Role adminRole = roleRepository.findByName(RoleConstants.ADMIN).orElse(null);
         Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
         Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
 
-        createUserIfNotExists("user@greeloop.com", "User123", userRole, "Default", "User");
+        createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Default", "Customer");
         createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Default", "Admin");
         createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Default", "Manager");
         createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Default", "Staff");
-        createUserIfNotExists("admin", "admin", adminRole, "Default", "Admin");
-        createUserIfNotExists("user", "user", userRole, "Default", "User");
-        createUserIfNotExists("manager", "manager", managerRole, "Default", "Manager");
-        createUserIfNotExists("staff", "staff", staffRole, "Default", "Staff");
 
         log.info("Default users initialized successfully");
     }

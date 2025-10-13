@@ -12,14 +12,14 @@ public class LoginRequest {
     @Schema(
             description = "Email người dùng",
             example = "user@example.com",
-            defaultValue = "admin"
+            defaultValue = "admin@greeloop.com"
     )
     private String email;
 
     @Schema(
             description = "Mật khẩu người dùng",
             example = "123456",
-            defaultValue = "admin"
+            defaultValue = "Admin123"
     )
     @NotBlank(message = "Mật khẩu không được để trống")
     private String password;

@@ -106,8 +106,8 @@ public class AuthServiceImpl implements AuthService {
             }
         }
         // Email chưa tồn tại, tạo user mới
-        Role userRole = roleRepository.findByName(RoleConstants.USER)
-                .orElseThrow(() -> new RoleNotFoundException(RoleConstants.USER));
+        Role userRole = roleRepository.findByName(RoleConstants.CUSTOMER)
+                .orElseThrow(() -> new RoleNotFoundException(RoleConstants.CUSTOMER));
         User newUser = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))

@@ -24,7 +24,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         OAuth2User oAuth2User = super.loadUser(userRequest);
         String email = oAuth2User.getAttribute("email");
         User user = userRepository.findByEmail(email).orElse(null);
-        Role role = roleRepository.findByName(RoleConstants.USER).orElse(null);
+        Role role = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
         if (user != null) {
             // Trường hợp: Đã có user với LOCAL provider
             if ("LOCAL".equals(user.getProvider())) {
