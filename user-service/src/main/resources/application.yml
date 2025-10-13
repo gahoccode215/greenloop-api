@@ -5,23 +5,12 @@ spring:
     stream:
       bindings:
         userRegistration-out-0:
-          destination: user.exchange
-          content-type: application/json
+          destination: user-registration
         passwordReset-out-0:
-          destination: user.exchange
-          content-type: application/json
-      rabbit:
-        bindings:
-          userRegistration-out-0:
-            producer:
-              routing-key: '''user.tracking'''
-          passwordReset-out-0:
-            producer:
-              routing-key: '''user.password.reset'''
-
+          destination: password-reset
 
   datasource:
-    url: jdbc:mysql://localhost:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:12345}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -69,11 +58,25 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka
-    register-with-eureka: true
-    fetch-registry: true
-
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
 
 app:
   otp:
     length: 6
     expiry-in-minutes: 5
+    redis:
+      email-verification-prefix: "otp:email_verification:"
+      password-reset-prefix: "otp:password_reset:"
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  server:
+    url: http://localhost:8081
+    description: Local development server
