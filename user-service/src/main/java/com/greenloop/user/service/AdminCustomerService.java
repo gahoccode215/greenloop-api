@@ -9,5 +9,7 @@ public interface AdminCustomerService {
     Page<CustomerResponse> getCustomers(String search, String status, Pageable pageable);
     CustomerResponse getCustomerDetail(Long id);
     CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request);
+    CustomerResponse updateCustomerStatus(Long id, Boolean isActive);
+
 
 }

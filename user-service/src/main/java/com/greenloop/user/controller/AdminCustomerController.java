@@ -90,4 +90,20 @@ public class AdminCustomerController {
         );
     }
 
+    @PatchMapping("/{id}/status")
+    @Operation(
+            summary = "Update customer status",
+            description = "Change active status of customer by id"
+    )
+    public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomerStatus(
+            @PathVariable Long id,
+            @RequestParam Boolean isActive) {
+        CustomerResponse response = adminCustomerService.updateCustomerStatus(id, isActive);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật trạng thái khách hàng thành công", response, HttpStatus.OK)
+        );
+    }
+
+
+
 }

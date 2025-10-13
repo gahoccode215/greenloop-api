@@ -9,6 +9,7 @@ import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminCustomerService;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -20,6 +21,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminCustomerServiceImpl implements AdminCustomerService {
 
     private final UserRepository userRepository;
@@ -47,7 +49,8 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-
+        log.info("Getting customers - page: {}, size: {}, search: {}, status: {}",
+                pageable.getPageNumber(), pageable.getPageSize(), search, status);
         return userRepository.findAll(spec, pageable).map(this::mapUserToCustomerResponse);
     }
 
@@ -58,6 +61,7 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
         if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
             throw new CustomerNotFoundException();
         }
+        log.info("Getting customer detail - id: {}", id);
         return mapUserToCustomerResponse(user);
     }
 
@@ -74,8 +78,22 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
         user.setAvatarUrl(req.getAvatarUrl());
         user.setDateOfBirth(req.getDateOfBirth());
         userRepository.save(user);
+        log.info("Updated customer - id: {}", id);
         return mapUserToCustomerResponse(user);
     }
+
+    @Override
+    public CustomerResponse updateCustomerStatus(Long id, Boolean isActive) {
+        User user = userRepository.findById(id)
+                .orElseThrow(NotFoundException::new);
+        if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
+            throw new NotFoundException();
+        }
+        user.setIsActive(isActive);
+        userRepository.save(user);
+        return mapUserToCustomerResponse(user);
+    }
+
 
 
     private CustomerResponse mapUserToCustomerResponse(User user) {
