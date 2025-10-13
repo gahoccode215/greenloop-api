@@ -65,7 +65,6 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountDisabledException();
         }
 
-        // Generate JWT token
         String accessToken = jwtUtil.generateToken(user);
         String refreshToken = jwtUtil.generateRefreshToken(user);
 

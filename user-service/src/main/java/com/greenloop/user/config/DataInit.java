@@ -54,6 +54,10 @@ public class DataInit implements CommandLineRunner {
         createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Default", "Admin");
         createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Default", "Manager");
         createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Default", "Staff");
+        createUserIfNotExists("admin", "admin", adminRole, "Default", "Admin");
+        createUserIfNotExists("user", "user", userRole, "Default", "User");
+        createUserIfNotExists("manager", "manager", managerRole, "Default", "Manager");
+        createUserIfNotExists("staff", "staff", staffRole, "Default", "Staff");
 
         log.info("Default users initialized successfully");
     }

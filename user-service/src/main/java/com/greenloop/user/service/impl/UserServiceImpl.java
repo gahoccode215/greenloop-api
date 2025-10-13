@@ -20,6 +20,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -93,6 +95,11 @@ public class UserServiceImpl implements UserService {
                 .temporaryPassword(tempPassword)
                 .message("Nhân viên đã được tạo. Vui lòng cung cấp mật khẩu tạm cho nhân viên.")
                 .build();
+    }
+
+    @Override
+    public List<User> getAllUser() {
+        return userRepository.findAll();
     }
 
 

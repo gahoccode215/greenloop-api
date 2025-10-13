@@ -1,6 +1,7 @@
 
 package com.greenloop.user.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -56,6 +57,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
+    @JsonIgnore
     private Role role;
 
     @OneToMany(
@@ -64,6 +66,7 @@ public class User extends BaseEntity implements UserDetails {
             orphanRemoval = true,
             fetch = FetchType.LAZY
     )
+    @JsonIgnore
     private Set<UserAddress> addresses = new HashSet<>();
 
     @Column(name = "is_active")
