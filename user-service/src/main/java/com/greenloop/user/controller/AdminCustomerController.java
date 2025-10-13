@@ -1,11 +1,13 @@
 package com.greenloop.user.controller;
 
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.service.AdminCustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -74,4 +76,18 @@ public class AdminCustomerController {
                 ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK)
         );
     }
+    @PutMapping("/{id}")
+    @Operation(
+            summary = "Update customer",
+            description = "Update customer information by id"
+    )
+    public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomer(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCustomerRequest request) {
+        CustomerResponse response = adminCustomerService.updateCustomer(id, request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật thông tin khách hàng thành công", response, HttpStatus.OK)
+        );
+    }
+
 }

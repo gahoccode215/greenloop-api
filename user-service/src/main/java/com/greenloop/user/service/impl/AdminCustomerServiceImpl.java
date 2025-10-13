@@ -1,6 +1,7 @@
 package com.greenloop.user.service.impl;
 
 import com.greenloop.user.constant.RoleConstants;
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.CustomerNotFoundException;
@@ -53,12 +54,29 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     @Override
     public CustomerResponse getCustomerDetail(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+                .orElseThrow(CustomerNotFoundException::new);
         if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
-            throw new CustomerNotFoundException("Không tìm thấy khách hàng");
+            throw new CustomerNotFoundException();
         }
         return mapUserToCustomerResponse(user);
     }
+
+    @Override
+    public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest req) {
+        User user = userRepository.findById(id)
+                .orElseThrow(CustomerNotFoundException::new);
+        if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
+            throw new CustomerNotFoundException();
+        }
+        user.setFirstName(req.getFirstName());
+        user.setLastName(req.getLastName());
+        user.setPhoneNumber(req.getPhoneNumber());
+        user.setAvatarUrl(req.getAvatarUrl());
+        user.setDateOfBirth(req.getDateOfBirth());
+        userRepository.save(user);
+        return mapUserToCustomerResponse(user);
+    }
+
 
     private CustomerResponse mapUserToCustomerResponse(User user) {
         return CustomerResponse.builder()
