@@ -8,4 +8,5 @@ import org.springframework.data.domain.Pageable;
 public interface AdminEmployeeService {
     Page<EmployeeResponse> getEmployees(String search, String status, Pageable pageable);
     EmployeeResponse createEmployee(CreateEmployeeRequest request);
+    EmployeeResponse getEmployeeById(Long id);
 }

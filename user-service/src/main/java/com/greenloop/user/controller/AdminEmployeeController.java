@@ -59,5 +59,17 @@ public class AdminEmployeeController {
                 ApiResponseDTO.success("Tạo nhân viên thành công", response, HttpStatus.CREATED)
         );
     }
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "Get employee detail",
+            description = "Retrieve employee information by ID"
+    )
+    public ResponseEntity<ApiResponseDTO<EmployeeResponse>> getEmployeeById(
+            @PathVariable Long id) {
+        EmployeeResponse response = adminEmployeeService.getEmployeeById(id);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy thông tin nhân viên thành công", response, HttpStatus.OK)
+        );
+    }
 
 }

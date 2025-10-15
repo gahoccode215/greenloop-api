@@ -7,6 +7,7 @@ import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.EmailAlreadyExistsException;
 import com.greenloop.user.exception.RoleNotFoundException;
+import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminEmployeeService;
@@ -57,7 +58,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return userRepository.findAll(spec, pageable).map(this::convertToResponse);
+        return userRepository.findAll(spec, pageable).map(this::userToEmployeeResponse);
     }
 
     @Override
@@ -86,14 +87,28 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
         User savedUser = userRepository.save(user);
 
-        return convertToResponse(savedUser);
+        return userToEmployeeResponse(savedUser);
     }
+
+    @Override
+    public EmployeeResponse getEmployeeById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+
+        String roleName = user.getRole().getName();
+        if (!roleName.equals(RoleConstants.MANAGER) && !roleName.equals(RoleConstants.STAFF)) {
+            throw new UserNotFoundException(id);
+        }
+
+        return userToEmployeeResponse(user);
+    }
+
 
     private String generateDefaultPassword() {
         return "TempPass@" + System.currentTimeMillis();
     }
 
-    private EmployeeResponse convertToResponse(User user) {
+    private EmployeeResponse userToEmployeeResponse(User user) {
         return EmployeeResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
