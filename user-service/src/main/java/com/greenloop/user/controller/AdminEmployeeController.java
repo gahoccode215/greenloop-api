@@ -1,6 +1,7 @@
 package com.greenloop.user.controller;
 
 import com.greenloop.user.dto.request.CreateEmployeeRequest;
+import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.EmployeeResponse;
 import com.greenloop.user.service.AdminEmployeeService;
@@ -71,5 +72,19 @@ public class AdminEmployeeController {
                 ApiResponseDTO.success("Lấy thông tin nhân viên thành công", response, HttpStatus.OK)
         );
     }
+    @PutMapping("/{id}")
+    @Operation(
+            summary = "Update employee information",
+            description = "Update employee details by ID"
+    )
+    public ResponseEntity<ApiResponseDTO<EmployeeResponse>> updateEmployee(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateEmployeeRequest request) {
+        EmployeeResponse response = adminEmployeeService.updateEmployee(id, request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật thông tin nhân viên thành công", response, HttpStatus.OK)
+        );
+    }
+
 
 }

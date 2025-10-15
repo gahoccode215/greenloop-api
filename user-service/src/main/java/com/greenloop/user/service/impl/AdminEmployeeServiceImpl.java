@@ -2,6 +2,7 @@ package com.greenloop.user.service.impl;
 
 import com.greenloop.user.constant.RoleConstants;
 import com.greenloop.user.dto.request.CreateEmployeeRequest;
+import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.EmployeeResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
@@ -102,6 +103,54 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
         return userToEmployeeResponse(user);
     }
+
+    @Override
+    @Transactional
+    public EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+
+        String currentRole = user.getRole().getName();
+        if (!currentRole.equals(RoleConstants.MANAGER) && !currentRole.equals(RoleConstants.STAFF)) {
+            throw new UserNotFoundException(id);
+        }
+
+
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(user.getPhoneNumber())) {
+            user.setPhoneNumber(request.getPhoneNumber());
+        }
+
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+
+        if (request.getDepartment() != null) {
+            user.setDepartment(request.getDepartment());
+        }
+
+        if (request.getRoleName() != null) {
+            Role role = roleRepository.findByName(request.getRoleName())
+                    .orElseThrow(() -> new RoleNotFoundException(request.getRoleName()));
+
+            if (!role.getName().equals(RoleConstants.MANAGER) && !role.getName().equals(RoleConstants.STAFF)) {
+                throw new RoleNotFoundException(request.getRoleName());
+            }
+            user.setRole(role);
+        }
+
+        if (request.getIsActive() != null) {
+            user.setIsActive(request.getIsActive());
+        }
+
+        User updatedUser = userRepository.save(user);
+
+        return userToEmployeeResponse(updatedUser);
+    }
+
 
 
     private String generateDefaultPassword() {
