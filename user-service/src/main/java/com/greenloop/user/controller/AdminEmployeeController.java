@@ -15,8 +15,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/admin/employees")
@@ -48,18 +50,22 @@ public class AdminEmployeeController {
                 ApiResponseDTO.success("Lấy danh sách nhân viên thành công", employees, HttpStatus.OK)
         );
     }
-    @PostMapping
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Create new employee",
-            description = "Create a new employee with MANAGER or STAFF role"
+            description = "Create a new employee with MANAGER or STAFF role and optional avatar"
     )
     public ResponseEntity<ApiResponseDTO<EmployeeResponse>> createEmployee(
-            @Valid @RequestBody CreateEmployeeRequest request) {
-        EmployeeResponse response = adminEmployeeService.createEmployee(request);
+            @Valid @RequestPart("request") CreateEmployeeRequest request,
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
+        EmployeeResponse response = adminEmployeeService.createEmployee(request, avatar);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponseDTO.success("Tạo nhân viên thành công", response, HttpStatus.CREATED)
         );
     }
+
+
     @GetMapping("/{id}")
     @Operation(
             summary = "Get employee detail",

@@ -14,5 +14,6 @@ public class EmployeeResponse {
     private String phoneNumber;
     private String department;
     private Boolean isActive;
+    private String avatarUrl;
     private LocalDateTime createdAt;
 }

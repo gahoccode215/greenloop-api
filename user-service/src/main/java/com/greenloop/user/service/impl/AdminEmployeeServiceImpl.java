@@ -4,14 +4,17 @@ import com.greenloop.user.constant.RoleConstants;
 import com.greenloop.user.dto.request.CreateEmployeeRequest;
 import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.EmployeeResponse;
+import com.greenloop.user.dto.response.FileUploadResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
+import com.greenloop.user.enums.FileFolder;
 import com.greenloop.user.exception.EmailAlreadyExistsException;
 import com.greenloop.user.exception.RoleNotFoundException;
 import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminEmployeeService;
+import com.greenloop.user.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +38,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+    private final FileStorageService fileStorageService;
 
     @Override
     public Page<EmployeeResponse> getEmployees(String search, String status, Pageable pageable) {
@@ -64,10 +69,11 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     @Override
     @Transactional
-    public EmployeeResponse createEmployee(CreateEmployeeRequest request) {
+    public EmployeeResponse createEmployee(CreateEmployeeRequest request, MultipartFile avatar) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException();
         }
+
         Role role = roleRepository.findByName(request.getRole())
                 .orElseThrow(() -> new RoleNotFoundException(request.getRole()));
 
@@ -85,6 +91,12 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
                 .password(passwordEncoder.encode(generateDefaultPassword()))
                 .isActive(true)
                 .build();
+
+        if (avatar != null && !avatar.isEmpty()) {
+            FileUploadResponse uploadResponse = fileStorageService.uploadFile(avatar, FileFolder.EMPLOYEE_IMAGE);
+            user.setAvatarUrl(uploadResponse.getFileUrl());
+            user.setAvatarPublicId(uploadResponse.getPublicId());
+        }
 
         User savedUser = userRepository.save(user);
 
@@ -165,6 +177,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
                 .lastName(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
                 .department(user.getDepartment())
+                .avatarUrl(user.getAvatarUrl())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .build();
