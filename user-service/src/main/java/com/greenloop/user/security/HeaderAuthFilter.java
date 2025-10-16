@@ -22,10 +22,11 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
 
         String userId = request.getHeader("X-User-ID");
         String userRole = request.getHeader("X-User-Role");
+        String token = extractToken(request);
 
         if (userId != null && userRole != null) {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + userRole))
+                    userId, token, List.of(new SimpleGrantedAuthority("ROLE_" + userRole))
             );
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
@@ -33,4 +34,11 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
 }

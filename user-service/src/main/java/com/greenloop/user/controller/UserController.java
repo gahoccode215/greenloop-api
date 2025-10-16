@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "User Controller", description = "User API")
@@ -26,7 +26,7 @@ public class UserController {
 
     private final UserService userService;
 
-    @GetMapping("/users/profile")
+    @GetMapping("/profile")
     public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
@@ -36,5 +36,5 @@ public class UserController {
                 ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK)
         );
     }
-    
+
 }

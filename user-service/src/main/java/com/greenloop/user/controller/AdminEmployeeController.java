@@ -17,6 +17,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,6 +36,7 @@ public class AdminEmployeeController {
             summary = "Get employee list",
             description = "Retrieve paginated list of employees with optional search and filter"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<Page<EmployeeResponse>>> getEmployees(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -42,6 +45,8 @@ public class AdminEmployeeController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir
     ) {
+        log.info("{}", SecurityContextHolder.getContext().getAuthentication().getAuthorities()
+        );
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         Page<EmployeeResponse> employees = adminEmployeeService.getEmployees(
@@ -56,6 +61,7 @@ public class AdminEmployeeController {
             summary = "Create new employee",
             description = "Create a new employee with MANAGER or STAFF role and optional avatar"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<EmployeeResponse>> createEmployee(
             @Valid @RequestPart("request") CreateEmployeeRequest request,
             @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
@@ -71,6 +77,7 @@ public class AdminEmployeeController {
             summary = "Get employee detail",
             description = "Retrieve employee information by ID"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<EmployeeResponse>> getEmployeeById(
             @PathVariable Long id) {
         EmployeeResponse response = adminEmployeeService.getEmployeeById(id);
@@ -84,6 +91,7 @@ public class AdminEmployeeController {
             summary = "Update employee information",
             description = "Update employee details and optional avatar by ID"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<EmployeeResponse>> updateEmployee(
             @PathVariable Long id,
             @Valid @RequestPart("request") UpdateEmployeeRequest request,
