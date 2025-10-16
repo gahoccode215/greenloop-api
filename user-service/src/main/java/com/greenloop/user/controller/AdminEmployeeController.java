@@ -78,19 +78,22 @@ public class AdminEmployeeController {
                 ApiResponseDTO.success("Lấy thông tin nhân viên thành công", response, HttpStatus.OK)
         );
     }
-    @PutMapping("/{id}")
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Update employee information",
-            description = "Update employee details by ID"
+            description = "Update employee details and optional avatar by ID"
     )
     public ResponseEntity<ApiResponseDTO<EmployeeResponse>> updateEmployee(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateEmployeeRequest request) {
-        EmployeeResponse response = adminEmployeeService.updateEmployee(id, request);
+            @Valid @RequestPart("request") UpdateEmployeeRequest request,
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
+        EmployeeResponse response = adminEmployeeService.updateEmployee(id, request, avatar);
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Cập nhật thông tin nhân viên thành công", response, HttpStatus.OK)
         );
     }
+
 
 
 }

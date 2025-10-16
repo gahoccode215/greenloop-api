@@ -116,9 +116,10 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
         return userToEmployeeResponse(user);
     }
 
+
     @Override
     @Transactional
-    public EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request) {
+    public EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
 
@@ -157,12 +158,18 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
         if (request.getIsActive() != null) {
             user.setIsActive(request.getIsActive());
         }
-
+        if (avatar != null && !avatar.isEmpty()) {
+            if (user.getAvatarPublicId() != null) {
+                fileStorageService.deleteFile(user.getAvatarPublicId());
+            }
+            FileUploadResponse uploadResponse = fileStorageService.uploadFile(avatar, FileFolder.EMPLOYEE_IMAGE);
+            user.setAvatarUrl(uploadResponse.getFileUrl());
+            user.setAvatarPublicId(uploadResponse.getPublicId());
+        }
         User updatedUser = userRepository.save(user);
 
         return userToEmployeeResponse(updatedUser);
     }
-
 
 
     private String generateDefaultPassword() {

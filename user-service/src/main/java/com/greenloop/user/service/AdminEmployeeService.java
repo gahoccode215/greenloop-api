@@ -11,5 +11,5 @@ public interface AdminEmployeeService {
     Page<EmployeeResponse> getEmployees(String search, String status, Pageable pageable);
     EmployeeResponse createEmployee(CreateEmployeeRequest request, MultipartFile avatar);
     EmployeeResponse getEmployeeById(Long id);
-    EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request);
+    EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar);
 }
