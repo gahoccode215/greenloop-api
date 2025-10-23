@@ -45,14 +45,13 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "avatar_public_id")
-    private String avatarPublicId;
-
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
     @Column(name = "is_email_verified")
     private Boolean isEmailVerified = false;
+
+    private Boolean mustChangePassword = false;
 
     private String department;
 

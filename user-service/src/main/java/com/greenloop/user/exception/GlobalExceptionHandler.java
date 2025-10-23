@@ -5,7 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,21 +24,6 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(ex.getHttpStatus()).body(
                 ApiResponseDTO.error(ex.getMessage(), ex.getHttpStatus(), request.getRequestURI())
-        );
-    }
-
-    @ExceptionHandler(AuthorizationDeniedException.class)
-    public ResponseEntity<ApiResponseDTO<Object>> handleAuthorizationDeniedException(
-            AuthorizationDeniedException ex, HttpServletRequest request) {
-
-        log.warn("Access denied on path {}: {}", request.getRequestURI(), ex.getMessage());
-
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                ApiResponseDTO.error(
-                        "Access denied",
-                        HttpStatus.FORBIDDEN,
-                        request.getRequestURI()
-                )
         );
     }
 

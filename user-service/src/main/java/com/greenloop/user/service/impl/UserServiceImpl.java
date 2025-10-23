@@ -78,6 +78,7 @@ public class UserServiceImpl implements UserService {
                 .provider("LOCAL")
                 .isActive(true)
                 .isEmailVerified(false)
+                .mustChangePassword(true)
                 .build();
         User savedEmployee = userRepository.save(employee);
 
