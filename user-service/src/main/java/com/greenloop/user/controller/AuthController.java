@@ -13,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -60,12 +62,12 @@ public class AuthController {
     )
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request, @RequestHeader(value = "Authorization", required = false) String authHeader) {
-
-        log.info("Refresh request - Auth header: {}", authHeader);
+            @Valid @RequestBody RefreshTokenRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String oldAccessToken = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            oldAccessToken = authHeader.substring(7);
+
+        if (authentication != null && authentication.getCredentials() != null) {
+            oldAccessToken = (String) authentication.getCredentials();
         }
         AuthResponse response = authService.refreshToken(request, oldAccessToken);
         return ResponseEntity.ok(
@@ -78,8 +80,13 @@ public class AuthController {
             description = "Invalidate current access token and refresh token"
     )
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponseDTO<String>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String accessToken = authHeader.substring(7);
+    public ResponseEntity<ApiResponseDTO<String>> logout() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String accessToken = null;
+
+        if (authentication != null && authentication.getCredentials() != null) {
+            accessToken = (String) authentication.getCredentials();
+        }
         authService.logout(accessToken);
         return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
 

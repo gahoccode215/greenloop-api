@@ -1,0 +1,15 @@
+package com.greenloop.user.service;
+
+import com.greenloop.user.dto.request.CreateEmployeeRequest;
+import com.greenloop.user.dto.request.UpdateEmployeeRequest;
+import com.greenloop.user.dto.response.EmployeeResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
+
+public interface AdminEmployeeService {
+    Page<EmployeeResponse> getEmployees(String search, String status, Pageable pageable);
+    EmployeeResponse createEmployee(CreateEmployeeRequest request, MultipartFile avatar);
+    EmployeeResponse getEmployeeById(Long id);
+    EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar);
+}

@@ -52,7 +52,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(InvalidCredentialsException::new);
+                .orElseThrow(LoginException::new);
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new LoginException();
