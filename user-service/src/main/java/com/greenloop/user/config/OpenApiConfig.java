@@ -26,11 +26,11 @@ public class OpenApiConfig {
 
         Server gatewayServer = new Server();
         gatewayServer.setUrl("http://localhost:8080");
-        gatewayServer.setDescription("Gateway Server (Production)");
+        gatewayServer.setDescription("Gateway Server");
 
         Server directServer = new Server();
         directServer.setUrl("http://localhost:8081");
-        directServer.setDescription("Direct Service (Development)");
+        directServer.setDescription("User Service");
 
         return new OpenAPI()
                 .info(new Info()

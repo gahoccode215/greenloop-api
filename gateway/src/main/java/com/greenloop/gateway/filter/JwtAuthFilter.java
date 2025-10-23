@@ -10,6 +10,7 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -51,12 +52,16 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             String path = request.getURI().getPath();
 
             // Skip auth for public paths
-            if (isPublicPath(path)) {
+            if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
                 return chain.filter(exchange);
             }
 
             // Extract JWT token
-            String token = extractToken(request);
+            String token = null;;
+            String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+            if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+                token =  authHeader.substring(7);
+            }
             if (token == null) {
                 return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
             }
@@ -89,28 +94,11 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         };
     }
 
-    private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
-    }
-
-    private String extractToken(ServerHttpRequest request) {
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        return null;
-    }
-
-    private Mono<Void> onError(org.springframework.web.server.ServerWebExchange exchange, String message, HttpStatus status) {
+    private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
+        log.error("Authentication error: {}", message);
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
-        response.getHeaders().add("Content-Type", "application/json");
-
-        String body = String.format("{\"success\":false,\"message\":\"%s\",\"statusCode\":%d}",
-                message, status.value());
-
-        org.springframework.core.io.buffer.DataBuffer buffer = response.bufferFactory().wrap(body.getBytes());
-        return response.writeWith(Mono.just(buffer));
+        return response.setComplete();
     }
 
     public static class Config {
