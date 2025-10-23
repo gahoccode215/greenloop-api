@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -32,6 +33,7 @@ public class AdminCustomerController {
             summary = "Get customer list",
             description = "Retrieve paginated list of customers with optional search and filter"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponseDTO<Page<CustomerResponse>>> getCustomers(
             @RequestParam(defaultValue = "0") int page,
 
@@ -70,6 +72,7 @@ public class AdminCustomerController {
             summary = "Get customer detail",
             description = "Retrieve detail information of a customer by id"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponseDTO<CustomerResponse>> getCustomerDetail(@PathVariable Long id) {
         CustomerResponse customer = adminCustomerService.getCustomerDetail(id);
         return ResponseEntity.ok(
@@ -81,6 +84,7 @@ public class AdminCustomerController {
             summary = "Update customer",
             description = "Update customer information by id"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomer(
             @PathVariable Long id,
             @Valid @RequestBody UpdateCustomerRequest request) {
@@ -95,6 +99,7 @@ public class AdminCustomerController {
             summary = "Update customer status",
             description = "Change active status of customer by id"
     )
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomerStatus(
             @PathVariable Long id,
             @RequestParam Boolean isActive) {
