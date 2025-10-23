@@ -86,6 +86,7 @@ public class AdminEmployeeController {
         );
     }
 
+
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Update employee information",
