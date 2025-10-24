@@ -16,35 +16,36 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+  private final UserRepository userRepository;
+  private final RoleRepository roleRepository;
 
-    @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) {
-        OAuth2User oAuth2User = super.loadUser(userRequest);
-        String email = oAuth2User.getAttribute("email");
-        User user = userRepository.findByEmail(email).orElse(null);
-        Role role = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
-        if (user != null) {
-            // Trường hợp: Đã có user với LOCAL provider
-            if ("LOCAL".equals(user.getProvider())) {
-                throw new OAuth2AuthenticationException(new OAuth2Error("account_exists"));
-            }
+  @Override
+  public OAuth2User loadUser(OAuth2UserRequest userRequest) {
+    OAuth2User oAuth2User = super.loadUser(userRequest);
+    String email = oAuth2User.getAttribute("email");
+    User user = userRepository.findByEmail(email).orElse(null);
+    Role role = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
+    if (user != null) {
+      // Trường hợp: Đã có user với LOCAL provider
+      if ("LOCAL".equals(user.getProvider())) {
+        throw new OAuth2AuthenticationException(new OAuth2Error("account_exists"));
+      }
 
-            // Đã có user với GOOGLE provider - OK
-            if ("GOOGLE".equals(user.getProvider())) {
-                return oAuth2User;
-            }
-        }else {
-            User newUser = User.builder()
-                    .email(email)
-                    .isEmailVerified(true)
-                    .isActive(true)
-                    .role(role)
-                    .provider("GOOGLE")
-                    .build();
-            userRepository.save(newUser);
-        }
+      // Đã có user với GOOGLE provider - OK
+      if ("GOOGLE".equals(user.getProvider())) {
         return oAuth2User;
+      }
+    } else {
+      User newUser =
+          User.builder()
+              .email(email)
+              .isEmailVerified(true)
+              .isActive(true)
+              .role(role)
+              .provider("GOOGLE")
+              .build();
+      userRepository.save(newUser);
     }
+    return oAuth2User;
+  }
 }

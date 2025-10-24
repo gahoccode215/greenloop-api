@@ -5,24 +5,23 @@ import com.greenloop.user.dto.response.AuthResponse;
 
 public interface AuthService {
 
-    AuthResponse login(LoginRequest request);
+  AuthResponse login(LoginRequest request);
 
-    void register(RegisterRequest request);
+  void register(RegisterRequest request);
 
-    AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken);
+  AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken);
 
-    void logout(String accessToken);
+  void logout(String accessToken);
 
-    void changePassword(String accessToken, ChangePasswordRequest request);
+  void changePassword(String accessToken, ChangePasswordRequest request);
 
-    void verifyEmailOtp(VerifyEmailRequest request);
+  void verifyEmailOtp(VerifyEmailRequest request);
 
-    void resendVerificationOtp(String email);
+  void resendVerificationOtp(String email);
 
-    void resendPasswordResetOtp(String email);
+  void resendPasswordResetOtp(String email);
 
-    void forgotPassword(ForgotPasswordRequest request);
+  void forgotPassword(ForgotPasswordRequest request);
 
-    void resetPassword(ResetPasswordRequest request);
+  void resetPassword(ResetPasswordRequest request);
 }
-
