@@ -30,7 +30,7 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         Server gatewayServer = new Server();
-        gatewayServer.setUrl("http://" + gatewayHost + ":8080/" + serviceName);
+        gatewayServer.setUrl("http://" + gatewayHost + ":8080");
         gatewayServer.setDescription("Gateway (Production)");
 
         Server directServer = new Server();
