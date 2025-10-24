@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [api-gateway, eureka-server, notification-service, user-service]
+        service: [ api-gateway, eureka-server, notification-service, user-service ]
 
     steps:
       - name: Checkout source code
@@ -59,6 +59,7 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build & Push Docker image for ${{ matrix.service }}
         if: steps.check_changes.outputs.changed == 'true'
