@@ -23,56 +23,53 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Admin Customer Controller", description = "APIs for admin customer management")
 public class AdminCustomerController {
 
-    private final AdminCustomerService adminCustomerService;
+  private final AdminCustomerService adminCustomerService;
 
-    @GetMapping
-    @Operation(
-            summary = "Get customer list",
-            description = "Retrieve paginated list of customers with optional search and filter"
-    )
-    public ResponseEntity<ApiResponseDTO<Page<CustomerResponse>>> getCustomers(
-            @RequestParam(defaultValue = "0") int page,
+  @GetMapping
+  @Operation(
+      summary = "Get customer list",
+      description = "Retrieve paginated list of customers with optional search and filter")
+  public ResponseEntity<ApiResponseDTO<Page<CustomerResponse>>> getCustomers(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @Parameter(description = "Search by email, first name, last name, or phone number")
+          @RequestParam(required = false)
+          String search,
+      @Parameter(description = "Filter by active status (true/false)")
+          @RequestParam(required = false)
+          String status,
+      @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt")
+          String sortBy,
+      @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC")
+          String sortDir) {
+    log.info(
+        "Getting customers - page: {}, size: {}, search: {}, status: {}",
+        page,
+        size,
+        search,
+        status);
 
-            @RequestParam(defaultValue = "10") int size,
+    Pageable pageable =
+        PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
 
-            @Parameter(description = "Search by email, first name, last name, or phone number")
-            @RequestParam(required = false) String search,
+    Page<CustomerResponse> customers = adminCustomerService.getCustomers(search, status, pageable);
 
-            @Parameter(description = "Filter by active status (true/false)")
-            @RequestParam(required = false) String status,
+    log.info(
+        "Retrieved {} customers out of {} total",
+        customers.getNumberOfElements(),
+        customers.getTotalElements());
 
-            @Parameter(description = "Sort field")
-            @RequestParam(defaultValue = "createdAt") String sortBy,
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Lấy danh sách khách hàng thành công", customers, HttpStatus.OK));
+  }
 
-            @Parameter(description = "Sort direction (ASC/DESC)")
-            @RequestParam(defaultValue = "DESC") String sortDir
-    ) {
-        log.info("Getting customers - page: {}, size: {}, search: {}, status: {}",
-                page, size, search, status);
-
-        Pageable pageable = PageRequest.of(page, size,
-                Sort.by(Sort.Direction.fromString(sortDir), sortBy));
-
-        Page<CustomerResponse> customers = adminCustomerService.getCustomers(
-                search, status, pageable);
-
-        log.info("Retrieved {} customers out of {} total",
-                customers.getNumberOfElements(), customers.getTotalElements());
-
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Lấy danh sách khách hàng thành công", customers, HttpStatus.OK)
-        );
-    }
-    
-    @GetMapping("/{id}")
-    @Operation(
-            summary = "Get customer detail",
-            description = "Retrieve detail information of a customer by id"
-    )
-    public ResponseEntity<ApiResponseDTO<CustomerResponse>> getCustomerDetail(@PathVariable Long id) {
-        CustomerResponse customer = adminCustomerService.getCustomerDetail(id);
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK)
-        );
-    }
+  @GetMapping("/{id}")
+  @Operation(
+      summary = "Get customer detail",
+      description = "Retrieve detail information of a customer by id")
+  public ResponseEntity<ApiResponseDTO<CustomerResponse>> getCustomerDetail(@PathVariable Long id) {
+    CustomerResponse customer = adminCustomerService.getCustomerDetail(id);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK));
+  }
 }

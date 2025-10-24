@@ -15,63 +15,62 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class DataInit implements CommandLineRunner {
-    private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+  private final RoleRepository roleRepository;
+  private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
 
-    @Override
-    public void run(String... args) throws Exception {
-        initializeRoles();
-        initializeUsers();
+  @Override
+  public void run(String... args) throws Exception {
+    initializeRoles();
+    initializeUsers();
+  }
+
+  private void initializeRoles() {
+    createRoleIfNotExists(RoleConstants.CUSTOMER, RoleConstants.CUSTOMER_DESC);
+    createRoleIfNotExists(RoleConstants.ADMIN, RoleConstants.ADMIN_DESC);
+    createRoleIfNotExists(RoleConstants.MANAGER, RoleConstants.MANAGER_DESC);
+    createRoleIfNotExists(RoleConstants.STAFF, RoleConstants.STAFF_DESC);
+
+    log.info("Default roles initialized successfully");
+  }
+
+  private void createRoleIfNotExists(String roleName, String description) {
+    if (!roleRepository.existsByName(roleName)) {
+      Role role = Role.builder().name(roleName).description(description).build();
+      roleRepository.save(role);
+      log.info("Created role: {}", roleName);
     }
+  }
 
-    private void initializeRoles() {
-        createRoleIfNotExists(RoleConstants.CUSTOMER, RoleConstants.CUSTOMER_DESC);
-        createRoleIfNotExists(RoleConstants.ADMIN, RoleConstants.ADMIN_DESC);
-        createRoleIfNotExists(RoleConstants.MANAGER, RoleConstants.MANAGER_DESC);
-        createRoleIfNotExists(RoleConstants.STAFF, RoleConstants.STAFF_DESC);
+  private void initializeUsers() {
+    Role userRole = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
+    Role adminRole = roleRepository.findByName(RoleConstants.ADMIN).orElse(null);
+    Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
+    Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
 
-        log.info("Default roles initialized successfully");
+    createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Default", "Customer");
+    createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Default", "Admin");
+    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Default", "Manager");
+    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Default", "Staff");
+
+    log.info("Default users initialized successfully");
+  }
+
+  private void createUserIfNotExists(
+      String email, String password, Role role, String firstName, String lastName) {
+    if (!userRepository.existsByEmail(email)) {
+      User user =
+          User.builder()
+              .email(email)
+              .password(passwordEncoder.encode(password))
+              .firstName(firstName)
+              .lastName(lastName)
+              .role(role)
+              .isActive(true)
+              .isEmailVerified(true)
+              .build();
+      userRepository.save(user);
+      log.info("Created user: {} with role: {}", email, role.getName());
     }
-
-    private void createRoleIfNotExists(String roleName, String description) {
-        if (!roleRepository.existsByName(roleName)) {
-            Role role = Role.builder()
-                    .name(roleName)
-                    .description(description)
-                    .build();
-            roleRepository.save(role);
-            log.info("Created role: {}", roleName);
-        }
-    }
-    private void initializeUsers() {
-        Role userRole = roleRepository.findByName(RoleConstants.CUSTOMER).orElse(null);
-        Role adminRole = roleRepository.findByName(RoleConstants.ADMIN).orElse(null);
-        Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
-        Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
-
-        createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Default", "Customer");
-        createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Default", "Admin");
-        createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Default", "Manager");
-        createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Default", "Staff");
-
-        log.info("Default users initialized successfully");
-    }
-
-    private void createUserIfNotExists(String email, String password, Role role, String firstName, String lastName) {
-        if (!userRepository.existsByEmail(email)) {
-            User user = User.builder()
-                    .email(email)
-                    .password(passwordEncoder.encode(password))
-                    .firstName(firstName)
-                    .lastName(lastName)
-                    .role(role)
-                    .isActive(true)
-                    .isEmailVerified(true)
-
-                    .build();
-            userRepository.save(user);
-            log.info("Created user: {} with role: {}", email, role.getName());
-        }
-    }
+  }
 }

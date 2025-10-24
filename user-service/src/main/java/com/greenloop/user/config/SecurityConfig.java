@@ -19,66 +19,66 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/auth/verify-email",
-            "/api/v1/auth/resend-otp",
-            "/api/v1/auth/forgot-password",
-            "/api/v1/auth/reset-password",
-            "/api/v1/auth/resend-reset-password-otp",
-            "/api/v1/auth/resend-verify-email-otp",
-            "/api/v1/auth/oauth2/exchange",
-            "/oauth2/authorization/google",
-            "/oauth2/**",
-            "/login/**"
-    };
+  private static final String[] PUBLIC_ENDPOINTS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/verify-email",
+    "/api/v1/auth/resend-otp",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+    "/api/v1/auth/resend-reset-password-otp",
+    "/api/v1/auth/resend-verify-email-otp",
+    "/api/v1/auth/oauth2/exchange",
+    "/oauth2/authorization/google",
+    "/oauth2/**",
+    "/login/**"
+  };
 
-    private final CustomOAuth2UserService customOAuth2UserService;
-    private final CustomOAuth2SuccessHandler customOAuth2SuccessHandler;
+  private final CustomOAuth2UserService customOAuth2UserService;
+  private final CustomOAuth2SuccessHandler customOAuth2SuccessHandler;
 
-    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService,
-                          CustomOAuth2SuccessHandler customOAuth2SuccessHandler) {
-        this.customOAuth2UserService = customOAuth2UserService;
-        this.customOAuth2SuccessHandler = customOAuth2SuccessHandler;
-    }
+  public SecurityConfig(
+      CustomOAuth2UserService customOAuth2UserService,
+      CustomOAuth2SuccessHandler customOAuth2SuccessHandler) {
+    this.customOAuth2UserService = customOAuth2UserService;
+    this.customOAuth2SuccessHandler = customOAuth2SuccessHandler;
+  }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
+  @Bean
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http, HeaderAuthFilter headerAuthFilter) throws Exception {
+    return http.csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
+        .authorizeHttpRequests(
+            auth -> auth.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated())
+        .oauth2Login(
+            oauth2 ->
+                oauth2
+                    .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                    .successHandler(customOAuth2SuccessHandler)
+                    .redirectionEndpoint(
+                        redirection -> redirection.baseUri("/login/oauth2/code/*")))
+        .build();
+  }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, HeaderAuthFilter headerAuthFilter) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)
-                        )
-                        .successHandler(customOAuth2SuccessHandler)
-                        .redirectionEndpoint(redirection -> redirection.baseUri("/login/oauth2/code/*"))
-                )
-                .build();
-    }
-    @Bean
-    public WebSecurityCustomizer ignoreResources() {
-        return webSecurity ->
-                webSecurity
-                        .ignoring()
-                        .requestMatchers(
-                                "/actuator/**",
-                                "/v3/**",
-                                "/webjars/**",
-                                "/swagger-ui*/*swagger-initializer.js",
-                                "/swagger-ui*/**",
-                                "/favicon.ico");
-    }
+  @Bean
+  public WebSecurityCustomizer ignoreResources() {
+    return webSecurity ->
+        webSecurity
+            .ignoring()
+            .requestMatchers(
+                "/actuator/**",
+                "/v3/**",
+                "/webjars/**",
+                "/swagger-ui*/*swagger-initializer.js",
+                "/swagger-ui*/**",
+                "/favicon.ico");
+  }
 }

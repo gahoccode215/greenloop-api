@@ -1,35 +1,34 @@
 package com.greenloop.user.util;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class OtpUtil {
 
-    @Value("${app.otp.length}")
-    private int OTP_LENGTH;
+  @Value("${app.otp.length}")
+  private int OTP_LENGTH;
 
-    @Value("${app.otp.expiry-in-minutes}")
-    private int OTP_EXPIRY_MINUTES;
+  @Value("${app.otp.expiry-in-minutes}")
+  private int OTP_EXPIRY_MINUTES;
 
-    private final SecureRandom random = new SecureRandom();
+  private final SecureRandom random = new SecureRandom();
 
-    public String generateOtp() {
-        StringBuilder otp = new StringBuilder();
-        for (int i = 0; i < OTP_LENGTH; i++) {
-            otp.append(random.nextInt(10));
-        }
-        return otp.toString();
+  public String generateOtp() {
+    StringBuilder otp = new StringBuilder();
+    for (int i = 0; i < OTP_LENGTH; i++) {
+      otp.append(random.nextInt(10));
     }
+    return otp.toString();
+  }
 
-    public LocalDateTime getOtpExpiryTime() {
-        return LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
-    }
+  public LocalDateTime getOtpExpiryTime() {
+    return LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
+  }
 
-    public boolean isOtpExpired(LocalDateTime otpExpiresAt) {
-        return LocalDateTime.now().isAfter(otpExpiresAt);
-    }
+  public boolean isOtpExpired(LocalDateTime otpExpiresAt) {
+    return LocalDateTime.now().isAfter(otpExpiresAt);
+  }
 }

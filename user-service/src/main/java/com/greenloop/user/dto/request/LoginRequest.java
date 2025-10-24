@@ -7,20 +7,15 @@ import lombok.Data;
 
 @Data
 public class LoginRequest {
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email phải có định dạng hợp lệ")
-    @Schema(
-            description = "Email người dùng",
-            example = "user@example.com",
-            defaultValue = "admin@greeloop.com"
-    )
-    private String email;
+  @NotBlank(message = "Email không được để trống")
+  @Email(message = "Email phải có định dạng hợp lệ")
+  @Schema(
+      description = "Email người dùng",
+      example = "user@example.com",
+      defaultValue = "admin@greeloop.com")
+  private String email;
 
-    @Schema(
-            description = "Mật khẩu người dùng",
-            example = "123456",
-            defaultValue = "Admin123"
-    )
-    @NotBlank(message = "Mật khẩu không được để trống")
-    private String password;
+  @Schema(description = "Mật khẩu người dùng", example = "123456", defaultValue = "Admin123")
+  @NotBlank(message = "Mật khẩu không được để trống")
+  private String password;
 }
