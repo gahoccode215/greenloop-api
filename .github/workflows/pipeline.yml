@@ -1,0 +1,77 @@
+name: CI/CD GreenLoop with DockerHub to Google Cloud
+
+on:
+  push:
+    branches: [ "dev" ]
+  pull_request:
+    branches: [ "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean install -DskipTests
+
+  build-and-push:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, eureka-server, notification-service, user-service]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Check if ${{ matrix.service }} has changed
+        id: check_changes
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- ${{ matrix.service }}; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Build & Push Docker image for ${{ matrix.service }}
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          echo "Changes detected in ${{ matrix.service }}, proceeding to build & push."
+          cd ${{ matrix.service }}
+          mvn clean package -DskipTests
+          docker build -t nguyentanthanh1403/greenloop-${{ matrix.service }}:latest .
+          docker tag nguyentanthanh1403/greenloop-${{ matrix.service }}:latest nguyentanthanh1403/greenloop-${{ matrix.service }}:${{ github.sha }}
+          docker push nguyentanthanh1403/greenloop-${{ matrix.service }}:latest
+          docker push nguyentanthanh1403/greenloop-${{ matrix.service }}:${{ github.sha }}
+
+      - name: Skip build & push for unchanged ${{ matrix.service }}
+        if: steps.check_changes.outputs.changed == 'false'
+        run: echo "No changes in ${{ matrix.service }}, skipping build & push."
+
