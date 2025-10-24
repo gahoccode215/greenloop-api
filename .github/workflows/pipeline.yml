@@ -93,8 +93,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "Deploying ${{ matrix.service }} to VM..."
-            SERVICE_DIR=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-            cd /home/thanhnt143.dev/greenloop/$SERVICE_DIR
+            cd /home/thanhnt143.dev/greenloop
             sudo docker-compose pull
             sudo docker-compose up -d --remove-orphans
+  
   
