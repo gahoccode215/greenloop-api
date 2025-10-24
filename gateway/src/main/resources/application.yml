@@ -33,7 +33,7 @@ eureka:
       defaultZone: http://${IP_EUREKA_SERVER:localhost}:8761/eureka
   instance:
     hostname: ${IP_USER_SERVICE:localhost}
-    prefer-ip-address: false
+    prefer-ip-address: true
 
 springdoc:
   api-docs:
@@ -44,7 +44,6 @@ springdoc:
     path: /swagger-ui.html
     config-url: /v3/api-docs/swagger-config
     disable-swagger-default-url: true
-    server-url: http://34.87.109.84:8080
     urls:
       - name: User Service
         url: /user-service/v3/api-docs
