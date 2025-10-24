@@ -7,8 +7,8 @@ server:
 
 eureka:
   instance:
-    ip-address: ${IP_EUREKA_SERVER:eureka-server}
-    prefer-ip-address: true
+    hostname: ${EUREKA_HOST:eureka-server}
+    prefer-ip-address: false
   client:
     register-with-eureka: false
     fetch-registry: false
