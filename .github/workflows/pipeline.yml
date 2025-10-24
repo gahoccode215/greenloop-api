@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ api-gateway, eureka-server, notification-service, user-service ]
+        service: [ gateway, eureka, notification-service, user-service ]
 
     steps:
       - name: Checkout source code
