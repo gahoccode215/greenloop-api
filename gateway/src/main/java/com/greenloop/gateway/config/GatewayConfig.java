@@ -29,6 +29,12 @@ public class GatewayConfig {
                 r.path("/user-service/v3/api-docs")
                     .filters(f -> f.rewritePath("/user-service/v3/api-docs", "/v3/api-docs"))
                     .uri("lb://user-service"))
+        .route(
+            "event-service-docs",
+            r ->
+                r.path("/event-service/v3/api-docs")
+                    .filters(f -> f.rewritePath("/event-service/v3/api-docs", "/v3/api-docs"))
+                    .uri("lb://event-service"))
         .build();
   }
 }

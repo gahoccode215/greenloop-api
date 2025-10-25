@@ -1,6 +1,6 @@
 server:
   port: 8085
-  
+
 spring:
   application:
     name: event-service
@@ -39,6 +39,6 @@ springdoc:
     disable-swagger-default-url: true
     urls:
       - name: Gateway (Production)
-        url: http://${GATEWAY_HOST}:8080/user-service/v3/api-docs
+        url: http://${GATEWAY_HOST}:8080/event-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${SERVICE_HOST}:${server.port}/v3/api-docs
