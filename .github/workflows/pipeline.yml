@@ -82,7 +82,7 @@ jobs:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     strategy:
       matrix:
-        service: [ API_GATEWAY, EUREKA_SERVER, NOTIFICATION_SERVICE, USER_SERVICE ]
+        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE ]
 
     steps:
       - name: Deploy ${{ matrix.service }} to VM
