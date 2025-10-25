@@ -1,12 +1,13 @@
 server:
   port: 8085
+  
 spring:
   application:
     name: event-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_event_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:12345}
+    url: jdbc:mysql://${DB_HOST}:3306/greenloop_event_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -21,7 +22,23 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
   instance:
-    hostname: localhost
-    prefer-ip-address: false
+    ip-address: ${EVENT_HOST:localhost}
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    config-url: /v3/api-docs/swagger-config
+    disable-swagger-default-url: true
+    urls:
+      - name: Gateway (Production)
+        url: http://${GATEWAY_HOST}:8080/user-service/v3/api-docs
+      - name: Direct (Internal)
+        url: http://${SERVICE_HOST}:${server.port}/v3/api-docs
