@@ -1,4 +1,4 @@
-package com.greenloop.user.config;
+package com.greenloop.event.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -20,11 +20,11 @@ public class OpenApiConfig {
   @Value("${SERVICE_HOST}")
   private String serviceHost;
 
-  @Value("${server.port}")
-  private String servicePort;
-
   @Value("${spring.application.name}")
   private String serviceName;
+
+  @Value("${server.port}")
+  private String servicePort;
 
   @Bean
   public OpenAPI customOpenAPI() {

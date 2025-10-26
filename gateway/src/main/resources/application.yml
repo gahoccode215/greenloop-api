@@ -1,14 +1,16 @@
-
 spring:
   application:
     name: gateway
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
   security:
     jwt:
-      secret: ${JWT_SECRET:bXlTZWNyZXRLZXlGb3JHcmVlbkxvb3BBdXRoU2VydmljZVNob3VsZEJlQXRMZWFzdDI1NkJpdHNMb25n}
+      secret: ${JWT_SECRET}
+
   cloud:
     gateway:
       defaultFilters:
@@ -31,9 +33,9 @@ server:
 eureka:
   client:
     service-url:
-      defaultZone: http://${IP_EUREKA_SERVER:localhost}:8761/eureka
+      defaultZone: http://${EUREKA_HOST:eureka-server}:8761/eureka
   instance:
-    hostname: ${IP_USER_SERVICE:localhost}
+    hostname: ${GATEWAY_HOST:api-gateway}
     prefer-ip-address: false
 
 springdoc:
@@ -48,5 +50,5 @@ springdoc:
     urls:
       - name: User Service
         url: /user-service/v3/api-docs
-
-
+      - name: Event Service
+        url: /event-service/v3/api-docs

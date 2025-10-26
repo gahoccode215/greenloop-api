@@ -11,8 +11,8 @@ RUN mvn clean package -DskipTests
 FROM openjdk:17-jdk-slim
 WORKDIR /app
 
-COPY --from=build /app/target/gateway-*.jar gateway.jar
+COPY --from=build /app/target/event-service-*.jar event-service.jar
 
-EXPOSE 8080
+EXPOSE 8085
 
-ENTRYPOINT ["java", "-jar", "gateway.jar"]
+ENTRYPOINT ["java", "-jar", "event-service.jar"]

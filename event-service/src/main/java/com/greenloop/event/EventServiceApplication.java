@@ -8,8 +8,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @EnableDiscoveryClient
 public class EventServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(EventServiceApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(EventServiceApplication.class, args);
+  }
 }

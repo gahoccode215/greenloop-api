@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [api-gateway, eureka-server, notification-service, user-service]
+        service: [ gateway, eureka, notification-service, user-service, event-service ]
 
     steps:
       - name: Checkout source code
@@ -59,6 +59,7 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build & Push Docker image for ${{ matrix.service }}
         if: steps.check_changes.outputs.changed == 'true'
@@ -75,3 +76,26 @@ jobs:
         if: steps.check_changes.outputs.changed == 'false'
         run: echo "No changes in ${{ matrix.service }}, skipping build & push."
 
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    strategy:
+      matrix:
+        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE, EVENT_SERVICE ]
+
+    steps:
+      - name: Deploy ${{ matrix.service }} to VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets[format('IP_{0}', matrix.service)] }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Deploying ${{ matrix.service }} to VM..."
+            cd /home/thanhnt143.dev/greenloop
+            sudo docker-compose down --remove-orphans
+            sudo docker-compose pull
+            sudo docker-compose up -d --remove-orphans
+  
+  
