@@ -65,8 +65,6 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     return CustomerResponse.builder()
         .id(user.getId())
         .email(user.getEmail())
-        .firstName(user.getFirstName())
-        .lastName(user.getLastName())
         .phoneNumber(user.getPhoneNumber())
         .avatarUrl(user.getAvatarUrl())
         .dateOfBirth(user.getDateOfBirth())

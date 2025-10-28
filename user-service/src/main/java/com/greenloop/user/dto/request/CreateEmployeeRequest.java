@@ -12,11 +12,9 @@ public class CreateEmployeeRequest {
   @Email(message = "Email không hợp lệ")
   private String email;
 
-  @NotBlank(message = "Tên không được để trống")
-  private String firstName;
+  @NotBlank(message = "Họ và tên không được để trống")
+  private String fullName;
 
-  @NotBlank(message = "Họ không được để trống")
-  private String lastName;
 
   @Pattern(regexp = "^[0-9]{10,11}$", message = "Số điện thoại không hợp lệ")
   private String phoneNumber;
