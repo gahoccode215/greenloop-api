@@ -33,9 +33,9 @@ server:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:eureka-server}:8761/eureka
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
   instance:
-    hostname: ${GATEWAY_HOST:api-gateway}
+    hostname: ${GATEWAY_HOST:localhost}
     prefer-ip-address: false
 
 springdoc:

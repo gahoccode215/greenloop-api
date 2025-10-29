@@ -84,6 +84,12 @@ public class AuthServiceImpl implements AuthService {
   @Transactional
   @Override
   public void register(RegisterRequest request) {
+    if (!request.getPassword().equals(request.getConfirmPassword())) {
+      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+    }
+    if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+    }
     User user = userRepository.findByEmail(request.getEmail()).orElse(null);
     String emailVerificationOtp = otpUtil.generateOtp();
     if (user != null) {
@@ -114,6 +120,9 @@ public class AuthServiceImpl implements AuthService {
         User.builder()
             .email(request.getEmail())
             .password(passwordEncoder.encode(request.getPassword()))
+            .fullName(request.getFullName())
+            .dateOfBirth(request.getDateOfBirth())
+            .phoneNumber(request.getPhoneNumber())
             .role(userRole)
             .isActive(false)
             .isEmailVerified(false)

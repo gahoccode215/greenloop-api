@@ -60,15 +60,12 @@ public class AuthController {
       description = "Generate new access token using refresh token")
   @PostMapping("/refresh")
   public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
-      @Valid @RequestBody RefreshTokenRequest request,
-      @RequestHeader(value = "Authorization", required = false) String authHeader) {
+      @Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
 
-    log.info("Refresh request - Auth header: {}", authHeader);
-    String oldAccessToken = null;
-    if (authHeader != null && authHeader.startsWith("Bearer ")) {
-      oldAccessToken = authHeader.substring(7);
-    }
-    AuthResponse response = authService.refreshToken(request, oldAccessToken);
+    String accessToken = extractToken(httpRequest);
+    log.info("Refresh request - Old access token: {}", accessToken);
+
+    AuthResponse response = authService.refreshToken(request, accessToken);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Làm mới token thành công", response, HttpStatus.OK));
   }
@@ -77,9 +74,8 @@ public class AuthController {
       summary = "User logout",
       description = "Invalidate current access token and refresh token")
   @PostMapping("/logout")
-  public ResponseEntity<ApiResponseDTO<String>> logout(
-      @RequestHeader(value = "Authorization", required = false) String authHeader) {
-    String accessToken = authHeader.substring(7);
+  public ResponseEntity<ApiResponseDTO<String>> logout(HttpServletRequest httpRequest) {
+    String accessToken = extractToken(httpRequest);
     authService.logout(accessToken);
     return ResponseEntity.ok(ApiResponseDTO.success("Đăng xuất thành công", null, HttpStatus.OK));
   }
@@ -89,9 +85,8 @@ public class AuthController {
       description = "Change user password with old password verification")
   @PostMapping("/change-password")
   public ResponseEntity<ApiResponseDTO<String>> changePassword(
-      @RequestHeader(value = "Authorization", required = false) String authHeader,
-      @Valid @RequestBody ChangePasswordRequest request) {
-    String accessToken = authHeader.substring(7);
+      HttpServletRequest httpRequest, @Valid @RequestBody ChangePasswordRequest request) {
+    String accessToken = extractToken(httpRequest);
     authService.changePassword(accessToken, request);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
@@ -158,11 +153,22 @@ public class AuthController {
   public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(
       @RequestParam String key, HttpServletRequest request) {
     try {
+      // Validate key format
+      if (key == null || key.isBlank()) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(
+                ApiResponseDTO.error(
+                    "Missing or invalid key parameter",
+                    HttpStatus.BAD_REQUEST,
+                    request.getRequestURI()));
+      }
+
       String redisKey = "oauth2_success:" + key;
       Map<String, Object> tokenData =
           (Map<String, Object>) redisObjectTemplate.opsForValue().getAndDelete(redisKey);
 
       if (tokenData == null) {
+        log.warn("Invalid or expired OAuth2 key: {}", key);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(
                 ApiResponseDTO.error(
@@ -176,17 +182,25 @@ public class AuthController {
               .accessToken((String) tokenData.get("accessToken"))
               .refreshToken((String) tokenData.get("refreshToken"))
               .type((String) tokenData.get("type"))
-              .userId((Long) tokenData.get("userId"))
+              .userId(((Number) tokenData.get("userId")).longValue())
               .email((String) tokenData.get("email"))
               .role((String) tokenData.get("role"))
-              .expiresIn((Long) tokenData.get("expiresIn"))
-              .refreshExpiresIn((Long) tokenData.get("refreshExpiresIn"))
+              .expiresIn(((Number) tokenData.get("expiresIn")).longValue())
+              .refreshExpiresIn(((Number) tokenData.get("refreshExpiresIn")).longValue())
               .build();
 
       log.info("Successfully exchanged temp key for user: {}", tokenData.get("email"));
       return ResponseEntity.ok(
-          ApiResponseDTO.success("Successfully exchanged temp key", response, HttpStatus.OK));
+          ApiResponseDTO.success("Trao đổi key thành công", response, HttpStatus.OK));
 
+    } catch (ClassCastException e) {
+      log.error("Type casting error in token data: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(
+              ApiResponseDTO.error(
+                  "Token data format error",
+                  HttpStatus.INTERNAL_SERVER_ERROR,
+                  request.getRequestURI()));
     } catch (Exception e) {
       log.error("Error exchanging temp key", e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -196,5 +210,13 @@ public class AuthController {
                   HttpStatus.INTERNAL_SERVER_ERROR,
                   request.getRequestURI()));
     }
+  }
+
+  private String extractToken(HttpServletRequest request) {
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      return authHeader.substring(7);
+    }
+    return null;
   }
 }

@@ -43,8 +43,6 @@ public class JwtUtil {
     Map<String, Object> claims = new HashMap<>();
     claims.put(JwtConstants.CLAIM_USER_ID, user.getId().toString());
     claims.put(JwtConstants.CLAIM_EMAIL, user.getEmail());
-    claims.put(JwtConstants.CLAIM_FIRST_NAME, user.getFirstName());
-    claims.put(JwtConstants.CLAIM_LAST_NAME, user.getLastName());
     claims.put(JwtConstants.CLAIM_ROLE, user.getRole().getName());
     claims.put(JwtConstants.CLAIM_JTI, UUID.randomUUID().toString());
     claims.put(JwtConstants.CLAIM_TYPE, JwtConstants.TOKEN_TYPE_ACCESS);

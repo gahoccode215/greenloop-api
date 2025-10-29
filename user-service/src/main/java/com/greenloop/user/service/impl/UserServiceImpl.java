@@ -50,8 +50,6 @@ public class UserServiceImpl implements UserService {
     return UserProfileResponse.builder()
         .userId(user.getId())
         .email(user.getEmail())
-        .firstName(user.getFirstName())
-        .lastName(user.getLastName())
         .role(user.getRole().getName())
         .isActive(user.getIsActive())
         .build();
@@ -72,8 +70,7 @@ public class UserServiceImpl implements UserService {
     User employee =
         User.builder()
             .email(request.getEmail())
-            .firstName(request.getFirstName())
-            .lastName(request.getLastName())
+            .fullName(request.getFullName())
             .phoneNumber(request.getPhoneNumber())
             .department(request.getDepartment())
             .role(role)
@@ -81,7 +78,6 @@ public class UserServiceImpl implements UserService {
             .provider("LOCAL")
             .isActive(true)
             .isEmailVerified(false)
-            .mustChangePassword(true)
             .build();
     User savedEmployee = userRepository.save(employee);
 
@@ -90,8 +86,7 @@ public class UserServiceImpl implements UserService {
     return CreateEmployeeResponse.builder()
         .id(savedEmployee.getId())
         .email(savedEmployee.getEmail())
-        .firstName(savedEmployee.getFirstName())
-        .lastName(savedEmployee.getLastName())
+        .fullName(savedEmployee.getFullName())
         .role(role.getName())
         .department(savedEmployee.getDepartment())
         .isActive(savedEmployee.getIsActive())

@@ -8,8 +8,7 @@ import lombok.Data;
 public class UserProfileResponse {
   private Long userId;
   private String email;
-  private String firstName;
-  private String lastName;
+  private String fullName;
   private String role;
   private Boolean isActive;
 }
