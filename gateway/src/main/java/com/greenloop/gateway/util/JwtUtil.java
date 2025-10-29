@@ -1,8 +1,11 @@
 package com.greenloop.gateway.util;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
+import java.util.List;
 import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +19,7 @@ public class JwtUtil {
   private final RedisTemplate<String, String> redisTemplate;
 
   private final String CLAIM_USER_ID = "userId";
-  private final String CLAIM_ROLE = "role";
+  private final String CLAIM_ROLE = "roles";
   private final String JTI = "jti";
   private final String REDIS_BLACKLIST_PREFIX = "bl:";
 
@@ -39,8 +42,13 @@ public class JwtUtil {
     return extractClaim(token, claims -> claims.get(CLAIM_USER_ID, String.class));
   }
 
-  public String extractRole(String token) {
-    return extractClaim(token, claims -> claims.get(CLAIM_ROLE, String.class));
+  @SuppressWarnings("unchecked")
+  public List<String> extractRoles(String token) {
+    Object roles = extractClaim(token, claims -> claims.get(CLAIM_ROLE));
+    if (roles instanceof List<?>) {
+      return ((List<?>) roles).stream().map(Object::toString).toList();
+    }
+    return List.of();
   }
 
   public <T> T extractClaim(String token, java.util.function.Function<Claims, T> claimsResolver) {

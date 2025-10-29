@@ -14,10 +14,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-  @Value("${GATEWAY_HOST}")
+  @Value("${GATEWAY_HOST:localhost}")
   private String gatewayHost;
 
-  @Value("${SERVICE_HOST}")
+  @Value("${SERVICE_HOST:localhost}")
   private String serviceHost;
 
   @Value("${spring.application.name}")

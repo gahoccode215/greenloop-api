@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -59,13 +60,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             .orElse("CUSTOMER");
 
     log.info("OAuth2 login successful for email: {} with role: {}", email, roleName);
-
     // Tìm hoặc tạo user trong database
     User user =
         userRepository
             .findByEmail(email)
             .map(existingUser -> updateExistingUser(existingUser, name, picture))
             .orElseGet(() -> createNewGoogleUser(email, name, picture, roleName));
+
+    List<String> roles = user.getRoles().stream().map(Role::getName).toList();
 
     // Generate JWT tokens
     String accessToken = jwtUtil.generateToken(user);
@@ -79,7 +81,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     tokenData.put("type", "Bearer");
     tokenData.put("userId", user.getId());
     tokenData.put("email", user.getEmail());
-    tokenData.put("role", user.getRole().getName());
+    tokenData.put("roles", roles);
     tokenData.put("expiresIn", jwtUtil.getExpirationTime());
     tokenData.put("refreshExpiresIn", jwtUtil.getRefreshExpirationTime());
 
@@ -107,8 +109,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         User.builder()
             .email(email)
             .fullName(name)
-            .role(role)
-            .isActive(true)
+            .roles(List.of(role))
             .isEmailVerified(true)
             .provider("GOOGLE")
             .build();
@@ -125,7 +126,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     }
 
     // Đảm bảo user active và email verified
-    existingUser.setIsActive(true);
+    existingUser.setActive(true);
     existingUser.setIsEmailVerified(true);
 
     User updatedUser = userRepository.save(existingUser);

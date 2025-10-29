@@ -16,9 +16,6 @@ public class UserAddress {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "address_type")
-  private String addressType; // Loại địa chỉ (ví dụ: Nhà, Cơ quan)
-
   @Column(name = "recipient_name")
   private String recipientName; // Tên người nhận
 
@@ -36,12 +33,6 @@ public class UserAddress {
 
   @Column(name = "city")
   private String city; // Thành phố
-
-  @Column(name = "postal_code")
-  private String postalCode;
-
-  @Column(name = "country")
-  private String country;
 
   @Column(name = "is_default")
   private Boolean isDefault = false;

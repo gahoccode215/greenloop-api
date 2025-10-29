@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -184,7 +185,7 @@ public class AuthController {
               .type((String) tokenData.get("type"))
               .userId(((Number) tokenData.get("userId")).longValue())
               .email((String) tokenData.get("email"))
-              .role((String) tokenData.get("role"))
+              .roles(castRoles(tokenData.get("roles")))
               .expiresIn(((Number) tokenData.get("expiresIn")).longValue())
               .refreshExpiresIn(((Number) tokenData.get("refreshExpiresIn")).longValue())
               .build();
@@ -218,5 +219,16 @@ public class AuthController {
       return authHeader.substring(7);
     }
     return null;
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<String> castRoles(Object rolesObj) {
+    if (rolesObj instanceof List<?>) {
+      return ((List<?>) rolesObj).stream().map(Object::toString).toList();
+    }
+    if (rolesObj instanceof String str) {
+      return List.of(str.split(","));
+    }
+    return List.of();
   }
 }
