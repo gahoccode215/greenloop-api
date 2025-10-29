@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/events")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Event Controller", description = "Event API")
@@ -57,6 +57,7 @@ public class EventController {
         ApiResponseDTO.<Long>builder()
             .data(eventService.createEvent(request, multipartFile))
             .message("Event created successfully")
+            .statusCode(HttpStatus.OK.value())
             .build());
   }
 

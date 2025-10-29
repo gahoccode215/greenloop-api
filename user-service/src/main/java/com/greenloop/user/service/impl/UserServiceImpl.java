@@ -44,14 +44,14 @@ public class UserServiceImpl implements UserService {
   public UserProfileResponse getMyProfile(Long userId) {
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
+    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
     log.info("Retrieved profile for user: {}", user.getEmail());
 
     return UserProfileResponse.builder()
         .userId(user.getId())
         .email(user.getEmail())
-        .role(user.getRole().getName())
-        .isActive(user.getIsActive())
+        .roles(roleNames)
+        .isActive(user.isActive())
         .build();
   }
 
@@ -71,12 +71,10 @@ public class UserServiceImpl implements UserService {
         User.builder()
             .email(request.getEmail())
             .fullName(request.getFullName())
-            .phoneNumber(request.getPhoneNumber())
-            .department(request.getDepartment())
-            .role(role)
+            .phone(request.getPhoneNumber())
+            .roles(List.of(role))
             .password(passwordEncoder.encode(tempPassword))
             .provider("LOCAL")
-            .isActive(true)
             .isEmailVerified(false)
             .build();
     User savedEmployee = userRepository.save(employee);
@@ -88,8 +86,7 @@ public class UserServiceImpl implements UserService {
         .email(savedEmployee.getEmail())
         .fullName(savedEmployee.getFullName())
         .role(role.getName())
-        .department(savedEmployee.getDepartment())
-        .isActive(savedEmployee.getIsActive())
+        .isActive(savedEmployee.isActive())
         .temporaryPassword(tempPassword)
         .message("Nhân viên đã được tạo. Vui lòng cung cấp mật khẩu tạm cho nhân viên.")
         .build();

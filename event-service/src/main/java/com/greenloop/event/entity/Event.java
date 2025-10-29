@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import lombok.*;
-import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Table(name = "events")
@@ -20,7 +19,7 @@ import org.hibernate.annotations.ColumnTransformer;
 @Builder
 public class Event extends BaseEntity implements Serializable {
 
-  @Column(nullable = false, length = 15, unique = true, name = "code")
+  @Column(nullable = false, length = 20, unique = true, name = "code")
   private String code;
 
   @Column(nullable = false, name = "name")
@@ -54,9 +53,8 @@ public class Event extends BaseEntity implements Serializable {
   @Column(name = "status", nullable = false, length = 15)
   private EventStatus status;
 
-  @Column(name = "google_place_id", columnDefinition = "jsonb")
+  @Column(name = "google_place_id", columnDefinition = "JSON")
   @Convert(converter = JsonConverter.class)
-  @ColumnTransformer(read = "google_place_id::jsonb", write = "?::jsonb")
   private HashMap<String, String> googlePlaceId;
 
   @Column(columnDefinition = "TEXT")

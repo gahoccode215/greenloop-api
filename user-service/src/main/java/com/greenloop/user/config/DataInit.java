@@ -5,6 +5,7 @@ import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -63,8 +64,7 @@ public class DataInit implements CommandLineRunner {
               .email(email)
               .password(passwordEncoder.encode(password))
               .fullName(fullName)
-              .role(role)
-              .isActive(true)
+              .roles(List.of(role))
               .isEmailVerified(true)
               .build();
       userRepository.save(user);
