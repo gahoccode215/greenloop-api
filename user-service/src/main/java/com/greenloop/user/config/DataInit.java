@@ -50,14 +50,13 @@ public class DataInit implements CommandLineRunner {
 
     createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Customer");
     createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Admin");
-    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole,  "Manager");
-    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole,  "Staff");
+    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Manager");
+    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Staff");
 
     log.info("Default users initialized successfully");
   }
 
-  private void createUserIfNotExists(
-      String email, String password, Role role, String fullName) {
+  private void createUserIfNotExists(String email, String password, Role role, String fullName) {
     if (!userRepository.existsByEmail(email)) {
       User user =
           User.builder()

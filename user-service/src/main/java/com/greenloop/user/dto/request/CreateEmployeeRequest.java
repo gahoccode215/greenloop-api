@@ -15,7 +15,6 @@ public class CreateEmployeeRequest {
   @NotBlank(message = "Họ và tên không được để trống")
   private String fullName;
 
-
   @Pattern(regexp = "^[0-9]{10,11}$", message = "Số điện thoại không hợp lệ")
   private String phoneNumber;
 
