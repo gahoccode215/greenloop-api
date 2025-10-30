@@ -88,7 +88,7 @@ springdoc:
     disable-swagger-default-url: true
     urls:
       - name: Gateway (Production)
-        url: http://${GATEWAY_HOST:localhost}:8080/user-service/v3/api-docs
+        url: http://${GATEWAY_HOST}/user-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
 
