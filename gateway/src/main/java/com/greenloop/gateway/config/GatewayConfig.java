@@ -20,7 +20,12 @@ public class GatewayConfig {
         .route(
             "user-service",
             r ->
-                r.path("/api/v1/**", "/oauth2/**", "/login/**")
+                r.path(
+                        "/api/v1/users/**",
+                        "/oauth2/**",
+                        "/login/**",
+                        "api/v1/auth/** ",
+                        "api/v1/admin/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://user-service"))
         .route(
@@ -29,6 +34,12 @@ public class GatewayConfig {
                 r.path("/user-service/v3/api-docs")
                     .filters(f -> f.rewritePath("/user-service/v3/api-docs", "/v3/api-docs"))
                     .uri("lb://user-service"))
+        .route(
+            "event-service",
+            r ->
+                r.path("/api/v1/events/**")
+                    .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
+                    .uri("lb://event-service"))
         .route(
             "event-service-docs",
             r ->

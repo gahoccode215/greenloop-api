@@ -5,6 +5,7 @@ import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -48,25 +49,22 @@ public class DataInit implements CommandLineRunner {
     Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
     Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
 
-    createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Default", "Customer");
-    createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Default", "Admin");
-    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Default", "Manager");
-    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Default", "Staff");
+    createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Customer");
+    createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Admin");
+    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Manager");
+    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Staff");
 
     log.info("Default users initialized successfully");
   }
 
-  private void createUserIfNotExists(
-      String email, String password, Role role, String firstName, String lastName) {
+  private void createUserIfNotExists(String email, String password, Role role, String fullName) {
     if (!userRepository.existsByEmail(email)) {
       User user =
           User.builder()
               .email(email)
               .password(passwordEncoder.encode(password))
-              .firstName(firstName)
-              .lastName(lastName)
-              .role(role)
-              .isActive(true)
+              .fullName(fullName)
+              .roles(List.of(role))
               .isEmailVerified(true)
               .build();
       userRepository.save(user);

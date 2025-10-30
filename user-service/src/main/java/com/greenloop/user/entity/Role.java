@@ -1,6 +1,9 @@
 package com.greenloop.user.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import java.io.Serializable;
 import lombok.*;
 
 @Entity
@@ -10,14 +13,9 @@ import lombok.*;
 @Builder
 @Getter
 @Setter
-public class Role {
-
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
-
+public class Role extends BaseEntity implements Serializable {
   @Column(unique = true, nullable = false)
   private String name;
 
-  private String description;
+  @Column() private String description;
 }

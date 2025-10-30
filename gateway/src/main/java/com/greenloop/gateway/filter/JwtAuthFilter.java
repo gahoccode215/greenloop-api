@@ -49,38 +49,37 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
       ServerHttpRequest request = exchange.getRequest();
       String path = request.getURI().getPath();
 
-      // Skip auth for public paths
       if (isPublicPath(path)) {
         return chain.filter(exchange);
       }
 
-      // Extract JWT token
       String token = extractToken(request);
       if (token == null) {
         return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
       }
 
-      // Validate token
       if (!jwtUtil.validateToken(token)) {
         return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
       }
 
-      // Add user info to headers for downstream services
       try {
         String userId = jwtUtil.extractUserId(token);
         String username = jwtUtil.extractUsername(token);
-        String role = jwtUtil.extractRole(token);
+
+        List<String> roles = jwtUtil.extractRoles(token);
+        String rolesHeader = String.join(",", roles);
 
         ServerHttpRequest modifiedRequest =
             request
                 .mutate()
                 .header("X-User-ID", userId)
                 .header("X-Username", username)
-                .header("X-User-Role", role)
+                .header("X-User-Roles", rolesHeader)
                 .header("Authorization", "Bearer " + token)
                 .build();
+        log.info("xxx" + modifiedRequest.getURI());
 
-        log.debug("JWT validated for user: {} with role: {}", username, role);
+        log.debug("JWT validated for user: {} with roles: {}", username, rolesHeader);
         return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
       } catch (Exception e) {

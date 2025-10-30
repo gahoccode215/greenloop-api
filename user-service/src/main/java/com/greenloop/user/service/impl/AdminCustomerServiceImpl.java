@@ -6,6 +6,7 @@ import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.CustomerNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminCustomerService;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,9 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
         (root, query, cb) -> {
           List<Predicate> predicates = new ArrayList<>();
 
-          predicates.add(cb.equal(root.get("role").get("name"), "CUSTOMER"));
+          Join<Object, Object> roleJoin = root.join("roles");
+
+          predicates.add(cb.equal(roleJoin.get("name"), "CUSTOMER"));
 
           if (search != null && !search.isEmpty()) {
             String searchPattern = "%" + search.toLowerCase() + "%";
@@ -55,7 +58,11 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
         userRepository
             .findById(id)
             .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
-    if (!RoleConstants.CUSTOMER.equals(user.getRole().getName())) {
+    boolean isCustomer =
+        user.getRoles().stream()
+            .anyMatch(role -> RoleConstants.CUSTOMER.equalsIgnoreCase(role.getName()));
+
+    if (!isCustomer) {
       throw new CustomerNotFoundException("Không tìm thấy khách hàng");
     }
     return mapUserToCustomerResponse(user);
@@ -65,13 +72,10 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     return CustomerResponse.builder()
         .id(user.getId())
         .email(user.getEmail())
-        .firstName(user.getFirstName())
-        .lastName(user.getLastName())
-        .phoneNumber(user.getPhoneNumber())
+        .phoneNumber(user.getPhone())
         .avatarUrl(user.getAvatarUrl())
         .dateOfBirth(user.getDateOfBirth())
-        .department(user.getDepartment())
-        .isActive(user.getIsActive())
+        .isActive(user.isActive())
         .isEmailVerified(user.getIsEmailVerified())
         .createdAt(user.getCreatedAt())
         .updatedAt(user.getUpdatedAt())

@@ -13,6 +13,7 @@ import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AuthService;
 import com.greenloop.user.util.JwtUtil;
 import com.greenloop.user.util.OtpUtil;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,12 +61,14 @@ public class AuthServiceImpl implements AuthService {
       throw new EmailNotVerifiedException();
     }
 
-    if (!user.getIsActive()) {
+    if (!user.isActive()) {
       throw new AccountDisabledException();
     }
 
     String accessToken = jwtUtil.generateToken(user);
     String refreshToken = jwtUtil.generateRefreshToken(user);
+
+    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
 
     log.info("User logged in: {}", user.getEmail());
 
@@ -75,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
         .type("Bearer")
         .userId(user.getId())
         .email(user.getEmail())
-        .role(user.getRole().getName())
+        .roles(roleNames)
         .expiresIn(jwtUtil.getExpirationTime())
         .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
         .build();
@@ -84,6 +87,12 @@ public class AuthServiceImpl implements AuthService {
   @Transactional
   @Override
   public void register(RegisterRequest request) {
+    if (!request.getPassword().equals(request.getConfirmPassword())) {
+      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+    }
+    if (userRepository.existsByPhone(request.getPhoneNumber())) {
+      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+    }
     User user = userRepository.findByEmail(request.getEmail()).orElse(null);
     String emailVerificationOtp = otpUtil.generateOtp();
     if (user != null) {
@@ -114,8 +123,10 @@ public class AuthServiceImpl implements AuthService {
         User.builder()
             .email(request.getEmail())
             .password(passwordEncoder.encode(request.getPassword()))
-            .role(userRole)
-            .isActive(false)
+            .fullName(request.getFullName())
+            .dateOfBirth(request.getDateOfBirth())
+            .phone(request.getPhoneNumber())
+            .roles(List.of(userRole))
             .isEmailVerified(false)
             .provider("LOCAL")
             .build();
@@ -149,7 +160,7 @@ public class AuthServiceImpl implements AuthService {
     String email = jwtUtil.extractUsername(request.getRefreshToken());
     User user = userRepository.findByEmail(email).orElseThrow(InvalidCredentialsException::new);
 
-    if (!user.getIsActive()) {
+    if (!user.isActive()) {
       throw new AccountDisabledException();
     }
 
@@ -212,7 +223,7 @@ public class AuthServiceImpl implements AuthService {
       throw new VerifyEmailException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
     }
     user.setIsEmailVerified(true);
-    user.setIsActive(true);
+    user.setActive(true);
     userRepository.save(user);
 
     deleteEmailVerificationOtp(request.getEmail());
@@ -243,7 +254,7 @@ public class AuthServiceImpl implements AuthService {
   public void resendPasswordResetOtp(String email) {
     User user =
         userRepository.findByEmail(email).orElseThrow(() -> new EmailNotFoundException(email));
-    if (!user.getIsActive()) {
+    if (!user.isActive()) {
       throw new AccountDisabledException();
     }
     if (getPasswordResetOtp(email) == null) {
@@ -271,7 +282,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository
             .findByEmail(request.getEmail())
             .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (!user.getIsActive()) {
+    if (!user.isActive()) {
       throw new AccountDisabledException();
     }
     String passwordResetOtp = otpUtil.generateOtp();
