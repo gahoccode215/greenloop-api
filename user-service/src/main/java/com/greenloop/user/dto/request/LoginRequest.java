@@ -12,7 +12,7 @@ public class LoginRequest {
   @Schema(
       description = "Email người dùng",
       example = "user@example.com",
-      defaultValue = "admin@greeloop.com")
+      defaultValue = "admin1@greeloop.com")
   private String email;
 
   @Schema(description = "Mật khẩu người dùng", example = "123456", defaultValue = "Admin123")

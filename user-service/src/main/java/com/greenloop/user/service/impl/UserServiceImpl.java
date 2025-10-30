@@ -50,6 +50,7 @@ public class UserServiceImpl implements UserService {
     return UserProfileResponse.builder()
         .userId(user.getId())
         .email(user.getEmail())
+        .fullName(user.getFullName())
         .roles(roleNames)
         .isActive(user.isActive())
         .build();

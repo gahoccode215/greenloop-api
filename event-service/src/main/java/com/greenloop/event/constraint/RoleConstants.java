@@ -1,4 +1,4 @@
-package com.greenloop.user.constant;
+package com.greenloop.event.constraint;
 
 public final class RoleConstants {
 
