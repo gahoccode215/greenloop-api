@@ -26,7 +26,17 @@ public enum ErrorCode {
   EVENT_END_TIME_PAST("1013", "Event End Time Cannot Be in the Past", HttpStatus.BAD_REQUEST),
   EVENT_END_TIME_BEFORE_START(
       "1014", "Event End Time Cannot Be Before Start Time", HttpStatus.BAD_REQUEST),
-  EVENT_LOCATION_NOT_FOUND("1015", "Event Location Not Found", HttpStatus.NOT_FOUND);
+  EVENT_LOCATION_NOT_FOUND("1015", "Event Location Not Found", HttpStatus.NOT_FOUND),
+  INVALID_EVENT_STATUS("1016", "Invalid Event Status", HttpStatus.BAD_REQUEST),
+
+  // Event Staff Assignment Errors
+  STAFF_ALREADY_ASSIGNED("2000", "Staff Already Assigned to Event", HttpStatus.BAD_REQUEST),
+  STORE_MANAGER_ALREADY_ASSIGNED(
+      "2001", "Store Manager Already Assigned to Event", HttpStatus.BAD_REQUEST),
+  INVALID_ROLE("2002", "Invalid Role for Assignment", HttpStatus.BAD_REQUEST),
+
+  // User Related Errors
+  USER_NOT_FOUND("3000", "User Not Found", HttpStatus.NOT_FOUND);
 
   private final String code;
   private final String message;

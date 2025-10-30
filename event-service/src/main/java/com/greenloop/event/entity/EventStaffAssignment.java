@@ -2,7 +2,6 @@ package com.greenloop.event.entity;
 
 import jakarta.persistence.*;
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import lombok.*;
 
 @Entity
@@ -20,6 +19,6 @@ public class EventStaffAssignment extends BaseEntity implements Serializable {
   @JoinColumn(name = "event_id", nullable = false)
   private Event event;
 
-  @Column(name = "shift_time", nullable = false)
-  private LocalDateTime shiftTime;
+  @Column(name = "is_store_manager", nullable = false)
+  private boolean isStoreManager;
 }

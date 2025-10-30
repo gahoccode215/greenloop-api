@@ -6,7 +6,6 @@ import com.greenloop.event.dto.response.EventDetailResponse;
 import com.greenloop.event.dto.response.EventResponse;
 import com.greenloop.event.enums.EventStatus;
 import com.greenloop.event.service.EventService;
-import com.greenloop.event.utils.ErrorResponseUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,6 +21,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -48,6 +48,7 @@ public class EventController {
   @Operation(
       summary = "Create Event",
       description = "Create a new event with optional thumbnail image")
+  @PreAuthorize("hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
   public ResponseEntity<ApiResponseDTO<Long>> createEvent(
       @RequestPart("event") @Valid EventRequest request,
       @RequestPart(value = "thumbnail", required = false) MultipartFile multipartFile) {
@@ -58,6 +59,7 @@ public class EventController {
             .data(eventService.createEvent(request, multipartFile))
             .message("Event created successfully")
             .statusCode(HttpStatus.OK.value())
+            .success(true)
             .build());
   }
 
@@ -132,13 +134,14 @@ public class EventController {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
 
-    boolean isAdmin = roles.stream().anyMatch(r -> r.getAuthority().equals("ROLE_ADMIN"));
-    EventDetailResponse event = eventService.getEventByIdWithRole(id, isAdmin);
+    boolean isAdminOrManager =
+        roles.stream()
+            .anyMatch(
+                r ->
+                    r.getAuthority().equals("ROLE_ADMIN")
+                        || r.getAuthority().equals("ROLE_MANAGER"));
 
-    if (event == null) {
-      return ErrorResponseUtils.buildNotFoundResponse(
-          "Event not found or access denied", "/api/v1/events/" + id);
-    }
+    EventDetailResponse event = eventService.getEventByIdWithRole(id, isAdminOrManager);
 
     log.info("Received event by id: {}", event);
     return ResponseEntity.ok(
@@ -146,26 +149,23 @@ public class EventController {
   }
 
   /**
-   * Update an existing event with optional thumbnail image.
+   * Update an existing event by ID.
    *
    * @param id the ID of the event to update
-   * @param request the event request data
-   * @param multipartFile the optional thumbnail image file
+   * @param request the updated event data
    * @return ResponseEntity containing ApiResponseDTO with the ID of the updated event
    */
   @PutMapping("/{id}")
-  @Operation(
-      summary = "Update Event",
-      description = "Update an existing event with optional thumbnail image")
+  @Operation(summary = "Update Event", description = "Update an existing event by ID")
+  @PreAuthorize("hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
   public ResponseEntity<ApiResponseDTO<Long>> updateEvent(
-      @PathVariable Long id,
-      @RequestPart("event") @RequestBody @Valid EventRequest request,
-      @RequestPart(value = "thumbnail", required = false) MultipartFile multipartFile) {
+      @PathVariable Long id, @RequestBody @Valid EventRequest request) {
     log.info("Received request to update event: {}", request);
     return ResponseEntity.ok(
         ApiResponseDTO.<Long>builder()
-            .data(eventService.updateEvent(id, request, multipartFile))
+            .data(eventService.updateEvent(id, request))
             .message("Event updated successfully")
+            .statusCode(HttpStatus.OK.value())
             .build());
   }
 
@@ -177,17 +177,63 @@ public class EventController {
    */
   @PutMapping("{id}/activate")
   @Operation(summary = "Activate event", description = "Activate an event by ID")
+  @PreAuthorize("hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
   public ResponseEntity<ApiResponseDTO<Long>> activateEvent(@PathVariable Long id) {
     log.info("Received request to activate event with id: {}", id);
     Long activatedEventId = eventService.activateEvent(id);
-    if (activatedEventId == null) {
-      return ErrorResponseUtils.buildNotFoundResponse(
-          "Event not found or already active", "/api/v1/events/" + id + "/activate");
-    }
     return ResponseEntity.ok(
         ApiResponseDTO.<Long>builder()
             .data(activatedEventId)
             .message("Event activated successfully")
+            .statusCode(HttpStatus.OK.value())
+            .build());
+  }
+
+  /**
+   * Upload or update the thumbnail image for an existing event.
+   *
+   * @param id the ID of the event
+   * @param multipartFile the thumbnail image file
+   * @return ResponseEntity containing ApiResponseDTO with the ID of the event
+   */
+  @PutMapping(value = "/{id}/upload-thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @Operation(
+      summary = "Upload Event Thumbnail",
+      description = "Upload or update the thumbnail image for an existing event")
+  @PreAuthorize("hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
+  public ResponseEntity<ApiResponseDTO<Long>> uploadEventThumbnail(
+      @PathVariable Long id, @RequestPart("thumbnail") MultipartFile multipartFile) {
+    log.info("Received request to upload thumbnail for event id: {}", id);
+    Long updatedEventId = eventService.uploadEventThumbnail(id, multipartFile);
+    return ResponseEntity.ok(
+        ApiResponseDTO.<Long>builder()
+            .data(updatedEventId)
+            .message("Event activated successfully")
+            .statusCode(HttpStatus.OK.value())
+            .build());
+  }
+
+  /**
+   * Update the status of an existing event.
+   *
+   * @param id the ID of the event
+   * @param status the new status for the event
+   * @return ResponseEntity containing ApiResponseDTO with the ID of the updated event
+   */
+  @PutMapping("/{id}/status")
+  @Operation(
+      summary = "Update Event Status",
+      description = "Update the status of an existing event")
+  @PreAuthorize("hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
+  public ResponseEntity<ApiResponseDTO<Long>> updateEventStatus(
+      @PathVariable Long id, @RequestParam EventStatus status) {
+    log.info("Received request to update event status: {}", status);
+    Long updatedEventId = eventService.updateEventStatus(id, status);
+    return ResponseEntity.ok(
+        ApiResponseDTO.<Long>builder()
+            .data(updatedEventId)
+            .message("Event status updated successfully")
+            .statusCode(HttpStatus.OK.value())
             .build());
   }
 }

@@ -26,7 +26,11 @@ public interface EventService {
 
   EventDetailResponse getEventByIdWithRole(Long id, boolean isAdmin);
 
-  Long updateEvent(Long id, EventRequest request, MultipartFile multipartFile);
+  Long updateEvent(Long id, EventRequest request);
 
   Long activateEvent(Long id);
+
+  Long uploadEventThumbnail(Long id, MultipartFile multipartFile);
+
+  Long updateEventStatus(Long id, EventStatus status);
 }

@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -54,5 +55,15 @@ public class GlobalExceptionHandler {
                 "Internal server error",
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 request.getRequestURI()));
+  }
+
+  @ExceptionHandler(AuthorizationDeniedException.class)
+  public ResponseEntity<ApiResponseDTO<Object>> handleAccessDeniedException(
+      AuthorizationDeniedException ex, HttpServletRequest request) {
+
+    log.warn("Access denied on path {}: {}", request.getRequestURI(), ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(ApiResponseDTO.error("Access denied", HttpStatus.FORBIDDEN, request.getRequestURI()));
   }
 }

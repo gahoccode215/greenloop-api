@@ -6,6 +6,7 @@ import com.greenloop.user.dto.response.CreateEmployeeResponse;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.service.UserService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -49,5 +50,19 @@ public class UserController {
     return ResponseEntity.ok(
         ApiResponseDTO.success(
             "Lấy thông tin tất cả người dùng thành công", response, HttpStatus.OK));
+  }
+
+  @Hidden
+  @GetMapping("/users/{id}/info")
+  public ResponseEntity<UserProfileResponse> getUserInfoById(
+      @PathVariable("id") Long id,
+      @RequestHeader(value = "API_SECRET_HEADER", required = false) String apiSecret) {
+
+    if (!"greenloopsecret".equals(apiSecret)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    UserProfileResponse response = userService.getMyProfile(id);
+    return ResponseEntity.ok(response);
   }
 }
