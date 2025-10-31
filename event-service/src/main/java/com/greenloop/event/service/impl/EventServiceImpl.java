@@ -8,6 +8,7 @@ import com.greenloop.event.entity.Event;
 import com.greenloop.event.enums.ErrorCode;
 import com.greenloop.event.enums.EventStatus;
 import com.greenloop.event.exception.BusinessException;
+import com.greenloop.event.repository.EventRegistrationRepository;
 import com.greenloop.event.repository.EventRepository;
 import com.greenloop.event.service.CloudinaryService;
 import com.greenloop.event.service.EventService;
@@ -32,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class EventServiceImpl implements EventService {
 
   private final EventRepository eventRepository;
+  private final EventRegistrationRepository registrationRepository;
   private final CloudinaryService cloudinaryService;
   private final String localImagePath = "GreenLoop/Events";
   private final UserServiceFeign userServiceFeign;
@@ -51,7 +53,7 @@ public class EventServiceImpl implements EventService {
     Long userId =
         Long.valueOf(
             SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
-    log.info("Creating event with request: {} & user id {}", request, userId.toString());
+    log.info("Creating event with request: {} & user id {}", request, userId);
     validateTimeRange(request.getStartTime(), request.getEndTime());
     Event event =
         Event.builder()
@@ -79,20 +81,20 @@ public class EventServiceImpl implements EventService {
   }
 
   /**
-   * Retrieves a paginated list of events filtered by various criteria for customers. If the user is
-   * not an admin, only events with status PUBLISHED, UPCOMING, or ONGOING and with a start time in
-   * the future are returned.
+   * Retrieves a paginated list of events based on the provided filter criteria. If the user is not
+   * an admin, only events with status PUBLISHED, UPCOMING, or ONGOING and with a start time in the
+   * future are returned.
    *
    * @param code The event code to filter by.
    * @param status The event status to filter by.
    * @param search A search term to filter event names.
-   * @param startTime The start time to filter events from.
-   * @param endTime The end time to filter events to.
-   * @param createdAtStart The creation start time to filter events from.
-   * @param createdAtEnd The creation end time to filter events to.
+   * @param startTime The start time to filter events.
+   * @param endTime The end time to filter events.
+   * @param createdAtStart The creation start time to filter events.
+   * @param createdAtEnd The creation end time to filter events.
    * @param pageable The pagination information.
    * @param isAdmin Flag indicating if the user is an admin.
-   * @return A paginated list of filtered event responses.
+   * @return A paginated list of event responses matching the filter criteria.
    */
   @Override
   public Page<EventResponse> getEventsByFilterByCustomer(
@@ -158,8 +160,24 @@ public class EventServiceImpl implements EventService {
 
           return predicates;
         };
+    Page<Event> events = eventRepository.findAll(spec, pageable);
 
-    return eventRepository.findAll(spec, pageable).map(this::fromEntity);
+    List<Long> registeredEventIds =
+        registrationRepository.findByUserIdAndIsActiveTrue(getCurrentUserId()).stream()
+            .map(reg -> reg.getEvent().getId())
+            .toList();
+    return events.map(
+        event ->
+            EventResponse.builder()
+                .id(event.getId())
+                .code(event.getCode())
+                .name(event.getName())
+                .location(event.getLocationDetail())
+                .startTime(event.getStartTime())
+                .endTime(event.getEndTime())
+                .status(event.getStatus())
+                .isRegistered(registeredEventIds.contains(event.getId()))
+                .build());
   }
 
   /**
@@ -188,8 +206,16 @@ public class EventServiceImpl implements EventService {
         throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
       }
     }
+    boolean isRegistered = false;
 
-    return fromEntityToDetailResponse(event);
+    if (!isAdmin) {
+      Long userId =
+          Long.valueOf(
+              SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+      isRegistered = registrationRepository.existsByEventIdAndUserIdAndIsActiveTrue(id, userId);
+    }
+
+    return fromEntityToDetailResponse(event, isRegistered);
   }
 
   /**
@@ -309,8 +335,8 @@ public class EventServiceImpl implements EventService {
    *   <li>CANCELED: Always allowed.
    * </ul>
    *
-   * If the status transition is valid, the event's status is updated, and the event is saved to the
-   * repository.
+   * <p>If the status transition is valid, the event's status is updated, and the event is saved to
+   * the repository.
    *
    * @param id The ID of the event to update.
    * @param status The new status to set for the event.
@@ -362,7 +388,7 @@ public class EventServiceImpl implements EventService {
     return event.getId();
   }
 
-  private EventDetailResponse fromEntityToDetailResponse(Event event) {
+  private EventDetailResponse fromEntityToDetailResponse(Event event, boolean isRegistered) {
 
     UserProfileResponse creatorInfo = null;
     UserProfileResponse updaterInfo = null;
@@ -407,6 +433,7 @@ public class EventServiceImpl implements EventService {
         .startTime(event.getStartTime())
         .endTime(event.getEndTime())
         .status(event.getStatus())
+        .isRegistered(isRegistered)
         .googlePlaceId(event.getGooglePlaceId())
         .totalRegistrations(event.getRegistrations() != null ? event.getRegistrations().size() : 0)
         .totalStaffs(event.getStaffAssignments() != null ? event.getStaffAssignments().size() : 0)
@@ -417,17 +444,6 @@ public class EventServiceImpl implements EventService {
         .updatedAt(event.getUpdatedAt())
         .updatedBy(event.getUpdatedBy())
         .updatedByName(updaterInfo != null ? updaterInfo.getFullName() : null)
-        .build();
-  }
-
-  private EventResponse fromEntity(Event event) {
-    return EventResponse.builder()
-        .id(event.getId())
-        .code(event.getCode())
-        .name(event.getName())
-        .startTime(event.getStartTime())
-        .endTime(event.getEndTime())
-        .status(event.getStatus())
         .build();
   }
 
@@ -486,5 +502,10 @@ public class EventServiceImpl implements EventService {
     if (endTime.isBefore(LocalDateTime.now())) {
       throw new BusinessException(ErrorCode.EVENT_END_TIME_PAST);
     }
+  }
+
+  private Long getCurrentUserId() {
+    return Long.valueOf(
+        SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
   }
 }

@@ -36,7 +36,9 @@ public enum ErrorCode {
   INVALID_ROLE("2002", "Invalid Role for Assignment", HttpStatus.BAD_REQUEST),
 
   // User Related Errors
-  USER_NOT_FOUND("3000", "User Not Found", HttpStatus.NOT_FOUND);
+  USER_NOT_FOUND("3000", "User Not Found", HttpStatus.NOT_FOUND),
+  ALREADY_REGISTERED("3001", "User Already Registered to Event", HttpStatus.BAD_REQUEST),
+  REGISTRATION_NOT_FOUND("3002", "Event Registration Not Found", HttpStatus.NOT_FOUND);
 
   private final String code;
   private final String message;

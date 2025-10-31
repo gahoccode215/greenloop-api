@@ -19,4 +19,5 @@ public class EventResponse {
   private LocalDateTime startTime;
   private LocalDateTime endTime;
   private EventStatus status;
+  private Boolean isRegistered;
 }

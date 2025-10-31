@@ -101,7 +101,14 @@ public class EventController {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
 
-    boolean isAdmin = roles.stream().anyMatch(r -> r.getAuthority().equals("ROLE_ADMIN"));
+    boolean isAdmin =
+        roles.stream()
+            .anyMatch(
+                r ->
+                    r.getAuthority().equals("ROLE_ADMIN")
+                        || r.getAuthority().equals("ROLE_MANAGER")
+                        || r.getAuthority().equals("ROLE_STAFF")
+                        || r.getAuthority().equals("ROLE_STORE_MANAGER"));
 
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
@@ -134,14 +141,16 @@ public class EventController {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
 
-    boolean isAdminOrManager =
+    boolean isAdmin =
         roles.stream()
             .anyMatch(
                 r ->
                     r.getAuthority().equals("ROLE_ADMIN")
-                        || r.getAuthority().equals("ROLE_MANAGER"));
+                        || r.getAuthority().equals("ROLE_MANAGER")
+                        || r.getAuthority().equals("ROLE_STAFF")
+                        || r.getAuthority().equals("ROLE_STORE_MANAGER"));
 
-    EventDetailResponse event = eventService.getEventByIdWithRole(id, isAdminOrManager);
+    EventDetailResponse event = eventService.getEventByIdWithRole(id, isAdmin);
 
     log.info("Received event by id: {}", event);
     return ResponseEntity.ok(
