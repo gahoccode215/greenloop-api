@@ -10,7 +10,4 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 public interface UserService extends UserDetailsService {
   UserProfileResponse getMyProfile(Long userId);
 
-  CreateEmployeeResponse createEmployee(CreateEmployeeRequest request);
-
-  List<User> getAllUser();
 }

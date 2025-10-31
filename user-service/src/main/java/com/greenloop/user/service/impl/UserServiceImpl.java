@@ -55,45 +55,4 @@ public class UserServiceImpl implements UserService {
         .build();
   }
 
-  @Override
-  @Transactional
-  public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
-    if (userRepository.existsByEmail(request.getEmail())) {
-      throw new EmailAlreadyExistsException();
-    }
-    Role role =
-        roleRepository
-            .findByName(request.getRole())
-            .orElseThrow(() -> new RoleNotFoundException(request.getRole()));
-    String tempPassword = passwordGenerator.generateTemporaryPassword();
-    log.info("Generated temporary password for {}: {}", request.getEmail(), tempPassword);
-    User employee =
-        User.builder()
-            .email(request.getEmail())
-            .fullName(request.getFullName())
-            .phone(request.getPhoneNumber())
-            .roles(List.of(role))
-            .password(passwordEncoder.encode(tempPassword))
-            .provider("LOCAL")
-            .isEmailVerified(false)
-            .build();
-    User savedEmployee = userRepository.save(employee);
-
-    log.info("Employee {} created successfully", savedEmployee.getEmail());
-
-    return CreateEmployeeResponse.builder()
-        .id(savedEmployee.getId())
-        .email(savedEmployee.getEmail())
-        .fullName(savedEmployee.getFullName())
-        .role(role.getName())
-        .isActive(savedEmployee.isActive())
-        .temporaryPassword(tempPassword)
-        .message("Nhân viên đã được tạo. Vui lòng cung cấp mật khẩu tạm cho nhân viên.")
-        .build();
-  }
-
-  @Override
-  public List<User> getAllUser() {
-    return userRepository.findAll();
-  }
 }

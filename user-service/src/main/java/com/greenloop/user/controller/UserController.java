@@ -35,19 +35,4 @@ public class UserController {
         ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
   }
 
-  @PostMapping("/admin/users")
-  public ResponseEntity<ApiResponseDTO<CreateEmployeeResponse>> createUser(
-      @RequestBody CreateEmployeeRequest request) {
-    CreateEmployeeResponse response = userService.createEmployee(request);
-    return ResponseEntity.ok(
-        ApiResponseDTO.success("Tạo tài khoản nhân viên thành công", response, HttpStatus.OK));
-  }
-
-  @GetMapping("/admin/users")
-  public ResponseEntity<ApiResponseDTO<List<User>>> getAllUser() {
-    List<User> response = userService.getAllUser();
-    return ResponseEntity.ok(
-        ApiResponseDTO.success(
-            "Lấy thông tin tất cả người dùng thành công", response, HttpStatus.OK));
-  }
 }

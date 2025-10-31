@@ -49,10 +49,10 @@ public class DataInit implements CommandLineRunner {
     Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
     Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
 
-    createUserIfNotExists("customer@greeloop.com", "Customer123", userRole, "Customer");
-    createUserIfNotExists("admin@greeloop.com", "Admin123", adminRole, "Admin");
-    createUserIfNotExists("manager@greeloop.com", "Manager123", managerRole, "Manager");
-    createUserIfNotExists("staff@greeloop.com", "Staff123", staffRole, "Staff");
+    createUserIfNotExists("customer@greenloop.com", "Customer123", userRole, "Customer");
+    createUserIfNotExists("admin@greenloop.com", "Admin123", adminRole, "Admin");
+    createUserIfNotExists("manager@greenloop.com", "Manager123", managerRole, "Manager");
+    createUserIfNotExists("staff@greenloop.com", "Staff123", staffRole, "Staff");
 
     log.info("Default users initialized successfully");
   }

@@ -31,7 +31,7 @@ public class User extends BaseEntity implements UserDetails {
   @Column(name = "date_of_birth")
   private LocalDate dateOfBirth;
 
-  @Column(name = "phone", unique = true, length = 10)
+  @Column(name = "phone", unique = true, length = 20)
   private String phone;
 
   @Column(name = "gender", length = 10)
