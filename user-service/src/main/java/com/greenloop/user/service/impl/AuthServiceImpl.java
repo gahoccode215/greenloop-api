@@ -64,6 +64,10 @@ public class AuthServiceImpl implements AuthService {
     if (!user.isActive()) {
       throw new AccountDisabledException();
     }
+      if (user.getIsFirstLogin() != null && user.getIsFirstLogin()) {
+          log.info("First login required for: {}", request.getEmail());
+          throw new FirstLoginException("Tài khoản mới tạo yêu cầu đổi mật khẩu");
+      }
 
     String accessToken = jwtUtil.generateToken(user);
     String refreshToken = jwtUtil.generateRefreshToken(user);
@@ -202,6 +206,9 @@ public class AuthServiceImpl implements AuthService {
       throw new PasswordChangeException("Mật khẩu mới phải khác mật khẩu hiện tại");
     }
     user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+      if (user.getIsFirstLogin() != null && user.getIsFirstLogin()) {
+          user.setIsFirstLogin(false);
+      }
     userRepository.save(user);
 
     // Blacklist force logout
@@ -315,7 +322,44 @@ public class AuthServiceImpl implements AuthService {
     log.info("Password reset successful for: {}", request.getEmail());
   }
 
-  private void storeEmailVerificationOtp(String email, String otp) {
+    @Override
+    @Transactional
+    public void changePasswordFirstTime(ChangePasswordFirstTimeRequest request) {
+        log.info("First time password change for: {}", request.getEmail());
+
+        // Validate password confirm
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+        }
+
+        // Tìm user
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (user.getIsFirstLogin() == null || !user.getIsFirstLogin()) {
+            throw new PasswordChangeException("Tài khoản này đã đổi mật khẩu rồi");
+        }
+
+        // Validate temporary password
+        if (!passwordEncoder.matches(request.getTemporaryPassword(), user.getPassword())) {
+            throw new PasswordChangeException("Mật khẩu tạm thời không đúng");
+        }
+
+        // Validate new password khác temporary password
+        if (request.getNewPassword().equals(request.getTemporaryPassword())) {
+            throw new PasswordChangeException("Mật khẩu mới phải khác mật khẩu tạm thời");
+        }
+
+        // Update password + set isFirstLogin = false
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setIsFirstLogin(false);
+        userRepository.save(user);
+
+        log.info("First time password change completed for user: {}", request.getEmail());
+    }
+
+
+    private void storeEmailVerificationOtp(String email, String otp) {
     String key = emailVerificationPrefix + email;
     redisTemplate.opsForValue().set(key, otp, otpExpiryMinutes, TimeUnit.MINUTES);
   }

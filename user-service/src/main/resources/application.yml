@@ -28,6 +28,11 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
+  cloudinary:
+    cloudName: ${CLOUDINARY_NAME}
+    apiKey: ${CLOUDINARY_API_KEY}
+    apiSecret: ${CLOUDINARY_API_SECRET}
+
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -92,3 +97,5 @@ springdoc:
       - name: Direct (Internal)
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
 
+greenloop:
+  defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

@@ -147,6 +147,16 @@ public class AuthController {
             HttpStatus.OK));
   }
 
+    @PostMapping("/change-password-first-time")
+    @Operation(summary = "Change password  (for new employees)")
+    public ResponseEntity<ApiResponseDTO<Void>> changePasswordFirstTime(
+            @Valid @RequestBody ChangePasswordFirstTimeRequest request) {
+        log.info("Changing first time password for: {}", request.getEmail());
+        authService.changePasswordFirstTime(request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
+    }
+
   @Operation(
       summary = "Exchange OAuth2 temporary key",
       description = "Exchange temporary key from OAuth2 login for access token and refresh token")
@@ -220,6 +230,8 @@ public class AuthController {
     }
     return null;
   }
+
+
 
   @SuppressWarnings("unchecked")
   private List<String> castRoles(Object rolesObj) {
