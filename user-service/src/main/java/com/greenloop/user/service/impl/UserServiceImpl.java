@@ -1,17 +1,12 @@
 package com.greenloop.user.service.impl;
 
-import com.greenloop.user.dto.request.CreateEmployeeRequest;
-import com.greenloop.user.dto.response.CreateEmployeeResponse;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
-import com.greenloop.user.exception.EmailAlreadyExistsException;
-import com.greenloop.user.exception.RoleNotFoundException;
 import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.UserService;
-import com.greenloop.user.util.PasswordGenerator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
-  private final RoleRepository roleRepository;
-  private final PasswordGenerator passwordGenerator;
-  private final PasswordEncoder passwordEncoder;
 
   @Override
   @Transactional(readOnly = true)
