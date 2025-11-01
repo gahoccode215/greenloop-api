@@ -80,7 +80,6 @@ app:
     redis:
       email-verification-prefix: "otp:email_verification:"
       password-reset-prefix: "otp:password_reset:"
-
 springdoc:
   api-docs:
     enabled: true
