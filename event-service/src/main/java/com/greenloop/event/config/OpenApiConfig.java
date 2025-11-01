@@ -29,13 +29,13 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI customOpenAPI() {
-        Server gatewayServer = new Server();
-        gatewayServer.setUrl("https://" + gatewayHost);
-        gatewayServer.setDescription("Gateway (Production)");
+        Server gatewayServerProd = new Server();
+        gatewayServerProd.setUrl("https://" + gatewayHost);
+        gatewayServerProd.setDescription("Gateway (Production)");
 
-        String gatewayLocalhost = "http://localhost:8080";
-        gatewayServer.setUrl(gatewayLocalhost);
-        gatewayServer.setDescription("Gateway (Local)");
+        Server gatewayServerLocal = new Server();
+        gatewayServerLocal.setUrl("http://localhost:8080");
+        gatewayServerLocal.setDescription("Gateway (Local)");
 
         Server directServer = new Server();
         directServer.setUrl("http://" + serviceHost + ":" + servicePort);
@@ -43,7 +43,7 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .info(new Info().title("GreenLoop " + serviceName + " API").version("1.0.0"))
-                .servers(List.of(gatewayServer, directServer))
+                .servers(List.of(gatewayServerProd, gatewayServerLocal, directServer))
                 .components(
                         new Components()
                                 .addSecuritySchemes(
