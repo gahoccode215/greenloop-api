@@ -17,106 +17,105 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Config> {
 
-  private final JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-  private static final List<String> PUBLIC_PATHS =
-      List.of(
-          "/api/v1/auth/login",
-          "/api/v1/auth/register",
-          "/api/v1/auth/verify-email",
-          "/api/v1/auth/resend-verify-email-otp",
-          "/api/v1/auth/resend-reset-password-otp",
-          "/api/v1/auth/forgot-password",
-          "/api/v1/auth/reset-password",
-          "/api/v1/auth/oauth2/exchange",
-          "/oauth2/authorization/google",
-          "/login/oauth2/code/google",
-          "/oauth2/",
-          "/login/",
-          "/v3/api-docs",
-          "/swagger-ui",
-          "/swagger-ui.html",
-          "/webjars/swagger-ui");
+    private static final List<String> PUBLIC_PATHS =
+            List.of(
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/register",
+                    "/api/v1/auth/verify-email",
+                    "/api/v1/auth/resend-verify-email-otp",
+                    "/api/v1/auth/resend-reset-password-otp",
+                    "/api/v1/auth/forgot-password",
+                    "/api/v1/auth/reset-password",
+                    "/api/v1/auth/oauth2/exchange",
+                    "/oauth2/authorization/google",
+                    "/login/oauth2/code/google",
+                    "/oauth2/",
+                    "/login/",
+                    "/v3/api-docs",
+                    "/swagger-ui",
+                    "/swagger-ui.html",
+                    "/webjars/swagger-ui");
 
-  public JwtAuthFilter(JwtUtil jwtUtil) {
-    super(Config.class);
-    this.jwtUtil = jwtUtil;
-  }
-
-  @Override
-  public GatewayFilter apply(Config config) {
-    return (exchange, chain) -> {
-      ServerHttpRequest request = exchange.getRequest();
-      String path = request.getURI().getPath();
-
-      if (isPublicPath(path)) {
-        return chain.filter(exchange);
-      }
-
-      String token = extractToken(request);
-      if (token == null) {
-        return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
-      }
-
-      if (!jwtUtil.validateToken(token)) {
-        return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
-      }
-
-      try {
-        String userId = jwtUtil.extractUserId(token);
-        String username = jwtUtil.extractUsername(token);
-
-        List<String> roles = jwtUtil.extractRoles(token);
-        String rolesHeader = String.join(",", roles);
-
-        ServerHttpRequest modifiedRequest =
-            request
-                .mutate()
-                .header("X-User-ID", userId)
-                .header("X-Username", username)
-                .header("X-User-Roles", rolesHeader)
-                .header("Authorization", "Bearer " + token)
-                .build();
-        log.info("xxx" + modifiedRequest.getURI());
-
-        log.debug("JWT validated for user: {} with roles: {}", username, rolesHeader);
-        return chain.filter(exchange.mutate().request(modifiedRequest).build());
-
-      } catch (Exception e) {
-        log.error("Error processing JWT token", e);
-        return onError(exchange, "Token processing error", HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-    };
-  }
-
-  private boolean isPublicPath(String path) {
-    return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
-  }
-
-  private String extractToken(ServerHttpRequest request) {
-    String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-    if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-      return authHeader.substring(7);
+    public JwtAuthFilter(JwtUtil jwtUtil) {
+        super(Config.class);
+        this.jwtUtil = jwtUtil;
     }
-    return null;
-  }
 
-  private Mono<Void> onError(
-      org.springframework.web.server.ServerWebExchange exchange,
-      String message,
-      HttpStatus status) {
-    ServerHttpResponse response = exchange.getResponse();
-    response.setStatusCode(status);
-    response.getHeaders().add("Content-Type", "application/json");
+    @Override
+    public GatewayFilter apply(Config config) {
+        return (exchange, chain) -> {
+            ServerHttpRequest request = exchange.getRequest();
+            String path = request.getURI().getPath();
 
-    String body =
-        String.format(
-            "{\"success\":false,\"message\":\"%s\",\"statusCode\":%d}", message, status.value());
+            if (isPublicPath(path)) {
+                return chain.filter(exchange);
+            }
 
-    org.springframework.core.io.buffer.DataBuffer buffer =
-        response.bufferFactory().wrap(body.getBytes());
-    return response.writeWith(Mono.just(buffer));
-  }
+            String token = extractToken(request);
+            if (token == null) {
+                return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
+            }
 
-  public static class Config {}
+            if (!jwtUtil.validateToken(token)) {
+                return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+            }
+
+            try {
+                String userId = jwtUtil.extractUserId(token);
+                String username = jwtUtil.extractUsername(token);
+
+                List<String> roles = jwtUtil.extractRoles(token);
+                String rolesHeader = String.join(",", roles);
+
+                ServerHttpRequest modifiedRequest =
+                        request
+                                .mutate()
+                                .header("X-User-ID", userId)
+                                .header("X-Username", username)
+                                .header("X-User-Roles", rolesHeader)
+                                .header("Authorization", "Bearer " + token)
+                                .build();
+
+                log.debug("JWT validated for user: {} with roles: {}", username, roles);
+                return chain.filter(exchange.mutate().request(modifiedRequest).build());
+
+            } catch (Exception e) {
+                log.error("Error processing JWT token", e);
+                return onError(exchange, "Token processing error", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        };
+    }
+
+    private boolean isPublicPath(String path) {
+        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    }
+
+    private String extractToken(ServerHttpRequest request) {
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
+    }
+
+    private Mono<Void> onError(
+            org.springframework.web.server.ServerWebExchange exchange,
+            String message,
+            HttpStatus status) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().add("Content-Type", "application/json");
+
+        String body =
+                String.format(
+                        "{\"success\":false,\"message\":\"%s\",\"statusCode\":%d}", message, status.value());
+
+        org.springframework.core.io.buffer.DataBuffer buffer =
+                response.bufferFactory().wrap(body.getBytes());
+        return response.writeWith(Mono.just(buffer));
+    }
+
+    public static class Config {}
 }

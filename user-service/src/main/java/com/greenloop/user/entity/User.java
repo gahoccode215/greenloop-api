@@ -53,6 +53,7 @@ public class User extends BaseEntity implements UserDetails {
       joinColumns = @JoinColumn(name = "user_id"),
       inverseJoinColumns = @JoinColumn(name = "role_id"))
   @Builder.Default
+  @JsonIgnore
   private List<Role> roles = new ArrayList<>();
 
   @OneToMany(

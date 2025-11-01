@@ -44,7 +44,7 @@ public class JwtUtil {
     claims.put(JwtConstants.CLAIM_USER_ID, user.getId().toString());
     claims.put(JwtConstants.CLAIM_EMAIL, user.getEmail());
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
-    claims.put(JwtConstants.CLAIM_ROLE, roleNames);
+    claims.put(JwtConstants.CLAIM_ROLES, roleNames);
 
     claims.put(JwtConstants.CLAIM_JTI, UUID.randomUUID().toString());
     claims.put(JwtConstants.CLAIM_TYPE, JwtConstants.TOKEN_TYPE_ACCESS);

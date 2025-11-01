@@ -2,19 +2,23 @@ package com.greenloop.user.controller;
 
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.EmployeeResponse;
+import com.greenloop.user.dto.response.PageResponseDTO;
+import com.greenloop.user.entity.User;
+import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminEmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/employees")
@@ -24,12 +28,13 @@ import org.springframework.web.bind.annotation.*;
 public class AdminEmployeeController {
 
     private final AdminEmployeeService adminEmployeeService;
+    private final UserRepository userRepository;
 
     @GetMapping
     @Operation(
             summary = "Get employee list",
             description = "Retrieve paginated list of employees with optional search and filter. ADMIN can view STAFF and MANAGER, MANAGER can only view STAFF")
-    public ResponseEntity<ApiResponseDTO<Page<EmployeeResponse>>> getEmployees(
+    public ResponseEntity<ApiResponseDTO<PageResponseDTO<EmployeeResponse>>> getEmployees(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "Search by email, full name, or phone number")
@@ -52,11 +57,11 @@ public class AdminEmployeeController {
         Pageable pageable =
                 PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
 
-        Page<EmployeeResponse> employees = adminEmployeeService.getEmployees(search, status, pageable);
+        PageResponseDTO<EmployeeResponse> employees = adminEmployeeService.getEmployees(search, status, pageable);
 
         log.info(
                 "Retrieved {} employees out of {} total",
-                employees.getNumberOfElements(),
+                employees.getContent().size(),
                 employees.getTotalElements());
 
         return ResponseEntity.ok(
@@ -72,5 +77,10 @@ public class AdminEmployeeController {
         EmployeeResponse employee = adminEmployeeService.getEmployeeDetail(id);
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Lấy chi tiết nhân viên thành công", employee, HttpStatus.OK));
+    }
+    @GetMapping("/test")
+    public ResponseEntity<ApiResponseDTO<List<User>>> getMyProfile() {
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy thông tin cá nhân thành công", userRepository.findAll(), HttpStatus.OK));
     }
 }

@@ -2,11 +2,13 @@ package com.greenloop.user.service.impl;
 
 import com.greenloop.user.constant.RoleConstants;
 import com.greenloop.user.dto.response.EmployeeResponse;
+import com.greenloop.user.dto.response.PageResponseDTO;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.EmployeeNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminEmployeeService;
+import com.greenloop.user.util.PageResponseUtil;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     private final UserRepository userRepository;
 
     @Override
-    public Page<EmployeeResponse> getEmployees(String search, String status, Pageable pageable) {
+    public PageResponseDTO<EmployeeResponse> getEmployees(String search, String status, Pageable pageable) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
@@ -59,7 +61,10 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return userRepository.findAll(spec, pageable).map(this::mapUserToEmployeeResponse);
+        Page<EmployeeResponse> page = userRepository.findAll(spec, pageable)
+                .map(this::mapUserToEmployeeResponse);
+
+        return PageResponseUtil.toPageResponse(page);
     }
 
     @Override

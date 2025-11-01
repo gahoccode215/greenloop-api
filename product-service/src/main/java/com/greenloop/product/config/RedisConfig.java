@@ -1,4 +1,4 @@
-package com.greenloop.gateway.config;
+package com.greenloop.product.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
