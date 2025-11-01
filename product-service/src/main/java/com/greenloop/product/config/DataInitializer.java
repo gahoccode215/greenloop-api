@@ -2,7 +2,6 @@ package com.greenloop.product.config;
 
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Product;
-import com.greenloop.product.entity.ProductAsset;
 import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;

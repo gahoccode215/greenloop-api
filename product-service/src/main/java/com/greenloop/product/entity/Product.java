@@ -61,4 +61,14 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ProductAsset> assets = new HashSet<>();
+
+    public void addAsset(ProductAsset asset) {
+        assets.add(asset);
+        asset.setProduct(this);
+    }
+
+    public void removeAsset(ProductAsset asset) {
+        assets.remove(asset);
+        asset.setProduct(null);
+    }
 }
