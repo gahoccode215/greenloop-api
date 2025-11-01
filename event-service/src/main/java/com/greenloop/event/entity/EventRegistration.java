@@ -21,10 +21,10 @@ public class EventRegistration extends BaseEntity implements Serializable {
   @JoinColumn(name = "event_id", nullable = false)
   private Event event;
 
-  @Column(name = "qr_code", nullable = false)
+  @Column(name = "qr_code", nullable = false, unique = true, length = 20)
   private String qrCode;
 
-  @Column(name = "checkin_time", nullable = false)
+  @Column(name = "checkin_time")
   private LocalDateTime checkinTime;
 
   @Column(name = "note")

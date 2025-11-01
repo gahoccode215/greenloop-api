@@ -33,6 +33,10 @@ public class OpenApiConfig {
         gatewayServer.setUrl("https://" + gatewayHost);
         gatewayServer.setDescription("Gateway (Production)");
 
+        String gatewayLocalhost = "http://localhost:8080";
+        gatewayServer.setUrl(gatewayLocalhost);
+        gatewayServer.setDescription("Gateway (Local)");
+
         Server directServer = new Server();
         directServer.setUrl("http://" + serviceHost + ":" + servicePort);
         directServer.setDescription("Direct (Internal)");
