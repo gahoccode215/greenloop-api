@@ -18,4 +18,5 @@ public class UserEventDetailResponse {
   private LocalDateTime endTime;
   private LocalDateTime checkInTime;
   private RegistrationStatus registrationStatus;
+  private boolean isActive;
 }
