@@ -27,6 +27,7 @@ public class EventDetailResponse {
   private HashMap<String, String> googlePlaceId;
   private Integer totalRegistrations;
   private Integer totalStaffs;
+  private Boolean isRegistered;
   private Boolean isActive;
   private Long createdBy;
   private String createByName;

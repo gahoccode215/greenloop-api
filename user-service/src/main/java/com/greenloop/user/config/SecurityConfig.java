@@ -47,7 +47,8 @@ public class SecurityConfig {
     "/api/v1/auth/resend-verify-email-otp",
     "/api/v1/auth/oauth2/exchange",
     "/oauth2/**",
-    "/login/**"
+    "/login/**",
+    "/api/v1/users/*/**"
   };
 
   private final HeaderAuthFilter headerAuthFilter;

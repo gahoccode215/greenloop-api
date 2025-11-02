@@ -49,7 +49,10 @@ public class GatewayConfig {
         .route(
             "event-service",
             r ->
-                r.path("/api/v1/events/**")
+                r.path(
+                        "/api/v1/events/**",
+                        "/api/v1/event-staff/**",
+                        "/api/v1/event-registration/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://event-service"))
         .route(

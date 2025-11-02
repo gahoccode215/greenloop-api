@@ -1,22 +1,26 @@
 package com.greenloop.event.service.impl;
 
-import com.greenloop.event.dto.request.EventRequest;
-import com.greenloop.event.dto.response.EventDetailResponse;
-import com.greenloop.event.dto.response.EventResponse;
-import com.greenloop.event.dto.response.UserInfoResponse;
+import com.greenloop.event.constraint.RoleConstants;
+import com.greenloop.event.dto.request.*;
+import com.greenloop.event.dto.response.*;
 import com.greenloop.event.entity.Event;
+import com.greenloop.event.entity.EventRegistration;
+import com.greenloop.event.entity.EventStaffAssignment;
 import com.greenloop.event.enums.ErrorCode;
 import com.greenloop.event.enums.EventStatus;
+import com.greenloop.event.enums.RegistrationStatus;
 import com.greenloop.event.exception.BusinessException;
+import com.greenloop.event.repository.EventRegistrationRepository;
 import com.greenloop.event.repository.EventRepository;
+import com.greenloop.event.repository.EventStaffAssignmentRepository;
 import com.greenloop.event.service.CloudinaryService;
 import com.greenloop.event.service.EventService;
 import com.greenloop.event.service.UserServiceFeign;
+import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,9 +36,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class EventServiceImpl implements EventService {
 
   private final EventRepository eventRepository;
+  private final EventRegistrationRepository registrationRepository;
+  private final EventStaffAssignmentRepository assignmentRepository;
   private final CloudinaryService cloudinaryService;
   private final String localImagePath = "GreenLoop/Events";
-  private UserServiceFeign userServiceFeign;
+  private final UserServiceFeign userServiceFeign;
 
   /**
    * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -51,11 +57,11 @@ public class EventServiceImpl implements EventService {
     Long userId =
         Long.valueOf(
             SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
-    log.info("Creating event with request: {} & user id {}", request, userId.toString());
+    log.info("Creating event with request: {} & user id {}", request, userId);
     validateTimeRange(request.getStartTime(), request.getEndTime());
     Event event =
         Event.builder()
-            .code(randomCode(request.getStartTime()))
+            .code(randomCodeEventCode(request.getStartTime()))
             .description(request.getDescription())
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
@@ -79,20 +85,20 @@ public class EventServiceImpl implements EventService {
   }
 
   /**
-   * Retrieves a paginated list of events filtered by various criteria for customers. If the user is
-   * not an admin, only events with status PUBLISHED, UPCOMING, or ONGOING and with a start time in
-   * the future are returned.
+   * Retrieves a paginated list of events based on the provided filter criteria. If the user is not
+   * an admin, only events with status PUBLISHED, UPCOMING, or ONGOING and with a start time in the
+   * future are returned.
    *
    * @param code The event code to filter by.
    * @param status The event status to filter by.
    * @param search A search term to filter event names.
-   * @param startTime The start time to filter events from.
-   * @param endTime The end time to filter events to.
-   * @param createdAtStart The creation start time to filter events from.
-   * @param createdAtEnd The creation end time to filter events to.
+   * @param startTime The start time to filter events.
+   * @param endTime The end time to filter events.
+   * @param createdAtStart The creation start time to filter events.
+   * @param createdAtEnd The creation end time to filter events.
    * @param pageable The pagination information.
    * @param isAdmin Flag indicating if the user is an admin.
-   * @return A paginated list of filtered event responses.
+   * @return A paginated list of event responses matching the filter criteria.
    */
   @Override
   public Page<EventResponse> getEventsByFilterByCustomer(
@@ -122,7 +128,8 @@ public class EventServiceImpl implements EventService {
                 cb.and(
                     predicates,
                     root.get("status")
-                        .in(EventStatus.PUBLISHED, EventStatus.UPCOMING, EventStatus.ONGOING));
+                        .in(EventStatus.PUBLISHED, EventStatus.UPCOMING, EventStatus.ONGOING),
+                    cb.isTrue(root.get("isActive")));
           }
 
           if (search != null && !search.isEmpty()) {
@@ -158,8 +165,24 @@ public class EventServiceImpl implements EventService {
 
           return predicates;
         };
+    Page<Event> events = eventRepository.findAll(spec, pageable);
 
-    return eventRepository.findAll(spec, pageable).map(this::fromEntity);
+    List<Long> registeredEventIds =
+        registrationRepository.findByUserIdAndIsActiveTrue(getCurrentUserId()).stream()
+            .map(reg -> reg.getEvent().getId())
+            .toList();
+    return events.map(
+        event ->
+            EventResponse.builder()
+                .id(event.getId())
+                .code(event.getCode())
+                .name(event.getName())
+                .location(event.getLocationDetail())
+                .startTime(event.getStartTime())
+                .endTime(event.getEndTime())
+                .status(event.getStatus())
+                .isRegistered(registeredEventIds.contains(event.getId()))
+                .build());
   }
 
   /**
@@ -175,7 +198,7 @@ public class EventServiceImpl implements EventService {
   public EventDetailResponse getEventByIdWithRole(Long id, boolean isAdmin) {
     Optional<Event> optionalEvent = eventRepository.findById(id);
 
-    if (optionalEvent.isEmpty()) return null;
+    if (optionalEvent.isEmpty()) throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
 
     Event event = optionalEvent.get();
 
@@ -185,27 +208,32 @@ public class EventServiceImpl implements EventService {
 
       if (!allowedStatuses.contains(event.getStatus())
           || event.getEndTime().isBefore(LocalDateTime.now())) {
-        return null;
+        throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
       }
     }
+    boolean isRegistered = false;
 
-    return fromEntityToDetailResponse(event);
+    if (!isAdmin) {
+      Long userId =
+          Long.valueOf(
+              SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+      isRegistered = registrationRepository.existsByEventIdAndUserIdAndIsActiveTrue(id, userId);
+    }
+
+    return fromEntityToDetailResponse(event, isRegistered);
   }
 
   /**
-   * Updates an existing event with the provided request data and optional thumbnail image. The
-   * event's time range is validated to ensure the start time is before the end time, and both times
-   * are in the future. If a thumbnail image is provided, it is uploaded to Cloudinary, replacing
-   * any existing image. The event is then saved to the repository.
+   * Updates an existing event with the provided request data. The event's time range is validated
+   * to ensure the start time is before the end time, and both times are in the future. Only the
+   * fields provided in the request are updated; others remain unchanged.
    *
    * @param id The ID of the event to update.
-   * @param request The request data for updating the event.
-   * @param multipartFile The optional thumbnail image file.
+   * @param request The request data containing updated event information.
    * @return The ID of the updated event.
-   * @throws BusinessException if the event is not found or if there are validation errors.
    */
   @Override
-  public Long updateEvent(Long id, EventRequest request, MultipartFile multipartFile) {
+  public Long updateEvent(Long id, EventUpdateRequest request) {
     Long userId =
         Long.valueOf(
             SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
@@ -235,10 +263,6 @@ public class EventServiceImpl implements EventService {
           request.getLongitude() != null ? request.getLongitude() : event.getLongitude());
       event.setStatus(request.getStatus() != null ? request.getStatus() : event.getStatus());
       event.setNote(request.getNote() != null ? request.getNote() : event.getNote());
-
-      if (multipartFile != null && !multipartFile.isEmpty()) {
-        handleImageUpload(event, multipartFile);
-      }
 
       event.updatedBy(userId);
       eventRepository.save(event);
@@ -273,23 +297,133 @@ public class EventServiceImpl implements EventService {
       log.info("Event activation status changed successfully for ID: {}", event.getId());
       return event.getId();
     }
-    return null;
+    throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
   }
 
-  private EventDetailResponse fromEntityToDetailResponse(Event event) {
-    UserInfoResponse creatorInfo = null;
-    UserInfoResponse updaterInfo = null;
+  /**
+   * Uploads a thumbnail image for an event by its ID. If the event is found, the provided image
+   * file is uploaded to Cloudinary, replacing any existing image associated with the event. The
+   * event is then updated with the new image URL and media key.
+   *
+   * @param id The ID of the event to upload the thumbnail for.
+   * @param multipartFile The image file to upload as the thumbnail.
+   * @return The ID of the event if found and updated, otherwise null.
+   */
+  @Override
+  public Long uploadEventThumbnail(Long id, MultipartFile multipartFile) {
+    Long userId =
+        Long.valueOf(
+            SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+    log.info("Uploading thumbnail for event with id: {}", id);
+    Optional<Event> optionalEvent = eventRepository.findById(id);
+    if (optionalEvent.isPresent()) {
+      Event event = optionalEvent.get();
 
-    if (event.getCreatedBy() != null) {
-      creatorInfo = userServiceFeign.getUserInfoById(event.getCreatedBy());
+      handleImageUpload(event, multipartFile);
+
+      event.updatedBy(userId);
+      eventRepository.save(event);
+      log.info("Event thumbnail uploaded successfully for ID: {}", event.getId());
+      return event.getId();
+    }
+    throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+  }
+
+  /**
+   * Updates the status of an event based on its ID and the desired new status. The method validates
+   * the status transition according to predefined rules:
+   *
+   * <ul>
+   *   <li>CREATED, PUBLISHED, UPCOMING: Start time must be in the future.
+   *   <li>ONGOING: Current time must be between start and end times.
+   *   <li>CLOSED: End time must be in the past.
+   *   <li>CANCELED: Always allowed.
+   * </ul>
+   *
+   * <p>If the status transition is valid, the event's status is updated, and the event is saved to
+   * the repository.
+   *
+   * @param id The ID of the event to update.
+   * @param status The new status to set for the event.
+   * @return The ID of the updated event.
+   * @throws BusinessException if the event is not found or if the status transition is invalid.
+   */
+  @Override
+  public Long updateEventStatus(Long id, EventStatus status) {
+    Long userId =
+        Long.valueOf(
+            SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+    log.info("Updating status for event with id: {} to status: {}", id, status);
+
+    Event event =
+        eventRepository
+            .findById(id)
+            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+
+    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime start = event.getStartTime();
+    LocalDateTime end = event.getEndTime();
+
+    switch (status) {
+      case CREATED, PUBLISHED, UPCOMING -> {
+        if (start.isBefore(now)) {
+          throw new BusinessException(ErrorCode.INVALID_EVENT_STATUS);
+        }
+      }
+      case ONGOING -> {
+        if (start.isAfter(now) || end.isBefore(now)) {
+          throw new BusinessException(ErrorCode.INVALID_EVENT_STATUS);
+        }
+      }
+      case CLOSED -> {
+        if (end.isAfter(now)) {
+          throw new BusinessException(ErrorCode.INVALID_EVENT_STATUS);
+        }
+      }
+      case CANCELED -> {
+        // always allowed
+      }
+      default -> throw new BusinessException(ErrorCode.INVALID_EVENT_STATUS);
     }
 
-    if (event.getUpdatedBy() != null) {
-      if (creatorInfo == null || !event.getUpdatedBy().equals(creatorInfo.getId())) {
-        updaterInfo = userServiceFeign.getUserInfoById(event.getUpdatedBy());
-      } else {
-        updaterInfo = creatorInfo;
+    event.setStatus(status);
+    event.updatedBy(userId);
+    eventRepository.save(event);
+    log.info("Event status updated successfully for ID: {}", event.getId());
+    return event.getId();
+  }
+
+  private EventDetailResponse fromEntityToDetailResponse(Event event, boolean isRegistered) {
+
+    UserProfileResponse creatorInfo = null;
+    UserProfileResponse updaterInfo = null;
+
+    try {
+      if (event.getCreatedBy() != null) {
+        creatorInfo = userServiceFeign.getUserInfoById(event.getCreatedBy());
       }
+    } catch (Exception e) {
+      log.error(
+          "Failed to get creator info for userId {}: {}", event.getCreatedBy(), e.getMessage());
+    }
+
+    try {
+      if (event.getUpdatedBy() != null) {
+        if (creatorInfo == null || !event.getUpdatedBy().equals(creatorInfo.getUserId())) {
+          try {
+            updaterInfo = userServiceFeign.getUserInfoById(event.getUpdatedBy());
+          } catch (Exception e) {
+            log.error(
+                "Failed to get updater info for userId {}: {}",
+                event.getUpdatedBy(),
+                e.getMessage());
+          }
+        } else {
+          updaterInfo = creatorInfo;
+        }
+      }
+    } catch (Exception e) {
+      log.error("Unexpected error when fetching updater info: {}", e.getMessage());
     }
 
     return EventDetailResponse.builder()
@@ -304,6 +438,7 @@ public class EventServiceImpl implements EventService {
         .startTime(event.getStartTime())
         .endTime(event.getEndTime())
         .status(event.getStatus())
+        .isRegistered(isRegistered)
         .googlePlaceId(event.getGooglePlaceId())
         .totalRegistrations(event.getRegistrations() != null ? event.getRegistrations().size() : 0)
         .totalStaffs(event.getStaffAssignments() != null ? event.getStaffAssignments().size() : 0)
@@ -317,17 +452,6 @@ public class EventServiceImpl implements EventService {
         .build();
   }
 
-  private EventResponse fromEntity(Event event) {
-    return EventResponse.builder()
-        .id(event.getId())
-        .code(event.getCode())
-        .name(event.getName())
-        .startTime(event.getStartTime())
-        .endTime(event.getEndTime())
-        .status(event.getStatus())
-        .build();
-  }
-
   /**
    * Generates a random event code in the format "EV_ddMMyy_ss". - "EV" is a static prefix. -
    * "ddMMyy" is the current date in day, month, year format. - "ss" is the current second, padded
@@ -336,7 +460,7 @@ public class EventServiceImpl implements EventService {
    * @return A unique event code.
    */
   // Example: EV_010123_45 for an event created on January 1,
-  private String randomCode(LocalDateTime startTime) {
+  private String randomCodeEventCode(LocalDateTime startTime) {
     LocalDateTime now = LocalDateTime.now();
     String datePart = startTime.format(DateTimeFormatter.ofPattern("ddMMyy"));
     String secondPart = String.format("%06d", now.getSecond());
@@ -364,6 +488,415 @@ public class EventServiceImpl implements EventService {
       log.error("Error while uploading cinema image: {}", e.getMessage(), e);
       throw new BusinessException(ErrorCode.UPLOAD_IMAGE_ERROR);
     }
+  }
+
+  /**
+   * Assign staff members to an event.
+   *
+   * @param request the request containing event ID and staff assignments
+   * @throws BusinessException if the event is not found, user not found, staff already assigned,
+   *     invalid role, or store manager already assigned
+   */
+  @Override
+  @Transactional
+  public void assignStaffToEvent(AssignStaffListRequest request) {
+    Long currentUserId =
+        Long.valueOf(
+            SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+    log.info("User {} is assigning staff to event {}", currentUserId, request.getEventId());
+    Event event =
+        eventRepository
+            .findById(request.getEventId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+
+    boolean hasStoreManager =
+        assignmentRepository.existsByEventIdAndIsStoreManagerTrue(event.getId());
+    List<EventStaffAssignment> assignments = new ArrayList<>();
+
+    for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
+      UserProfileResponse user = userServiceFeign.getUserInfoById(dto.getStaffId());
+      if (user == null || Boolean.FALSE.equals(user.getIsActive())) {
+        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+      }
+
+      if (assignmentRepository.existsByEventIdAndStaffId(event.getId(), dto.getStaffId())) {
+        throw new BusinessException(ErrorCode.STAFF_ALREADY_ASSIGNED);
+      }
+
+      if (dto.isStoreManager()) {
+        if (!user.getRoles().contains(RoleConstants.STORE_MANAGER)) {
+          throw new BusinessException(ErrorCode.INVALID_ROLE);
+        }
+        if (hasStoreManager) {
+          throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
+        }
+        hasStoreManager = true;
+      } else {
+        if (!user.getRoles().contains(RoleConstants.STAFF)) {
+          throw new BusinessException(ErrorCode.INVALID_ROLE);
+        }
+      }
+
+      EventStaffAssignment assignment =
+          EventStaffAssignment.builder()
+              .event(event)
+              .staffId(dto.getStaffId())
+              .isStoreManager(dto.isStoreManager())
+              .build();
+      assignment.createdBy(currentUserId);
+      assignments.add(assignment);
+    }
+    assignmentRepository.saveAll(assignments);
+    log.info(
+        "User {} successfully assigned staff to event {}", currentUserId, request.getEventId());
+  }
+
+  /**
+   * Update staff assignments for an event.
+   *
+   * @param eventId the ID of the event
+   * @param request the request containing updated staff assignments
+   * @throws BusinessException if the event is not found or store manager already assigned
+   */
+  @Transactional
+  public void updateStaffAssignments(Long eventId, AssignStaffListRequest request) {
+    Long currentUserId =
+        Long.valueOf(
+            SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+    log.info("User {} is updating staff assignments for event {}", currentUserId, eventId);
+    Event event =
+        eventRepository
+            .findById(eventId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+
+    List<EventStaffAssignment> currentAssignments =
+        assignmentRepository.findByEventIdAndIsActiveTrue(eventId);
+
+    Map<Long, Boolean> newAssignments =
+        request.getStaffAssignments().stream()
+            .collect(
+                Collectors.toMap(
+                    AssignStaffListRequest.StaffAssignmentDTO::getStaffId,
+                    AssignStaffListRequest.StaffAssignmentDTO::isStoreManager));
+
+    currentAssignments.stream()
+        .filter(a -> !newAssignments.containsKey(a.getStaffId()))
+        .forEach(
+            a -> {
+              a.setActive(false);
+              a.updatedBy(currentUserId);
+            });
+
+    Set<Long> currentStaffIds =
+        currentAssignments.stream()
+            .map(EventStaffAssignment::getStaffId)
+            .collect(Collectors.toSet());
+
+    List<EventStaffAssignment> toAdd =
+        newAssignments.entrySet().stream()
+            .filter(e -> !currentStaffIds.contains(e.getKey()))
+            .map(
+                e ->
+                    EventStaffAssignment.builder()
+                        .event(event)
+                        .staffId(e.getKey())
+                        .isStoreManager(e.getValue())
+                        .build())
+            .toList();
+    assignmentRepository.saveAll(toAdd);
+
+    currentAssignments.stream()
+        .filter(a -> newAssignments.containsKey(a.getStaffId()))
+        .filter(a -> a.isStoreManager() != newAssignments.get(a.getStaffId()))
+        .forEach(
+            a -> {
+              a.setStoreManager(newAssignments.get(a.getStaffId()));
+              a.updatedBy(currentUserId);
+            });
+
+    assignmentRepository.saveAll(currentAssignments);
+
+    long storeManagerCount =
+        assignmentRepository.findByEventIdAndIsActiveTrue(eventId).stream()
+            .filter(EventStaffAssignment::isStoreManager)
+            .count();
+    if (storeManagerCount > 1) {
+      throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
+    }
+  }
+
+  /**
+   * Get the list of staff assigned to an event.
+   *
+   * @param eventId the ID of the event
+   * @return the list of staff assigned to the event
+   */
+  @Override
+  public List<EventStaffResponse> getStaffs(Long eventId) {
+    List<EventStaffAssignment> assignments = assignmentRepository.findByEventId(eventId);
+
+    return assignments.stream()
+        .map(
+            assignment -> {
+              UserProfileResponse user = userServiceFeign.getUserInfoById(assignment.getStaffId());
+
+              return EventStaffResponse.builder()
+                  .staffId(assignment.getStaffId())
+                  .fullName(user != null ? user.getFullName() : null)
+                  .email(user != null ? user.getEmail() : null)
+                  .isStoreManager(assignment.isStoreManager())
+                  .isActive(assignment.isActive())
+                  .createdAt(assignment.getCreatedAt())
+                  .updatedAt(assignment.getUpdatedAt())
+                  .build();
+            })
+        .toList();
+  }
+
+  /**
+   * Registers the current user to an event specified by eventId. Generates a unique QR code for the
+   * registration.
+   *
+   * @param eventId the ID of the event to register for
+   * @throws BusinessException if the event is not found or the user is already registered
+   */
+  @Override
+  public void registerUserToEvent(Long eventId, RegisterEventRequest request) {
+    Long userId = getCurrentUserId();
+    log.info("Registering user {} to event {}", userId, eventId);
+    Event event =
+        eventRepository
+            .findById(eventId)
+            .orElseThrow(
+                () -> {
+                  log.warn("Event {} not found for registration by user {}", eventId, userId);
+                  return new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+                });
+    boolean alreadyRegistered =
+        registrationRepository.existsByEventIdAndUserIdAndIsActiveTrue(eventId, userId);
+    if (alreadyRegistered) {
+      log.warn("User {} is already registered to event {}", userId, eventId);
+      throw new BusinessException(ErrorCode.ALREADY_REGISTERED);
+    }
+    String qrCode = randomCodeCustomerCode(event.getStartTime());
+    EventRegistration registration =
+        EventRegistration.builder()
+            .qrCode(qrCode)
+            .event(event)
+            .userId(userId)
+            .status(RegistrationStatus.BOOKED)
+            .note(request.getNote())
+            .build();
+    registration.createdBy(userId);
+    registrationRepository.save(registration);
+    log.info(
+        "User {} successfully registered to event {} with QR code {}", userId, eventId, qrCode);
+  }
+
+  /**
+   * Checks in a user using their ticket code (QR code). Updates the registration status to ATTENDED
+   * and records the check-in time.
+   *
+   * @param ticketCode the QR code of the ticket
+   * @throws BusinessException if no active registration is found for the user with the given ticket
+   *     code
+   */
+  @Override
+  public void checkInByTicketCode(String ticketCode) {
+    Long userId = getCurrentUserId();
+    log.info("Checking in staff {} with ticket code {}", userId, ticketCode);
+    EventRegistration registration =
+        registrationRepository
+            .findByQrCodeAndIsActiveTrue(ticketCode)
+            .orElseThrow(
+                () -> {
+                  log.warn(
+                      "No active registration found for user {} with ticket code {}",
+                      userId,
+                      ticketCode);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    registration.setStatus(RegistrationStatus.ATTENDED);
+    registration.setCheckinTime(LocalDateTime.now());
+    registration.updatedBy(userId);
+    registrationRepository.save(registration);
+    log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
+  }
+
+  /**
+   * Cancels the event registration for the current user for a specific event.
+   *
+   * @param eventId the ID of the event to cancel registration for
+   * @throws BusinessException if no active registration is found for the user and event
+   */
+  @Override
+  public void cancelEventRegistration(Long eventId) {
+    Long userId = getCurrentUserId();
+    log.info("Cancelling registration for user {} to event {}", userId, eventId);
+    EventRegistration registration =
+        registrationRepository
+            .findByEventIdAndUserIdAndIsActiveTrue(eventId, userId)
+            .orElseThrow(
+                () -> {
+                  log.warn(
+                      "No active registration found for user {} and event {}", userId, eventId);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    registration.setActive(false);
+    registration.setStatus(RegistrationStatus.CANCELED);
+    registration.updatedBy(userId);
+    registrationRepository.save(registration);
+    log.info("User {} successfully cancelled registration to event {}", userId, eventId);
+  }
+
+  /**
+   * Updates the registration status for a specific user and event.
+   *
+   * @param eventId the ID of the event
+   * @param updateRegistrationStatusRequest the request containing user ID and new registration
+   *     status
+   * @throws BusinessException if no active registration is found for the user and event
+   */
+  @Override
+  public void updateRegistrationStatus(
+      Long eventId, UpdateRegistrationStatusRequest updateRegistrationStatusRequest) {
+    Long currentUserId = getCurrentUserId();
+    log.info(
+        "Updating registration status for user {} to event {}",
+        updateRegistrationStatusRequest.getUserId(),
+        eventId);
+    EventRegistration registration =
+        registrationRepository
+            .findByEventIdAndUserIdAndIsActiveTrue(
+                eventId, updateRegistrationStatusRequest.getUserId())
+            .orElseThrow(
+                () -> {
+                  log.warn(
+                      "No active registration found for user {} and event {}",
+                      updateRegistrationStatusRequest.getUserId(),
+                      eventId);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    registration.setStatus(updateRegistrationStatusRequest.getRegistrationStatus());
+    registration.updatedBy(currentUserId);
+    registrationRepository.save(registration);
+    log.info(
+        "Successfully updated registration status for user {} to event {}",
+        updateRegistrationStatusRequest.getUserId(),
+        eventId);
+  }
+
+  /**
+   * Retrieves a list of events the current user has registered for.
+   *
+   * @return a list of UserEventResponse containing the user's registered events
+   */
+  @Override
+  public List<UserEventResponse> getUserRegisteredEvents() {
+    Long userId = getCurrentUserId();
+    log.info("Fetching registered events for user {}", userId);
+    List<EventRegistration> registrations = registrationRepository.findByUserId(userId);
+    return registrations.stream()
+        .map(
+            reg -> {
+              Event event = reg.getEvent();
+              return UserEventResponse.builder()
+                  .eventId(event.getId())
+                  .eventName(event.getName())
+                  .startTime(event.getStartTime())
+                  .endTime(event.getEndTime())
+                  .registrationStatus(reg.getStatus())
+                  .build();
+            })
+        .toList();
+  }
+
+  /**
+   * Retrieves detailed information about a user's registration for a specific event.
+   *
+   * @param eventId the ID of the event
+   * @return a UserEventDetailResponse containing detailed registration information
+   * @throws BusinessException if no active registration is found for the user and event
+   */
+  @Override
+  public List<UserEventDetailResponse> getUserEventDetail(Long eventId) {
+    log.info("Fetching user event detail for event {} and current user", eventId);
+
+    Long userId = getCurrentUserId();
+
+    List<EventRegistration> registrations = registrationRepository.findByUserId(userId);
+
+    if (registrations.isEmpty()) {
+      log.warn("No active registration found for user {} and event {}", userId, eventId);
+      throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+    }
+
+    return registrations.stream()
+        .map(
+            registration -> {
+              Event event = registration.getEvent();
+              return UserEventDetailResponse.builder()
+                  .eventId(event.getId())
+                  .registrationId(registration.getId())
+                  .ticketCode(registration.getQrCode())
+                  .eventCode(event.getCode())
+                  .eventName(event.getName())
+                  .location(event.getLocationDetail())
+                  .startTime(event.getStartTime())
+                  .endTime(event.getEndTime())
+                  .checkInTime(registration.getCheckinTime())
+                  .registrationStatus(registration.getStatus())
+                  .isActive(registration.isActive())
+                  .build();
+            })
+        .toList();
+  }
+
+  /**
+   * Retrieves a paginated list of user registrations for a specific event, optionally filtered by
+   * registration status.
+   *
+   * @param eventId the ID of the event
+   * @param status the registration status to filter by (optional)
+   * @param pageable the pagination information
+   * @return a paginated list of EventUserRegistrationResponse containing user registrations
+   */
+  @Override
+  public Page<EventUserRegistrationResponse> getRegistrationsByEvent(
+      Long eventId, RegistrationStatus status, Pageable pageable) {
+    Page<EventRegistration> registrations;
+
+    if (status != null) {
+      registrations = registrationRepository.findByEventIdAndStatus(eventId, status, pageable);
+    } else {
+      registrations = registrationRepository.findByEventId(eventId, pageable);
+    }
+
+    return registrations.map(
+        reg -> {
+          UserProfileResponse user = userServiceFeign.getUserInfoById(reg.getUserId());
+          return EventUserRegistrationResponse.builder()
+              .userId(reg.getUserId())
+              .fullName(user != null ? user.getFullName() : null)
+              .email(user != null ? user.getEmail() : null)
+              .registrationStatus(reg.getStatus())
+              .checkInTime(reg.getCheckinTime())
+              .isActive(reg.isActive())
+              .createdAt(reg.getCreatedAt())
+              .build();
+        });
+  }
+
+  private Long getCurrentUserId() {
+    return Long.valueOf(
+        SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+  }
+
+  private String randomCodeCustomerCode(LocalDateTime startTime) {
+    LocalDateTime now = LocalDateTime.now();
+    String datePart = startTime.format(DateTimeFormatter.ofPattern("ddMMyy"));
+    String secondPart = String.format("%06d", now.getSecond());
+    return "CS_" + datePart + "_" + secondPart;
   }
 
   /**

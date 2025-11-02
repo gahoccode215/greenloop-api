@@ -57,9 +57,20 @@ public class JwtUtil {
 
   private boolean isBlacklisted(String jti) {
     if (jti == null) return false;
+    String key = REDIS_BLACKLIST_PREFIX + jti;
+
     try {
-      return redisTemplate.hasKey(REDIS_BLACKLIST_PREFIX + jti);
+      long startTime = System.nanoTime();
+      boolean result = redisTemplate.hasKey(key);
+      long endTime = System.nanoTime();
+
+      long latencyMs = (endTime - startTime) / 1_000_000;
+
+      log.info("[RedisLatency] hasKey('{}') took {} ms", key, latencyMs);
+
+      return result;
     } catch (Exception e) {
+      log.error("[RedisLatency] Error checking key '{}': {}", key, e.getMessage());
       return false;
     }
   }
