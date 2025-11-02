@@ -53,31 +53,31 @@ public class DataInit implements CommandLineRunner {
 
     // Customers
   createUserIfNotExists("customer@greenloop.com", "Customer123", userRole, "Customer");
-  createUserIfNotExists("customer1@greenloop.com", "Customer123", userRole, "Customer1");  // ✅ FIX
-  createUserIfNotExists("customer2@greenloop.com", "Customer123", userRole, "Customer2");  // ✅ FIX
-  createUserIfNotExists("customer3@greenloop.com", "Customer123", userRole, "Customer3");  // ✅ FIX
-  createUserIfNotExists("customer4@greenloop.com", "Customer123", userRole, "Customer4");  // ✅ FIX
-  createUserIfNotExists("customer5@greenloop.com", "Customer123", userRole, "Customer5");  // ✅ FIX
-  createUserIfNotExists("customer6@greenloop.com", "Customer123", userRole, "Customer6");  // ✅ FIX
+  createUserIfNotExists("customer1@greenloop.com", "Customer123", userRole, "Customer1");
+  createUserIfNotExists("customer2@greenloop.com", "Customer123", userRole, "Customer2");
+  createUserIfNotExists("customer3@greenloop.com", "Customer123", userRole, "Customer3");
+  createUserIfNotExists("customer4@greenloop.com", "Customer123", userRole, "Customer4");
+  createUserIfNotExists("customer5@greenloop.com", "Customer123", userRole, "Customer5");
+  createUserIfNotExists("customer6@greenloop.com", "Customer123", userRole, "Customer6");
 
   // Admins
   createUserIfNotExists("admin@greenloop.com", "Admin123", adminRole, "Admin");
-  createUserIfNotExists("admin1@greenloop.com", "Admin123", adminRole, "Admin1");  // ✅ FIX
+  createUserIfNotExists("admin1@greenloop.com", "Admin123", adminRole, "Admin1");  //
   createUserIfNotExists("admin2@greenloop.com", "Admin123", adminRole, "Admin2");  // 
 
     // Managers
   createUserIfNotExists("manager@greenloop.com", "Manager123", managerRole, "Manager");
-  createUserIfNotExists("manager1@greenloop.com", "Manager123", managerRole, "Manager1");  // ✅ FIX
-  createUserIfNotExists("manager2@greenloop.com", "Manager123", managerRole, "Manager2");  // ✅ FIX
-  createUserIfNotExists("manager3@greenloop.com", "Manager123", managerRole, "Manager3");  // ✅ FIX
-  createUserIfNotExists("manager4@greenloop.com", "Manager123", managerRole, "Manager4");  // ✅ FIX
+  createUserIfNotExists("manager1@greenloop.com", "Manager123", managerRole, "Manager1");
+  createUserIfNotExists("manager2@greenloop.com", "Manager123", managerRole, "Manager2");
+  createUserIfNotExists("manager3@greenloop.com", "Manager123", managerRole, "Manager3");
+  createUserIfNotExists("manager4@greenloop.com", "Manager123", managerRole, "Manager4");
 
    // Store Managers
-  createUserIfNotExists("store_manager1@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager1");  // ✅ FIX (typo + space)
-  createUserIfNotExists("store_manager2@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager2");  // ✅ FIX
-  createUserIfNotExists("store_manager3@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager3");  // ✅ FIX
-  createUserIfNotExists("store_manager4@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager4");  // ✅ FIX
-  createUserIfNotExists("store_manager5@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager5");  // ✅ FIX
+  createUserIfNotExists("store_manager1@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager1");
+  createUserIfNotExists("store_manager2@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager2");
+  createUserIfNotExists("store_manager3@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager3");
+  createUserIfNotExists("store_manager4@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager4");
+  createUserIfNotExists("store_manager5@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager5");
 
     createUserIfNotExists("staff@greenloop.com", "Staff123", staffRole, "Staff");
   createUserIfNotExists("staff1@greenloop.com", "Staff123", staffRole, "Staff1");  
