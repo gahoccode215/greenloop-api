@@ -33,7 +33,7 @@ public class AdminEmployeeController {
     private final AdminEmployeeService adminEmployeeService;
 
     @GetMapping
-//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(
             summary = "Get employee list",
             description = "Retrieve paginated list of employees. ADMIN can view STAFF and MANAGER, MANAGER can only view STAFF")
@@ -66,7 +66,7 @@ public class AdminEmployeeController {
     }
 
     @GetMapping("/{id}")
-//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(
             summary = "Get employee detail",
             description = "Retrieve detail information of an employee by id")
@@ -92,7 +92,7 @@ public class AdminEmployeeController {
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(
             summary = "Update employee",
             description = "Update employee information with optional avatar")

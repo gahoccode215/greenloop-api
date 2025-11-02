@@ -2,6 +2,8 @@ package com.greenloop.user.dto.response;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.greenloop.user.enums.Gender;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +20,7 @@ public class CustomerResponse {
   private String phoneNumber;
   private String avatarUrl;
   private LocalDate dateOfBirth;
+  private Gender gender;
   private String department;
   private Boolean isActive;
   private Boolean isEmailVerified;
