@@ -31,7 +31,7 @@ public class User extends BaseEntity implements UserDetails {
   @Column(name = "date_of_birth")
   private LocalDate dateOfBirth;
 
-  @Column(name = "phone", unique = true, length = 15)
+  @Column(name = "phone", unique = true, length = 20)
   private String phone;
 
   @Column(name = "gender", length = 10)
@@ -40,6 +40,9 @@ public class User extends BaseEntity implements UserDetails {
 
   @Column(name = "avatar_url")
   private String avatarUrl;
+
+  @Column(name = "is_active")
+  private Boolean isActive = true;
 
   @Column(name = "media_key")
   private String mediaKey;
@@ -53,6 +56,7 @@ public class User extends BaseEntity implements UserDetails {
       joinColumns = @JoinColumn(name = "user_id"),
       inverseJoinColumns = @JoinColumn(name = "role_id"))
   @Builder.Default
+  @JsonIgnore
   private List<Role> roles = new ArrayList<>();
 
   @OneToMany(
@@ -65,6 +69,10 @@ public class User extends BaseEntity implements UserDetails {
 
   @Column(name = "provider")
   private String provider;
+
+  @Column(name = "is_first_login")
+  @Builder.Default
+  private Boolean isFirstLogin = false;
 
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {

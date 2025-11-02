@@ -19,7 +19,7 @@ public class JwtUtil {
   private final RedisTemplate<String, String> redisTemplate;
 
   private final String CLAIM_USER_ID = "userId";
-  private final String CLAIM_ROLE = "roles";
+  private final String CLAIM_ROLES = "roles";
   private final String JTI = "jti";
   private final String REDIS_BLACKLIST_PREFIX = "bl:";
 
@@ -42,9 +42,8 @@ public class JwtUtil {
     return extractClaim(token, claims -> claims.get(CLAIM_USER_ID, String.class));
   }
 
-  @SuppressWarnings("unchecked")
   public List<String> extractRoles(String token) {
-    Object roles = extractClaim(token, claims -> claims.get(CLAIM_ROLE));
+    Object roles = extractClaim(token, claims -> claims.get(CLAIM_ROLES));
     if (roles instanceof List<?>) {
       return ((List<?>) roles).stream().map(Object::toString).toList();
     }

@@ -34,12 +34,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
   private static final String[] PUBLIC_ENDPOINTS = {
+    "/api/v1/admin/**",
     "/api/v1/auth/login",
     "/api/v1/auth/register",
     "/api/v1/auth/verify-email",
     "/api/v1/auth/resend-otp",
     "/api/v1/auth/forgot-password",
+    "/api/v1/auth/verify-reset-otp",
     "/api/v1/auth/reset-password",
+    "/api/v1/auth/change-password-first-time",
     "/api/v1/auth/resend-reset-password-otp",
     "/api/v1/auth/resend-verify-email-otp",
     "/api/v1/auth/oauth2/exchange",

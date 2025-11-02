@@ -4,7 +4,10 @@ server:
 spring:
   application:
     name: user-service
-
+  cache:
+    type: redis
+    redis:
+      time-to-live: 900000 # 15 minutes
   cloud:
     stream:
       bindings:
@@ -28,6 +31,11 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
+  cloudinary:
+    cloudName: ${CLOUDINARY_NAME}
+    apiKey: ${CLOUDINARY_API_KEY}
+    apiSecret: ${CLOUDINARY_API_SECRET}
+
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -38,6 +46,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      connect-timeout: 5000
+      timeout: 2000
 
   security:
     oauth2:
@@ -75,7 +85,6 @@ app:
     redis:
       email-verification-prefix: "otp:email_verification:"
       password-reset-prefix: "otp:password_reset:"
-
 springdoc:
   api-docs:
     enabled: true
@@ -92,3 +101,5 @@ springdoc:
       - name: Direct (Internal)
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
 
+greenloop:
+  defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

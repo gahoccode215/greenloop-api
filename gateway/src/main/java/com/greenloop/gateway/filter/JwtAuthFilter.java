@@ -78,7 +78,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 .header("Authorization", "Bearer " + token)
                 .build();
 
-        log.debug("JWT validated for user: {} with roles: {}", username, rolesHeader);
+        log.debug("JWT validated for user: {} with roles: {}", username, roles);
         return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
       } catch (Exception e) {

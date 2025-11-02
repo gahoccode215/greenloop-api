@@ -9,9 +9,9 @@ public class CreateEmployeeResponse {
   private Long id;
   private String email;
   private String fullName;
+  private String phoneNumber;
   private String role;
-  private String department;
+  private String temporaryPassword;
   private Boolean isActive;
-  private String temporaryPassword; // Chỉ hiển thị 1 lần
-  private String message;
+  private Boolean isEmailVerified;
 }
