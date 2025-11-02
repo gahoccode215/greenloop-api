@@ -305,22 +305,46 @@ public class AuthServiceImpl implements AuthService {
     streamBridge.send("passwordReset-out-0", event);
   }
 
-  @Override
-  @Transactional
-  public void resetPassword(ResetPasswordRequest request) {
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (!isPasswordResetOtpValid(request.getEmail(), request.getOtp())) {
-      throw new PasswordResetException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
+    @Override
+    @Transactional
+    public void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request) {
+        log.info("Verifying password reset OTP for: {}", request.getEmail());
+
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+
+        // Verify OTP
+        if (!isPasswordResetOtpValid(request.getEmail(), request.getOtp())) {
+            throw new PasswordResetException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
+        }
+
+        log.info("Password reset OTP verified for: {}", request.getEmail());
     }
 
-    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    userRepository.save(user);
-    deletePasswordResetOtp(request.getEmail());
-    log.info("Password reset successful for: {}", request.getEmail());
-  }
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        log.info("Resetting password for: {}", request.getEmail());
+
+        // Validate confirm password
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+        }
+
+        // Find user
+        User user = userRepository
+                .findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        deletePasswordResetOtp(request.getEmail());
+
+        log.info("Password reset successful for: {}", request.getEmail());
+    }
 
     @Override
     @Transactional
