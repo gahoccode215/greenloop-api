@@ -1,18 +1,20 @@
 package com.greenloop.user.service.impl;
 
+import com.greenloop.user.dto.request.UpdateProfileRequest;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
+import com.greenloop.user.exception.PhoneNumberAlreadyExistsException;
 import com.greenloop.user.exception.UserNotFoundException;
-import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.UserService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,18 +35,68 @@ public class UserServiceImpl implements UserService {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
+    log.info("Retrieving profile for user: {}", userId);
+
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+    return mapUserToProfileResponse(user);
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "user_profile", key = "#userId")
+  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
+    log.info("Updating profile for user: {}", userId);
+
+    User user =
+        userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+    if (request.getPhoneNumber() != null
+        && !request.getPhoneNumber().equals(user.getPhone())
+        && userRepository.existsByPhone(request.getPhoneNumber())) {
+      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+    }
+
+    if (request.getFullName() != null) {
+      user.setFullName(request.getFullName());
+    }
+    if (request.getDateOfBirth() != null) {
+      user.setDateOfBirth(request.getDateOfBirth());
+    }
+    if (request.getGender() != null) {
+      user.setGender(request.getGender());
+    }
+    if (request.getPhoneNumber() != null) {
+      user.setPhone(request.getPhoneNumber());
+    }
+
+    User updatedUser = userRepository.save(user);
+    log.info("Profile updated successfully for user: {}", userId);
+
+    return mapUserToProfileResponse(updatedUser);
+  }
+
+  private UserProfileResponse mapUserToProfileResponse(User user) {
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
-    log.info("Retrieved profile for user: {}", user.getEmail());
 
     return UserProfileResponse.builder()
         .userId(user.getId())
         .email(user.getEmail())
+        .fullName(user.getFullName())
+        .dateOfBirth(user.getDateOfBirth())
+        .gender(user.getGender() != null ? user.getGender().name() : null)
+        .phoneNumber(user.getPhone())
+        .avatarUrl(user.getAvatarUrl())
         .roles(roleNames)
         .isActive(user.isActive())
+        .isEmailVerified(user.getIsEmailVerified())
+        .provider(user.getProvider())
+        .createdAt(user.getCreatedAt())
+        .updatedAt(user.getUpdatedAt())
         .build();
   }
-
 }

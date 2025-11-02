@@ -1,9 +1,8 @@
 package com.greenloop.user.dto.response;
 
+import com.greenloop.user.enums.Gender;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
-import com.greenloop.user.enums.Gender;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

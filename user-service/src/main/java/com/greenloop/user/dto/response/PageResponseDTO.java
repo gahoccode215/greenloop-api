@@ -12,19 +12,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PageResponseDTO<T> {
 
-    private List<T> content;
+  private List<T> content;
 
-    private int pageNumber;
+  private int pageNumber;
 
-    private int pageSize;
+  private int pageSize;
 
-    private long totalElements;
+  private long totalElements;
 
-    private int totalPages;
+  private int totalPages;
 
-    private boolean first;
+  private boolean first;
 
-    private boolean last;
+  private boolean last;
 
-    private boolean empty;
+  private boolean empty;
 }

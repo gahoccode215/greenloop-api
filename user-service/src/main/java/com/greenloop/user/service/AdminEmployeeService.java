@@ -9,9 +9,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface AdminEmployeeService {
-    PageResponseDTO<EmployeeResponse> getEmployees(String search, String status, Pageable pageable);
-    EmployeeResponse getEmployeeDetail(Long id);
-    CreateEmployeeResponse createEmployee(CreateEmployeeRequest request, MultipartFile avatar);
-    EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar);
-    EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive);
+  PageResponseDTO<EmployeeResponse> getEmployees(String search, String status, Pageable pageable);
+
+  EmployeeResponse getEmployeeDetail(Long id);
+
+  CreateEmployeeResponse createEmployee(CreateEmployeeRequest request, MultipartFile avatar);
+
+  EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar);
+
+  EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive);
 }

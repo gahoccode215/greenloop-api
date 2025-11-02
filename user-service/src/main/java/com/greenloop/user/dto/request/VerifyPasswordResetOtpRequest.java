@@ -7,10 +7,10 @@ import lombok.Data;
 @Data
 public class VerifyPasswordResetOtpRequest {
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
-    private String email;
+  @NotBlank(message = "Email không được để trống")
+  @Email(message = "Email không hợp lệ")
+  private String email;
 
-    @NotBlank(message = "Mã OTP không được để trống")
-    private String otp;
+  @NotBlank(message = "Mã OTP không được để trống")
+  private String otp;
 }

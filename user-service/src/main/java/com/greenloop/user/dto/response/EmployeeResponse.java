@@ -10,16 +10,15 @@ import lombok.Data;
 @Data
 @Builder
 public class EmployeeResponse {
-    private Long id;
-    private String email;
-    private String fullName;
-    private String phoneNumber;
-    private LocalDate dateOfBirth;
-    private Gender gender;
-    private String avatarUrl;
-    private Boolean isActive;
-    private List<String> roles;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+  private Long id;
+  private String email;
+  private String fullName;
+  private String phoneNumber;
+  private LocalDate dateOfBirth;
+  private Gender gender;
+  private String avatarUrl;
+  private Boolean isActive;
+  private List<String> roles;
+  private LocalDateTime createdAt;
+  private LocalDateTime updatedAt;
 }
-

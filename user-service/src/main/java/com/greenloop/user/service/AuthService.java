@@ -21,10 +21,11 @@ public interface AuthService {
 
   void resendPasswordResetOtp(String email);
 
-    void forgotPassword(ForgotPasswordRequest request);
+  void forgotPassword(ForgotPasswordRequest request);
 
-    void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request);
+  void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request);
+
   void resetPassword(ResetPasswordRequest request);
 
-    void changePasswordFirstTime(ChangePasswordFirstTimeRequest request);
+  void changePasswordFirstTime(ChangePasswordFirstTimeRequest request);
 }

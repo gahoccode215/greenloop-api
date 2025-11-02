@@ -9,20 +9,20 @@ import lombok.Data;
 @Data
 public class UpdateEmployeeRequest {
 
-    @Email(message = "Email không hợp lệ")
-    private String email;
+  @Email(message = "Email không hợp lệ")
+  private String email;
 
-    private String fullName;
+  private String fullName;
 
-    @Pattern(regexp = "^[0-9]{10,20}$", message = "Số điện thoại không hợp lệ")
-    private String phone;
+  @Pattern(regexp = "^[0-9]{10,20}$", message = "Số điện thoại không hợp lệ")
+  private String phone;
 
-    private LocalDate dateOfBirth;
+  private LocalDate dateOfBirth;
 
-    private Gender gender;
+  private Gender gender;
 
-    @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF hoặc MANAGER")
-    private String role;
+  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF hoặc MANAGER")
+  private String role;
 
-    private Boolean isActive;
+  private Boolean isActive;
 }

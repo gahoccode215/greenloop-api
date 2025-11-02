@@ -124,14 +124,14 @@ public class AuthController {
             "OTP đặt lại mật khẩu đã được gửi đến email của bạn", null, HttpStatus.OK));
   }
 
-    @PostMapping("/verify-reset-otp")
-    @Operation(summary = "Verify password reset OTP (optional)")
-    public ResponseEntity<ApiResponseDTO<Void>> verifyPasswordResetOtp(
-            @Valid @RequestBody VerifyPasswordResetOtpRequest request) {
-        authService.verifyPasswordResetOtp(request);
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Xác thực OTP thành công", null, HttpStatus.OK));
-    }
+  @PostMapping("/verify-reset-otp")
+  @Operation(summary = "Verify password reset OTP (optional)")
+  public ResponseEntity<ApiResponseDTO<Void>> verifyPasswordResetOtp(
+      @Valid @RequestBody VerifyPasswordResetOtpRequest request) {
+    authService.verifyPasswordResetOtp(request);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Xác thực OTP thành công", null, HttpStatus.OK));
+  }
 
   @Operation(summary = "Reset password", description = "Reset user password with OTP verification")
   @PostMapping("/reset-password")
@@ -156,15 +156,15 @@ public class AuthController {
             HttpStatus.OK));
   }
 
-    @PostMapping("/change-password-first-time")
-    @Operation(summary = "Change password  (for new employees)")
-    public ResponseEntity<ApiResponseDTO<Void>> changePasswordFirstTime(
-            @Valid @RequestBody ChangePasswordFirstTimeRequest request) {
-        log.info("Changing first time password for: {}", request.getEmail());
-        authService.changePasswordFirstTime(request);
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
-    }
+  @PostMapping("/change-password-first-time")
+  @Operation(summary = "Change password  (for new employees)")
+  public ResponseEntity<ApiResponseDTO<Void>> changePasswordFirstTime(
+      @Valid @RequestBody ChangePasswordFirstTimeRequest request) {
+    log.info("Changing first time password for: {}", request.getEmail());
+    authService.changePasswordFirstTime(request);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
+  }
 
   @Operation(
       summary = "Exchange OAuth2 temporary key",
@@ -239,8 +239,6 @@ public class AuthController {
     }
     return null;
   }
-
-
 
   @SuppressWarnings("unchecked")
   private List<String> castRoles(Object rolesObj) {
