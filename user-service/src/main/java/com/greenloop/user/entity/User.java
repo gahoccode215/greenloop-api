@@ -42,7 +42,8 @@ public class User extends BaseEntity implements UserDetails {
   private String avatarUrl;
 
   @Column(name = "is_active")
-  private Boolean isActive = true;
+  @Builder.Default
+  private boolean isActive = true;
 
   @Column(name = "media_key")
   private String mediaKey;

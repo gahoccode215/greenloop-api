@@ -188,7 +188,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
+  @CacheEvict(
+      value = {"employee_detail", "employees_list"},
+      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
     log.info("Updating employee with id: {}", id);
@@ -249,7 +251,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     }
 
     if (request.getIsActive() != null) {
-      employee.setIsActive(request.getIsActive());
+      employee.setActive(request.getIsActive());
     }
 
     // Update role
@@ -278,7 +280,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
+  @CacheEvict(
+      value = {"employee_detail", "employees_list"},
+      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
     log.info("Changing employee status for id: {} to: {}", id, isActive);
 
@@ -316,7 +320,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     }
 
     // Thay đổi status
-    employee.setIsActive(isActive);
+    employee.setActive(isActive);
 
     // Set updatedBy
     String currentUserId = auth.getPrincipal().toString();

@@ -1,6 +1,7 @@
 package com.greenloop.user.dto.response;
 
 import com.greenloop.user.enums.Gender;
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CustomerResponse {
+public class CustomerResponse implements Serializable {
   private Long id;
   private String email;
   private String fullName;

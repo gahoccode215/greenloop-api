@@ -1,5 +1,6 @@
 package com.greenloop.user.dto.response;
 
+import java.io.Serializable;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PageResponseDTO<T> {
+public class PageResponseDTO<T> implements Serializable {
 
   private List<T> content;
 
