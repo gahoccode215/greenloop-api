@@ -181,6 +181,8 @@ public class EventServiceImpl implements EventService {
                                 .startTime(event.getStartTime())
                                 .endTime(event.getEndTime())
                                 .status(event.getStatus())
+                                .latitude(event.getLatitude())
+                                .longitude(event.getLongitude())
                                 .isRegistered(registeredEventIds.contains(event.getId()))
                                 .build());
     }
