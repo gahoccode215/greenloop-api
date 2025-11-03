@@ -2,12 +2,12 @@ package com.greenloop.event.dto.request;
 
 import com.greenloop.event.constraint.ValidEventTime;
 import com.greenloop.event.enums.EventStatus;
-import java.time.LocalDateTime;
-import java.util.HashMap;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,23 +16,21 @@ import lombok.NoArgsConstructor;
 @ValidEventTime
 public class EventUpdateRequest {
 
-  private String name;
+    private String name;
 
-  private String description;
+    private String description;
 
-  private LocalDateTime startTime;
+    private LocalDateTime startTime;
 
-  private LocalDateTime endTime;
+    private LocalDateTime endTime;
 
-  private String location;
+    private String location;
 
-  private EventStatus status;
+    private EventStatus status;
 
-  private HashMap<String, String> googlePlaceId;
+    private String latitude;
 
-  private String latitude;
+    private String longitude;
 
-  private String longitude;
-
-  private String note;
+    private String note;
 }
