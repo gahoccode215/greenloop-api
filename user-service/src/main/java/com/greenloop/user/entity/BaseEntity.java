@@ -23,10 +23,6 @@ public abstract class BaseEntity implements Serializable {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "is_active", nullable = false)
-  @Builder.Default
-  private boolean isActive = true;
-
   @Column(name = "created_at", nullable = false, updatable = false)
   @Builder.Default
   private LocalDateTime createdAt = LocalDateTime.now();

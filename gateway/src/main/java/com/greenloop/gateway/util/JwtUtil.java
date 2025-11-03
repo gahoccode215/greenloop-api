@@ -60,18 +60,18 @@ public class JwtUtil {
     String key = REDIS_BLACKLIST_PREFIX + jti;
 
     try {
-      long startTime = System.nanoTime();
-      boolean result = redisTemplate.hasKey(key);
-      long endTime = System.nanoTime();
+//      long startTime = System.nanoTime();
+//      boolean result = redisTemplate.hasKey(key);
+//      long endTime = System.nanoTime();
+//
+//      long latencyMs = (endTime - startTime) / 1_000_000;
+//
+//      log.info("[RedisLatency] hasKey('{}') took {} ms", key, latencyMs);
 
-      long latencyMs = (endTime - startTime) / 1_000_000;
-
-      log.info("[RedisLatency] hasKey('{}') took {} ms", key, latencyMs);
-
-      return result;
+        return redisTemplate.hasKey(key);
     } catch (Exception e) {
       log.error("[RedisLatency] Error checking key '{}': {}", key, e.getMessage());
-      return false;
+        return false;
     }
   }
 

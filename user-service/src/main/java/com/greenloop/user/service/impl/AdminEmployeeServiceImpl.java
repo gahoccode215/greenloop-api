@@ -249,7 +249,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     }
 
     if (request.getIsActive() != null) {
-      employee.setIsActive(request.getIsActive());
+      employee.setActive(request.getIsActive());
     }
 
     // Update role
@@ -316,7 +316,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     }
 
     // Thay đổi status
-    employee.setIsActive(isActive);
+    employee.setActive(isActive);
 
     // Set updatedBy
     String currentUserId = auth.getPrincipal().toString();

@@ -1,6 +1,8 @@
 package com.greenloop.user.dto.response;
 
 import com.greenloop.user.enums.Gender;
+
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,7 +11,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class EmployeeResponse {
+public class EmployeeResponse implements Serializable {
   private Long id;
   private String email;
   private String fullName;
