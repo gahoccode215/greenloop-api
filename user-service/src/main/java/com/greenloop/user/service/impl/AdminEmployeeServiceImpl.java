@@ -188,7 +188,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
+  @CacheEvict(
+      value = {"employee_detail", "employees_list"},
+      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
     log.info("Updating employee with id: {}", id);
@@ -278,7 +280,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
+  @CacheEvict(
+      value = {"employee_detail", "employees_list"},
+      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
     log.info("Changing employee status for id: {} to: {}", id, isActive);
 
