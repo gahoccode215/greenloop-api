@@ -44,9 +44,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final PasswordEncoder passwordEncoder;
   private final PasswordGeneratorUtil passwordGeneratorUtil;
   private final CloudinaryService cloudinaryService;
-  private final String AVATAR_FOLDER = "GreenLoop/Employees/Avatars";
 
-  @Override
+    @Override
   @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' + #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
@@ -347,7 +346,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       }
 
       // Upload ảnh mới
-      Map<String, String> uploadResult =
+        String AVATAR_FOLDER = "GreenLoop/Employees/Avatars";
+        Map<String, String> uploadResult =
           cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
 
       // Cập nhật URL và media key
