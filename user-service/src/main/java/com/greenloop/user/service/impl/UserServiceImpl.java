@@ -11,8 +11,6 @@ import com.greenloop.user.service.UserService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -36,7 +34,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-//  @Cacheable(value = "user_profile", key = "#userId")
+  //  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
     log.info("Retrieving profile for user: {}", userId);
 
@@ -48,7 +46,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-//  @CacheEvict(value = "user_profile", key = "#userId")
+  //  @CacheEvict(value = "user_profile", key = "#userId")
   public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
     log.info("Updating profile for user: {}", userId);
 

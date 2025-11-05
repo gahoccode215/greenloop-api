@@ -56,16 +56,16 @@ public class AuthController {
                 HttpStatus.CREATED));
   }
 
-    @Operation(
-            summary = "Refresh access token",
-            description = "Generate new access token using refresh token")
-    @PostMapping("/refresh")
-    public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request) {
-        AuthResponse response = authService.refreshToken(request, null);
-        return ResponseEntity.ok(
-                ApiResponseDTO.success("Làm mới token thành công", response, HttpStatus.OK));
-    }
+  @Operation(
+      summary = "Refresh access token",
+      description = "Generate new access token using refresh token")
+  @PostMapping("/refresh")
+  public ResponseEntity<ApiResponseDTO<AuthResponse>> refreshToken(
+      @Valid @RequestBody RefreshTokenRequest request) {
+    AuthResponse response = authService.refreshToken(request, null);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Làm mới token thành công", response, HttpStatus.OK));
+  }
 
   @Operation(
       summary = "User logout",

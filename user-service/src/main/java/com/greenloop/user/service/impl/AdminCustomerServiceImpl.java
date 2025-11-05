@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,86 +25,87 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class AdminCustomerServiceImpl implements AdminCustomerService {
 
-    private final UserRepository userRepository;
+  private final UserRepository userRepository;
 
-    @Override
-//  @Cacheable(value = "customers_list", key = "#pageable.pageNumber + '-' + #search + '-' + #status")
-    public PageResponseDTO<CustomerResponse> getCustomers(
-            String search, String status, Pageable pageable) {
+  @Override
+  //  @Cacheable(value = "customers_list", key = "#pageable.pageNumber + '-' + #search + '-' +
+  // #status")
+  public PageResponseDTO<CustomerResponse> getCustomers(
+      String search, String status, Pageable pageable) {
 
-        log.info("Getting customers - search: {}, status: {}", search, status);
+    log.info("Getting customers - search: {}, status: {}", search, status);
 
-        Specification<User> spec =
-                (root, query, cb) -> {
-                    List<Predicate> predicates = new ArrayList<>();
+    Specification<User> spec =
+        (root, query, cb) -> {
+          List<Predicate> predicates = new ArrayList<>();
 
-                    Join<Object, Object> roleJoin = root.join("roles");
-                    predicates.add(roleJoin.get("name").in(RoleConstants.CUSTOMER));
+          Join<Object, Object> roleJoin = root.join("roles");
+          predicates.add(roleJoin.get("name").in(RoleConstants.CUSTOMER));
 
-                    query.distinct(true);
+          query.distinct(true);
 
-                    if (search != null && !search.isEmpty()) {
-                        String searchPattern = "%" + search.toLowerCase() + "%";
-                        predicates.add(
-                                cb.or(
-                                        cb.like(cb.lower(root.get("email")), searchPattern),
-                                        cb.like(cb.lower(root.get("fullName")), searchPattern),
-                                        cb.like(cb.lower(root.get("phone")), searchPattern)));
-                    }
+          if (search != null && !search.isEmpty()) {
+            String searchPattern = "%" + search.toLowerCase() + "%";
+            predicates.add(
+                cb.or(
+                    cb.like(cb.lower(root.get("email")), searchPattern),
+                    cb.like(cb.lower(root.get("fullName")), searchPattern),
+                    cb.like(cb.lower(root.get("phone")), searchPattern)));
+          }
 
-                    if (status != null && !status.isEmpty()) {
-                        predicates.add(cb.equal(root.get("isActive"), Boolean.valueOf(status)));
-                    }
+          if (status != null && !status.isEmpty()) {
+            predicates.add(cb.equal(root.get("isActive"), Boolean.valueOf(status)));
+          }
 
-                    return cb.and(predicates.toArray(new Predicate[0]));
-                };
+          return cb.and(predicates.toArray(new Predicate[0]));
+        };
 
-        Page<User> page = userRepository.findAll(spec, pageable);
+    Page<User> page = userRepository.findAll(spec, pageable);
 
-        Page<CustomerResponse> customerPage = page.map(this::mapUserToCustomerResponse);
+    Page<CustomerResponse> customerPage = page.map(this::mapUserToCustomerResponse);
 
-        PageResponseDTO<CustomerResponse> response = PageResponseUtil.toPageResponse(customerPage);
+    PageResponseDTO<CustomerResponse> response = PageResponseUtil.toPageResponse(customerPage);
 
-        log.info(
-                "Retrieved {} customers out of {} total",
-                response.getContent().size(),
-                response.getTotalElements());
+    log.info(
+        "Retrieved {} customers out of {} total",
+        response.getContent().size(),
+        response.getTotalElements());
 
-        return response;
+    return response;
+  }
+
+  @Override
+  //  @Cacheable(value = "customer_detail", key = "#id")
+  public CustomerResponse getCustomerDetail(Long id) {
+    log.info("Getting customer detail for id: {}", id);
+
+    User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+
+    List<String> userRoles = user.getRoles().stream().map(Role::getName).toList();
+
+    if (!userRoles.contains(RoleConstants.CUSTOMER)) {
+      throw new CustomerNotFoundException("Người dùng không phải khách hàng");
     }
 
-    @Override
-//  @Cacheable(value = "customer_detail", key = "#id")
-    public CustomerResponse getCustomerDetail(Long id) {
-        log.info("Getting customer detail for id: {}", id);
+    return mapUserToCustomerResponse(user);
+  }
 
-        User user =
-                userRepository
-                        .findById(id)
-                        .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
-
-        List<String> userRoles = user.getRoles().stream().map(Role::getName).toList();
-
-        if (!userRoles.contains(RoleConstants.CUSTOMER)) {
-            throw new CustomerNotFoundException("Người dùng không phải khách hàng");
-        }
-
-        return mapUserToCustomerResponse(user);
-    }
-
-    private CustomerResponse mapUserToCustomerResponse(User user) {
-        return CustomerResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phoneNumber(user.getPhone())
-                .dateOfBirth(user.getDateOfBirth())
-                .gender(user.getGender())
-                .avatarUrl(user.getAvatarUrl())
-                .isActive(user.isActive())
-                .isEmailVerified(user.getIsEmailVerified())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
-    }
+  private CustomerResponse mapUserToCustomerResponse(User user) {
+    return CustomerResponse.builder()
+        .id(user.getId())
+        .email(user.getEmail())
+        .fullName(user.getFullName())
+        .phoneNumber(user.getPhone())
+        .dateOfBirth(user.getDateOfBirth())
+        .gender(user.getGender())
+        .avatarUrl(user.getAvatarUrl())
+        .isActive(user.isActive())
+        .isEmailVerified(user.getIsEmailVerified())
+        .createdAt(user.getCreatedAt())
+        .updatedAt(user.getUpdatedAt())
+        .build();
+  }
 }
