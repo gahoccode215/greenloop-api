@@ -18,7 +18,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
   private static final String[] WHITE_LISTS = {
-    "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/health"
+    "/v3/api-docs/**",
+    "/swagger-ui/**",
+    "/swagger-ui.html",
+    "/actuator/health",
+    "/api/v1/events/customers/**"
   };
 
   @Bean

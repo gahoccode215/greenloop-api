@@ -14,7 +14,7 @@ public interface EventService {
 
   Long createEvent(EventRequest request, MultipartFile multipartFile);
 
-  Page<EventResponse> getEventsByFilterByCustomer(
+  Page<EventResponse> getEventsForCustomer(
       String code,
       EventStatus status,
       String search,
@@ -22,10 +22,21 @@ public interface EventService {
       LocalDateTime endTime,
       LocalDateTime createdAtStart,
       LocalDateTime createdAtEnd,
-      Pageable pageable,
-      boolean isAdmin);
+      Pageable pageable);
 
-  EventDetailResponse getEventByIdWithRole(Long id, boolean isAdmin);
+  Page<EventResponse> getEventsForAdmin(
+      String code,
+      EventStatus status,
+      String search,
+      LocalDateTime startTime,
+      LocalDateTime endTime,
+      LocalDateTime createdAtStart,
+      LocalDateTime createdAtEnd,
+      Pageable pageable);
+
+  EventDetailResponse getEventByIdForAdmin(Long id);
+
+  EventDetailResponse getEventByIdForCustomer(Long id);
 
   Long updateEvent(Long id, EventUpdateRequest request);
 

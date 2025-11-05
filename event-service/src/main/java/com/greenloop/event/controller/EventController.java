@@ -8,7 +8,6 @@ import com.greenloop.event.service.EventService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +20,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -56,9 +52,9 @@ public class EventController {
             .build());
   }
 
-  @GetMapping
+  @GetMapping("/customers")
   @Operation(
-      summary = "Get Events by Filter",
+      summary = "Get Events by Filter (CUSTOMER)",
       description = "Retrieve a list of events filtered by code, status, date, or search query",
       tags = {"Event CRUD"})
   public ResponseEntity<ApiResponseDTO<Page<EventResponse>>> getEventsByFilter(
@@ -79,52 +75,74 @@ public class EventController {
       @RequestParam(defaultValue = "DESC") String sortDir) {
 
     log.info("Received request to get events by filter: {}", code);
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
-
-    boolean isAdmin =
-        roles.stream()
-            .anyMatch(
-                r ->
-                    List.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_STAFF", "ROLE_STORE_MANAGER")
-                        .contains(r.getAuthority()));
 
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
     Page<EventResponse> events =
-        eventService.getEventsByFilterByCustomer(
-            code,
-            status,
-            search,
-            startTime,
-            endTime,
-            createdAtStart,
-            createdAtEnd,
-            pageable,
-            isAdmin);
+        eventService.getEventsForCustomer(
+            code, status, search, startTime, endTime, createdAtStart, createdAtEnd, pageable);
 
     return ResponseEntity.ok(
         ApiResponseDTO.success("Events retrieved successfully", events, HttpStatus.OK));
   }
 
-  @GetMapping("{id}")
+  @GetMapping("/admin")
   @Operation(
-      summary = "Get Event by ID",
-      description = "Retrieve event details by ID",
+      summary = "Get Events by Filter (ADMIN)",
+      description = "Retrieve a list of events filtered by code, status, date, or search",
+      tags = {"Event CRUD"})
+  @PreAuthorize(
+      "hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_STAFF') or hasRole('ROLE_STORE_MANAGER')")
+  public ResponseEntity<ApiResponseDTO<Page<EventResponse>>> getEventsByFilterForAdmin(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(required = false) String code,
+      @RequestParam(required = false) EventStatus status,
+      @RequestParam(required = false) String search,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          LocalDateTime startTime,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          LocalDateTime endTime,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          LocalDateTime createdAtStart,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          LocalDateTime createdAtEnd,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDir) {
+    log.info("Received request to get events by filter for admin: {}", code);
+    Pageable pageable =
+        PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
+    Page<EventResponse> events =
+        eventService.getEventsForAdmin(
+            code, status, search, startTime, endTime, createdAtStart, createdAtEnd, pageable);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Events retrieved successfully", events, HttpStatus.OK));
+  }
+
+  @GetMapping("/customers/{id}")
+  @Operation(
+      summary = "Get Event by ID (CUSTOMER)",
+      description = "Retrieve event details by ID for customers",
       tags = {"Event CRUD"})
   public ResponseEntity<ApiResponseDTO<EventDetailResponse>> getEventById(@PathVariable Long id) {
     log.info("Received request to get event by id: {}", id);
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    Collection<? extends GrantedAuthority> roles = auth.getAuthorities();
 
-    boolean isAdmin =
-        roles.stream()
-            .anyMatch(
-                r ->
-                    List.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_STAFF", "ROLE_STORE_MANAGER")
-                        .contains(r.getAuthority()));
+    EventDetailResponse event = eventService.getEventByIdForCustomer(id);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Event retrieved successfully", event, HttpStatus.OK));
+  }
 
-    EventDetailResponse event = eventService.getEventByIdWithRole(id, isAdmin);
+  @GetMapping("/admin/{id}")
+  @Operation(
+      summary = "Get Event by ID (ADMIN)",
+      description = "Retrieve event details by ID for admins",
+      tags = {"Event CRUD"})
+  @PreAuthorize(
+      "hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_STAFF') or hasRole('ROLE_STORE_MANAGER')")
+  public ResponseEntity<ApiResponseDTO<EventDetailResponse>> getEventByIdForAdmin(
+      @PathVariable Long id) {
+    log.info("Received request to get event by id for admin: {}", id);
+    EventDetailResponse event = eventService.getEventByIdForAdmin(id);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Event retrieved successfully", event, HttpStatus.OK));
   }
