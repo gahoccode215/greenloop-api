@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
@@ -18,6 +19,7 @@ import reactor.core.publisher.Mono;
 public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Config> {
 
   private final JwtUtil jwtUtil;
+  private static final AntPathMatcher pathMatcher = new AntPathMatcher();
 
   private static final List<String> PUBLIC_PATHS =
       List.of(
@@ -36,7 +38,8 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
           "/v3/api-docs",
           "/swagger-ui",
           "/swagger-ui.html",
-          "/webjars/swagger-ui");
+          "/webjars/swagger-ui",
+          "/api/v1/events/customers/**");
 
   public JwtAuthFilter(JwtUtil jwtUtil) {
     super(Config.class);
@@ -48,12 +51,35 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
     return (exchange, chain) -> {
       ServerHttpRequest request = exchange.getRequest();
       String path = request.getURI().getPath();
+      String token = extractToken(request);
 
       if (isPublicPath(path)) {
+        if (token != null && jwtUtil.validateToken(token)) {
+          try {
+            String userId = jwtUtil.extractUserId(token);
+            String username = jwtUtil.extractUsername(token);
+            List<String> roles = jwtUtil.extractRoles(token);
+            String rolesHeader = String.join(",", roles);
+
+            ServerHttpRequest modifiedRequest =
+                request
+                    .mutate()
+                    .header("X-User-ID", userId)
+                    .header("X-Username", username)
+                    .header("X-User-Roles", rolesHeader)
+                    .header("Authorization", "Bearer " + token)
+                    .build();
+
+            log.debug("Public API + valid token: {}", username);
+            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+          } catch (Exception e) {
+            log.error("Error processing JWT token", e);
+            return chain.filter(exchange);
+          }
+        }
         return chain.filter(exchange);
       }
 
-      String token = extractToken(request);
       if (token == null) {
         return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
       }
@@ -89,7 +115,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
   }
 
   private boolean isPublicPath(String path) {
-    return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    return PUBLIC_PATHS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
   }
 
   private String extractToken(ServerHttpRequest request) {
