@@ -19,6 +19,8 @@ public class CreateEmployeeRequest {
   private String phone;
 
   @NotBlank(message = "Role không được để trống")
-  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF hoặc MANAGER")
+  @Pattern(
+      regexp = "^(STAFF|MANAGER|STORE_MANAGER)$",
+      message = "Role chỉ được là STAFF, MANAGER hoặc STORE_MANAGER")
   private String role;
 }

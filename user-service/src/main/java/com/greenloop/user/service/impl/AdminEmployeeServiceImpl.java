@@ -44,8 +44,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final CloudinaryService cloudinaryService;
 
   @Override
-  //    @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' +
-  // #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -85,7 +83,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   }
 
   @Override
-  //     @Cacheable(value = "employee_detail", key = "#id")
   public EmployeeResponse getEmployeeDetail(Long id) {
     User user =
         userRepository
@@ -103,7 +100,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  //     @CacheEvict(value = "employees_list", allEntries = true)
   public CreateEmployeeResponse createEmployee(
       CreateEmployeeRequest request, MultipartFile avatar) {
     log.info("Creating employee with email: {}", request.getEmail());
@@ -174,7 +170,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  //     @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
     log.info("Updating employee with id: {}", id);
@@ -191,7 +186,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     validateEmployeeAccess(currentUserRole, employeeRoles);
 
     if (request.getRole() != null && !employeeRoles.contains(request.getRole())) {
-      if (!isAdmin(currentUserRole)) {
+      if (!isAdmin(currentUserRole) && !isManager(currentUserRole)) {
         throw new InvalidCredentialsException();
       }
       if (isManager(currentUserRole) && !isAllowedRoleForManager(request.getRole())) {
@@ -253,7 +248,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  //     @CacheEvict(value = {"employee_detail", "employees_list"}, allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
     log.info("Changing employee status for id: {} to: {}", id, isActive);
 
