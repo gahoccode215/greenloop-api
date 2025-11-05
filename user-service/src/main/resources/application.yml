@@ -4,10 +4,6 @@ server:
 spring:
   application:
     name: user-service
-  cache:
-    type: redis
-    redis:
-      time-to-live: 900000 # 15 minutes
   cloud:
     stream:
       bindings:
@@ -47,7 +43,15 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-
+#      database: 0
+#      timeout: 60000ms
+#      lettuce:
+#        pool:
+#          max-active: 8
+#          max-idle: 8
+#          min-idle: 0
+#          max-wait: -1ms
+#      password: ${REDIS_PASSWORD:}
 
   security:
     oauth2:

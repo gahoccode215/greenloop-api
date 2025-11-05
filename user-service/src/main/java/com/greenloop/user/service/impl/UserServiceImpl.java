@@ -36,7 +36,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  @Cacheable(value = "user_profile", key = "#userId")
+//  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
     log.info("Retrieving profile for user: {}", userId);
 
@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  @CacheEvict(value = "user_profile", key = "#userId")
+//  @CacheEvict(value = "user_profile", key = "#userId")
   public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
     log.info("Updating profile for user: {}", userId);
 
