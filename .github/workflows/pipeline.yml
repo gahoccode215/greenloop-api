@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ gateway, eureka, notification-service, user-service, event-service ]
+        service: [ gateway, eureka, notification-service, user-service, event-service, reward-service ]
 
     steps:
       - name: Checkout source code
@@ -82,7 +82,7 @@ jobs:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     strategy:
       matrix:
-        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE, EVENT_SERVICE ]
+        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE, EVENT_SERVICE, REWARD_SERVICE ]
 
     steps:
       - name: Deploy ${{ matrix.service }} to VM
