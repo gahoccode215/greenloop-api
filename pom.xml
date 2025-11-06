@@ -23,6 +23,7 @@
         <module>gateway</module>
         <module>notification-service</module>
         <module>event-service</module>
+        <module>reward-service</module>
     </modules>
 
     <build>
