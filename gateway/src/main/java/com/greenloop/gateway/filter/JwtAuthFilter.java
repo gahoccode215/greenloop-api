@@ -43,7 +43,8 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
           "/swagger-ui",
           "/swagger-ui.html",
           "/webjars/swagger-ui",
-          "/api/v1/events/customers/**");
+          "/api/v1/events/customers/**",
+          "/api/v1/eco-points/**");
 
   public JwtAuthFilter(JwtUtil jwtUtil) {
     super(Config.class);

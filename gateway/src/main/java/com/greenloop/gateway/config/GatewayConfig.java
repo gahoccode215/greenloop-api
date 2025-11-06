@@ -61,6 +61,18 @@ public class GatewayConfig {
                 r.path("/event-service/v3/api-docs")
                     .filters(f -> f.rewritePath("/event-service/v3/api-docs", "/v3/api-docs"))
                     .uri("lb://event-service"))
+        .route(
+            "reward-service",
+            r ->
+                r.path("/api/v1/eco-points/**")
+                    .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
+                    .uri("lb://reward-service"))
+        .route(
+            "reward-service-docs",
+            r ->
+                r.path("/reward-service/v3/api-docs")
+                    .filters(f -> f.rewritePath("/reward-service/v3/api-docs", "/v3/api-docs"))
+                    .uri("lb://reward-service"))
         .build();
   }
 }

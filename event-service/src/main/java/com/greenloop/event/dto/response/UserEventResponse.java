@@ -9,7 +9,9 @@ import lombok.Data;
 @Builder
 public class UserEventResponse {
   private Long eventId;
+  private String eventCode;
   private String eventName;
+  private String imageUrl;
   private LocalDateTime startTime;
   private LocalDateTime endTime;
   private RegistrationStatus registrationStatus;
