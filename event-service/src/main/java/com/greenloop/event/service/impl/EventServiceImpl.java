@@ -997,6 +997,16 @@ public class EventServiceImpl implements EventService {
                 });
     }
 
+    @Override
+    public Boolean validateStaffInEvent(Long eventId, Long staffId) {
+        EventStaffAssignment assignment =
+                assignmentRepository.findByEventIdAndStaffIdAndIsActiveTrue(eventId, staffId);
+        if (assignment != null) {
+            return true;
+        }
+        return false;
+    }
+
     private Long getCurrentUserId() {
         return Long.valueOf(
                 SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
