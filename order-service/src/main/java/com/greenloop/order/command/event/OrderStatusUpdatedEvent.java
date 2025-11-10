@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class OrderStatusUpdatedEvent {
     private  String orderId;
-    private  String status;
+    private  String orderStatus;
 }

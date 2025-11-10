@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 public class OrderCreatedEvent {
     private  String orderId;
     private  String orderCode;
-    private  String customerId;
+    private  Long customerId;
     private  String orderStatus;
     private  BigDecimal totalPrice;
 

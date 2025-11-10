@@ -12,7 +12,7 @@ public class CreateOrderCommand {
     @TargetAggregateIdentifier
     private final String orderId;
     private final String orderCode;
-    private final String customerId;
+    private final Long customerId;
     private final String orderStatus;
     private final BigDecimal totalPrice;
 }
