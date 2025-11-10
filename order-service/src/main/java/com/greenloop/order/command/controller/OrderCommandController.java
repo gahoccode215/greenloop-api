@@ -43,7 +43,7 @@ public class OrderCommandController {
                 .totalPrice(request.getTotalPrice())
                 .orderStatus(OrderStatus.PENDING)
                 .orderItems(request.getOrderItems())
-                .shippingAddress(request.getShippingAddress())  // ← Thêm
+                .shippingAddress(request.getShippingAddress())
                 .build();
 
         commandGateway.sendAndWait(command);

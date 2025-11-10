@@ -1,4 +1,4 @@
-package com.greenloop.order.ghn.dto;
+package com.greenloop.order.ghn.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

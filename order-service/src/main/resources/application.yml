@@ -54,8 +54,16 @@ axon:
 
 ghn:
   api:
-    base-url: https://online-gateway.ghn.vn/shiip/public-api
+#    base-url: https://online-gateway.ghn.vn/shiip/public-api
     dev-url: https://dev-online-gateway.ghn.vn/shiip/public-api
     token: ${GHN_API_KEY}
     shop-id: ${GHN_SHOP_ID}
     timeout: 30000
+    base-url: https://dev-online-gateway.ghn.vn/shiip/public-api
+  shop:
+    name: ${GHN_SHOP_NAME:GreenLoop Store}
+    phone: ${GHN_SHOP_PHONE:0987654321}
+    address: ${GHN_SHOP_ADDRESS:123 Nguyễn Văn Linh}
+    ward-name: ${GHN_SHOP_WARD:Phường Tân Phú}
+    district-name: ${GHN_SHOP_DISTRICT:Quận 7}
+    province-name: ${GHN_SHOP_PROVINCE:HCM}

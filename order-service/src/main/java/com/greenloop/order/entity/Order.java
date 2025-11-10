@@ -34,7 +34,7 @@ public class Order {
     @Embedded
     private ShippingAddress shippingAddress;
 
-    // Thông tin GHN
+    // GHN
     @Column(name = "ghn_order_code", length = 50)
     private String ghnOrderCode;
 

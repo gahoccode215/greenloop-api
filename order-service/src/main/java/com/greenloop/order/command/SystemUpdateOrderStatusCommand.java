@@ -7,9 +7,9 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 @Data
 @Builder
-public class UpdateOrderStatusCommand {
+public class SystemUpdateOrderStatusCommand {
     @TargetAggregateIdentifier
-    private String orderId;
-    private OrderStatus orderStatus;
-    private Boolean isSystemUpdate;
+    private final String orderId;
+    private final OrderStatus orderStatus;
+    private final String source;  // "GHN_WEBHOOK", "ADMIN_FORCE"...
 }

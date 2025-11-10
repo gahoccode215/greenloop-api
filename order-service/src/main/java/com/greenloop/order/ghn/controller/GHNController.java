@@ -1,7 +1,7 @@
 package com.greenloop.order.ghn.controller;
 
 import com.greenloop.order.dto.ApiResponseDTO;
-import com.greenloop.order.ghn.dto.ShippingOrderResponse;
+import com.greenloop.order.ghn.dto.response.ShippingOrderResponse;
 import com.greenloop.order.ghn.service.GHNService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Slf4j
-@RequestMapping("/api/v1/ghn")
+@RequestMapping("/api/v1/orders/ghn")
 @Tag(name = "GHN")
 @RequiredArgsConstructor
 public class GHNController {

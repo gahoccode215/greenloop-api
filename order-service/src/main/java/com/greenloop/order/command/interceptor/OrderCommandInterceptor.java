@@ -32,7 +32,7 @@ public class OrderCommandInterceptor implements MessageDispatchInterceptor<Comma
             if (CreateOrderCommand.class.equals(command.getPayloadType())) {
                 CreateOrderCommand createOrderCommand = (CreateOrderCommand) command.getPayload();
 
-                // Validate: Kiểm tra orderCode có trùng không
+                // Kiểm tra orderCode có trùng không
                 orderRepository.findByOrderCode(createOrderCommand.getOrderCode())
                         .ifPresent(order -> {
                             throw new OrderAlreadyExistsException(
@@ -42,7 +42,7 @@ public class OrderCommandInterceptor implements MessageDispatchInterceptor<Comma
             } else if (UpdateOrderStatusCommand.class.equals(command.getPayloadType())) {
                 UpdateOrderStatusCommand updateCommand = (UpdateOrderStatusCommand) command.getPayload();
 
-                // Validate: Order phải tồn tại
+                // Order phải tồn tại
                 orderRepository.findById(updateCommand.getOrderId())
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 "Order", "orderId", updateCommand.getOrderId()));

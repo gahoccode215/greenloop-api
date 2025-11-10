@@ -7,17 +7,27 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 @Configuration
-@ConfigurationProperties(prefix = "ghn.api")
+@ConfigurationProperties(prefix = "ghn")
 @Data
 public class GHNConfig {
-    private String baseUrl;
-    private String devUrl;
-    private String token;
-    private Integer shopId;
-    private Integer timeout;
+    private ApiConfig api;
+    private ShopConfig shop;
 
-    @Bean
-    public RestTemplate ghnRestTemplate() {
-        return new RestTemplate();
+    @Data
+    public static class ApiConfig {
+        private String baseUrl;
+        private String token;
+        private Integer shopId;
+    }
+
+    @Data
+    public static class ShopConfig {
+        private String name;
+        private String phone;
+        private String address;
+        private String wardName;
+        private String districtName;
+        private String provinceName;
     }
 }
+

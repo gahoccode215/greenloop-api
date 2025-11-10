@@ -1,6 +1,7 @@
 package com.greenloop.order.command.aggregate;
 
 import com.greenloop.order.command.CreateOrderCommand;
+import com.greenloop.order.command.SystemUpdateOrderStatusCommand;
 import com.greenloop.order.command.UpdateOrderStatusCommand;
 import com.greenloop.order.command.event.OrderCreatedEvent;
 import com.greenloop.order.command.event.OrderStatusUpdatedEvent;
@@ -42,7 +43,7 @@ public class OrderAggregate {
                 OrderStatus.PENDING,
                 command.getTotalPrice(),
                 command.getOrderItems(),
-                command.getShippingAddress()  // ← Thêm
+                command.getShippingAddress()
         ));
     }
 
@@ -58,6 +59,15 @@ public class OrderAggregate {
 
     @CommandHandler
     public void handle(UpdateOrderStatusCommand command) {
+        // Nếu là system update → skip validation
+        if (command.getIsSystemUpdate() != null && command.getIsSystemUpdate()) {
+            AggregateLifecycle.apply(new OrderStatusUpdatedEvent(
+                    command.getOrderId(),
+                    command.getOrderStatus()
+            ));
+            return;
+        }
+
         if (!this.orderStatus.canTransitionTo(command.getOrderStatus())) {
             throw new InvalidOrderStatusException(
                     this.orderStatus.getDescription(),
@@ -72,10 +82,21 @@ public class OrderAggregate {
     }
 
 
+
     @EventSourcingHandler
     public void on(OrderStatusUpdatedEvent orderStatusUpdatedEvent){
         this.orderStatus = orderStatusUpdatedEvent.getOrderStatus();
     }
+
+    @CommandHandler
+    public void handle(SystemUpdateOrderStatusCommand command) {
+        // Không validate, cho phép update bất kỳ status nào
+        AggregateLifecycle.apply(new OrderStatusUpdatedEvent(
+                command.getOrderId(),
+                command.getOrderStatus()
+        ));
+    }
+
 
 
 }
