@@ -1,5 +1,6 @@
 package com.greenloop.order.command;
 
+import com.greenloop.order.enums.OrderStatus;
 import lombok.Builder;
 import lombok.Data;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
@@ -8,6 +9,6 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 @Builder
 public class UpdateOrderStatusCommand {
     @TargetAggregateIdentifier
-    private final String orderId;
-    private final String orderStatus;
+    private String orderId;
+    private OrderStatus orderStatus;
 }

@@ -1,5 +1,6 @@
 package com.greenloop.order.dto;
 
+import com.greenloop.order.enums.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,6 @@ public class OrderDTO {
     private String orderCode;
     private Long customerId;
     private BigDecimal totalPrice;
-    private String orderStatus;
+    private OrderStatus orderStatus;
     private List<OrderItemDTO> orderItems;
 }

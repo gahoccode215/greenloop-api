@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -31,7 +32,7 @@ public class JwtUtil {
   @Value("${spring.security.jwt.refresh-expiration}")
   private Long refreshExpiration;
 
-  public JwtUtil(RedisTemplate<String, String> redisTemplate) {
+  public JwtUtil(@Qualifier("customStringRedisTemplate") RedisTemplate<String, String> redisTemplate) {
     this.redisTemplate = redisTemplate;
   }
 

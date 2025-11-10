@@ -47,7 +47,7 @@ springdoc:
 axon:
   eventhandling:
     processors:
-      account-group:
+      order-group:
         mode: subscribing
   axonserver:
     servers: localhost:8124

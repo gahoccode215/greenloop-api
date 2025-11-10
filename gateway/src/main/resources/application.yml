@@ -51,3 +51,5 @@ springdoc:
         url: /user-service/v3/api-docs
       - name: Event Service
         url: /event-service/v3/api-docs
+      - name: Order Service
+        url: /order-service/v3/api-docs

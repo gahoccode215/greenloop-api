@@ -1,10 +1,8 @@
 package com.greenloop.order.entity;
 
+import com.greenloop.order.enums.OrderStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,10 +13,10 @@ import java.util.List;
 @NoArgsConstructor
 @Table(name = "orders")
 @Entity
+@Builder
 public class Order {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private String orderId;
 
     private String orderCode;
@@ -27,7 +25,9 @@ public class Order {
 
     private BigDecimal totalPrice;
 
-    private String orderStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status", nullable = false, length = 20)
+    private OrderStatus orderStatus;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
