@@ -43,3 +43,11 @@ springdoc:
         url: http://${GATEWAY_HOST}/order-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
+
+axon:
+  eventhandling:
+    processors:
+      account-group:
+        mode: subscribing
+  axonserver:
+    servers: localhost:8124
