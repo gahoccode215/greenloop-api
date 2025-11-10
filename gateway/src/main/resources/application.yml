@@ -53,3 +53,5 @@ springdoc:
         url: /event-service/v3/api-docs
       - name: Reward Service
         url: /reward-service/v3/api-docs
+      - name: Product Service
+        url: /product-service/v3/api-docs

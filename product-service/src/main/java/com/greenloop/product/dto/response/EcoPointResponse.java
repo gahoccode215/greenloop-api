@@ -1,5 +1,6 @@
 package com.greenloop.product.dto.response;
 
+import com.greenloop.product.enums.EcoActionType;
 import lombok.*;
 
 @AllArgsConstructor

@@ -3,7 +3,7 @@ package com.greenloop.product.service.impl;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
-import com.greenloop.product.dto.response.EcoPointResponse;
+import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Donation;
 import com.greenloop.product.entity.DonationItem;
@@ -15,15 +15,15 @@ import com.greenloop.product.repository.DonationRepository;
 import com.greenloop.product.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +33,7 @@ public class DonationServiceImpl implements DonationService {
     private final CloudinaryService cloudinaryService;
     private final RewardServiceFeign rewardServiceFeign;
     private final EventServiceFeign eventServiceFeign;
+    private final UserServiceFeign userServiceFeign;
     private final CacheService cacheService;
     private final CategoryRepository categoryRepository;
     private final DonationRepository donationRepository;
@@ -69,6 +70,7 @@ public class DonationServiceImpl implements DonationService {
             );
             validateEcoPointRule(itemReq);
             DonationItem item = DonationItem.builder()
+                    .code(randomCodeDonationItemCode())
                     .name(itemReq.getName())
                     .description(itemReq.getDescription())
                     .conditionGrade(itemReq.getConditionGrade())
@@ -86,6 +88,105 @@ public class DonationServiceImpl implements DonationService {
         Donation savedDonation = donationRepository.save(donation);
         log.info("Save Donation success with Code and ID: {}, {}", savedDonation.getCode(), savedDonation.getId());
         return savedDonation.getId();
+    }
+
+    @Override
+    public List<DonationResponse> getDonationsByEventId(Long eventId) {
+        log.info("Get Donations by Event ID: {}", eventId);
+        List<Donation> donations = donationRepository.findByEventId(eventId);
+        if (!donations.isEmpty()) {
+            List<DonationResponse> responseList = new ArrayList<>();
+            for (Donation donation : donations) {
+                DonationResponse response = DonationResponse.builder()
+                        .id(donation.getId())
+                        .code(donation.getCode())
+                        .totalWeight(donation.getTotalWeight())
+                        .totalEcoPoints(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
+                        .totalItems(donation.getDonationItems().size())
+                        .build();
+                responseList.add(response);
+            }
+            return responseList;
+        }
+        return List.of();
+    }
+
+    @Override
+    public List<DonationResponse> getMyDonations() {
+        log.info("Get My Donations");
+        Long currentUserId = getCurrentUserId();
+        log.info("Current User ID: {}", currentUserId);
+        List<Donation> donations = donationRepository.findByUserId(currentUserId);
+        if (!donations.isEmpty()) {
+            List<DonationResponse> responseList = new ArrayList<>();
+            for (Donation donation : donations) {
+                DonationResponse response = DonationResponse.builder()
+                        .id(donation.getId())
+                        .code(donation.getCode())
+                        .totalWeight(donation.getTotalWeight())
+                        .totalEcoPoints(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
+                        .totalItems(donation.getDonationItems().size())
+                        .build();
+                responseList.add(response);
+            }
+            return responseList;
+        }
+        return List.of();
+    }
+
+    @Override
+    public DonationDetailResponse getDonationById(Long donationId) {
+        log.info("Get Donation Detail by ID: {}", donationId);
+        Donation donation = donationRepository.findById(donationId).orElseThrow(
+                () -> new BusinessException(ErrorCode.DONATION_NOT_FOUND));
+        Long currentUserId = getCurrentUserId();
+        Collection<? extends GrantedAuthority> authorities =
+                SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+
+        boolean isPrivileged = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> Arrays.asList(
+                                "ROLE_ADMIN", "ROLE_STAFF", "ROLE_STORE_MANAGER", "ROLE_MANAGER")
+                        .contains(role));
+
+        if (!isPrivileged && !donation.getUserId().equals(currentUserId)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+
+        UserProfileResponse inspectorProfile = null;
+        try {
+            inspectorProfile = userServiceFeign.getUserInfoById(donation.getInspectedBy());
+        } catch (Exception e) {
+            log.error("Error fetching inspector profile for user ID {}: {}", donation.getInspectedBy(), e.getMessage());
+        }
+
+        return DonationDetailResponse.builder()
+                .id(donation.getId())
+                .code(donation.getCode())
+                .totalWeight(donation.getTotalWeight())
+                .totalEcoPoints(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
+                .totalItems(donation.getDonationItems().size())
+                .inspectedBy(donation.getInspectedBy())
+                .inspectedName(inspectorProfile != null ? inspectorProfile.getFullName() : "xxxx")
+                .eventId(donation.getEventId())
+                .userId(donation.getUserId())
+                .donationItems(
+                        donation.getDonationItems() != null ?
+                                donation.getDonationItems().stream()
+                                        .map(item -> DonationItemResponse.builder()
+                                                .id(item.getId())
+                                                .name(item.getName())
+                                                .code(item.getCode())
+                                                .categoryId(item.getCategory().getId())
+                                                .categoryName(item.getCategory().getName())
+                                                .conditionGrade(item.getConditionGrade())
+                                                .ecoPoints(item.getEcoPointValue())
+                                                .imageUrl(item.getImageUrl())
+                                                .build())
+                                        .collect(Collectors.toList())
+                                : Collections.emptyList()
+                )
+                .build();
     }
 
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
@@ -130,6 +231,14 @@ public class DonationServiceImpl implements DonationService {
         String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
         String secondPart = String.format("%06d", now.getSecond());
         return "DN_" + datePart + "_" + secondPart;
+    }
+
+
+    private String randomCodeDonationItemCode() {
+        LocalDateTime now = LocalDateTime.now();
+        String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
+        String secondPart = String.format("%06d", now.getSecond());
+        return "DN_PRO" + datePart + "_" + secondPart;
     }
 
 }
