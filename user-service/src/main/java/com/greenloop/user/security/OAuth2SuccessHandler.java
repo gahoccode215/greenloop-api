@@ -29,107 +29,120 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-  private final UserRepository userRepository;
-  private final RoleRepository roleRepository;
-  private final JwtUtil jwtUtil;
-  private final RedisTemplate<String, Object> redisObjectTemplate;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final JwtUtil jwtUtil;
+    private final RedisTemplate<String, Object> redisObjectTemplate;
 
-  @Value("${app.oauth2.frontend-redirect-url:http://localhost:5173/auth/callback}")
-  private String frontendRedirectUrl;
+    @Value("${app.oauth2.frontend-redirect-url:http://localhost:5173/auth/callback}")
+    private String frontendRedirectUrl;
 
-  @Override
-  @Transactional
-  public void onAuthenticationSuccess(
-      HttpServletRequest request, HttpServletResponse response, Authentication authentication)
-      throws IOException {
+    @Override
+    @Transactional
+    public void onAuthenticationSuccess(
+            HttpServletRequest request, HttpServletResponse response, Authentication authentication)
+            throws IOException {
 
-    OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-    String email = oAuth2User.getAttribute("email");
-    String name = oAuth2User.getAttribute("name");
-    String picture = oAuth2User.getAttribute("picture");
+        String email = oAuth2User.getAttribute("email");
+        String name = oAuth2User.getAttribute("name");
+//        String picture = oAuth2User.getAttribute("picture");
 
-    // Lấy role từ authorities
-    String roleName =
-        oAuth2User.getAuthorities().stream()
-            .map(GrantedAuthority::getAuthority)
-            .filter(auth -> auth.startsWith("ROLE_"))
-            .findFirst()
-            .map(auth -> auth.substring(5)) // Bỏ "ROLE_" prefix
-            .orElse("CUSTOMER");
+        String roleName =
+                oAuth2User.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .filter(auth -> auth.startsWith("ROLE_"))
+                        .findFirst()
+                        .map(auth -> auth.substring(5))
+                        .orElse("CUSTOMER");
 
-    log.info("OAuth2 login successful for email: {} with role: {}", email, roleName);
-    // Tìm hoặc tạo user trong database
-    User user =
-        userRepository
-            .findByEmail(email)
-            .map(existingUser -> updateExistingUser(existingUser, name, picture))
-            .orElseGet(() -> createNewGoogleUser(email, name, picture, roleName));
+        log.info("OAuth2 login successful for email: {} with role: {}", email, roleName);
 
-    List<String> roles = user.getRoles().stream().map(Role::getName).toList();
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .map(existingUser -> handleExistingUser(existingUser, name))
+                        .orElseGet(() -> createNewGoogleUser(email, name, roleName));
 
-    // Generate JWT tokens
-    String accessToken = jwtUtil.generateToken(user);
-    String refreshToken = jwtUtil.generateRefreshToken(user);
+        List<String> roles = user.getRoles().stream().map(Role::getName).toList();
 
-    // Tạo temporary key
-    String tempKey = UUID.randomUUID().toString();
-    Map<String, Object> tokenData = new HashMap<>();
-    tokenData.put("accessToken", accessToken);
-    tokenData.put("refreshToken", refreshToken);
-    tokenData.put("type", "Bearer");
-    tokenData.put("userId", user.getId());
-    tokenData.put("email", user.getEmail());
-    tokenData.put("roles", roles);
-    tokenData.put("expiresIn", jwtUtil.getExpirationTime());
-    tokenData.put("refreshExpiresIn", jwtUtil.getRefreshExpirationTime());
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
 
-    // Lưu vào Redis với TTL 5 phút
-    String redisKey = "oauth2_success:" + tempKey;
-    redisObjectTemplate.opsForValue().set(redisKey, tokenData, 5, TimeUnit.MINUTES);
+        String tempKey = UUID.randomUUID().toString();
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("accessToken", accessToken);
+        tokenData.put("refreshToken", refreshToken);
+        tokenData.put("type", "Bearer");
+        tokenData.put("userId", user.getId());
+        tokenData.put("email", user.getEmail());
+        tokenData.put("roles", roles);
+        tokenData.put("expiresIn", jwtUtil.getExpirationTime());
+        tokenData.put("refreshExpiresIn", jwtUtil.getRefreshExpirationTime());
 
-    // Redirect về frontend với temporary key
-    String redirectUrl = frontendRedirectUrl + "?key=" + tempKey;
-    log.info("Redirecting to: {}", redirectUrl);
-    getRedirectStrategy().sendRedirect(request, response, redirectUrl);
-  }
+        String redisKey = "oauth2_success:" + tempKey;
+        redisObjectTemplate.opsForValue().set(redisKey, tokenData, 5, TimeUnit.MINUTES);
 
-  private User createNewGoogleUser(String email, String name, String picture, String roleName) {
-    Role role =
-        roleRepository
-            .findByName(roleName)
-            .orElseGet(
-                () ->
-                    roleRepository
-                        .findByName("CUSTOMER")
-                        .orElseThrow(() -> new RuntimeException("Role CUSTOMER not found")));
-
-    User newUser =
-        User.builder()
-            .email(email)
-            .fullName(name)
-            .roles(List.of(role))
-            .isEmailVerified(true)
-            .provider("GOOGLE")
-            .build();
-
-    User savedUser = userRepository.save(newUser);
-    log.info("Created new Google user: {} with role: {}", email, role.getName());
-    return savedUser;
-  }
-
-  private User updateExistingUser(User existingUser, String name, String picture) {
-    // Cập nhật thông tin nếu cần
-    if (name != null && !name.equals(existingUser.getFullName())) {
-      existingUser.setFullName(name);
+        String redirectUrl = frontendRedirectUrl + "?key=" + tempKey;
+        log.info("Redirecting to: {}", redirectUrl);
+        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 
-    // Đảm bảo user active và email verified
-    existingUser.setActive(true);
-    existingUser.setIsEmailVerified(true);
+    private User createNewGoogleUser(String email, String name, String roleName) {
+        Role role =
+                roleRepository
+                        .findByName(roleName)
+                        .orElseGet(
+                                () ->
+                                        roleRepository
+                                                .findByName("CUSTOMER")
+                                                .orElseThrow(() -> new RuntimeException("Role CUSTOMER not found")));
 
-    User updatedUser = userRepository.save(existingUser);
-    log.info("Updated existing Google user: {}", existingUser.getEmail());
-    return updatedUser;
-  }
+        User newUser =
+                User.builder()
+                        .email(email)
+                        .fullName(name)
+                        .roles(List.of(role))
+                        .isEmailVerified(true)
+                        .provider("GOOGLE")
+                        .password("") // Password trống cho GOOGLE-only users
+                        .isActive(true)
+                        .build();
+
+        User savedUser = userRepository.save(newUser);
+        log.info("Created new Google user: {} with provider: GOOGLE", email);
+        return savedUser;
+    }
+
+    private User handleExistingUser(User existingUser, String name) {
+        // Cập nhật thông tin profile
+        if (name != null && !name.equals(existingUser.getFullName())) {
+            existingUser.setFullName(name);
+        }
+
+        existingUser.setActive(true);
+        existingUser.setIsEmailVerified(true);
+
+        // Xử lý provider logic
+        String currentProvider = existingUser.getProvider();
+
+        if ("LOCAL".equals(currentProvider)) {
+            // User đã đăng ký bằng email/password, giờ login bằng Google
+            // => Upgrade thành BOTH
+            existingUser.setProvider("BOTH");
+            log.info("Upgraded user {} from LOCAL to BOTH provider", existingUser.getEmail());
+
+        } else if ("GOOGLE".equals(currentProvider)) {
+            // User vẫn chỉ dùng Google, giữ nguyên
+            log.info("User {} continues using GOOGLE provider", existingUser.getEmail());
+
+        } else if ("BOTH".equals(currentProvider)) {
+            // Đã có BOTH rồi, không cần thay đổi
+            log.info("User {} already has BOTH provider", existingUser.getEmail());
+        }
+
+        User updatedUser = userRepository.save(existingUser);
+        return updatedUser;
+    }
 }

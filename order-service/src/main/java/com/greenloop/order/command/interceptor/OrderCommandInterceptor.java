@@ -1,5 +1,10 @@
 package com.greenloop.order.command.interceptor;
 
+import com.greenloop.order.command.CreateOrderCommand;
+import com.greenloop.order.command.UpdateOrderStatusCommand;
+import com.greenloop.order.exception.OrderAlreadyExistsException;
+import com.greenloop.order.exception.ResourceNotFoundException;
+import com.greenloop.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandMessage;
@@ -14,19 +19,37 @@ import java.util.function.BiFunction;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class OrderCommandInterceptor implements MessageDispatchInterceptor<CommandMessage<?>> {
+
+    private final OrderRepository orderRepository;
 
     @Nonnull
     @Override
-    public BiFunction<Integer, CommandMessage<?>, CommandMessage<?>> handle(@Nonnull List<? extends CommandMessage<?>> messages) {
+    public BiFunction<Integer, CommandMessage<?>, CommandMessage<?>> handle(
+            @Nonnull List<? extends CommandMessage<?>> messages) {
         return (index, command) -> {
-            log.info("Dispatching command: {}", command.getPayloadType().getSimpleName());
-            // Ví dụ kiểm tra hoặc thêm metadata, hoặc throw exception nếu command không hợp lệ
 
-            // (Có thể bổ sung thêm validate tùy logic business)
+            if (CreateOrderCommand.class.equals(command.getPayloadType())) {
+                CreateOrderCommand createOrderCommand = (CreateOrderCommand) command.getPayload();
+
+                // Validate: Kiểm tra orderCode có trùng không
+                orderRepository.findByOrderCode(createOrderCommand.getOrderCode())
+                        .ifPresent(order -> {
+                            throw new OrderAlreadyExistsException(
+                                    "Order with code " + createOrderCommand.getOrderCode() + " already exists");
+                        });
+
+            } else if (UpdateOrderStatusCommand.class.equals(command.getPayloadType())) {
+                UpdateOrderStatusCommand updateCommand = (UpdateOrderStatusCommand) command.getPayload();
+
+                // Validate: Order phải tồn tại
+                orderRepository.findById(updateCommand.getOrderId())
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Order", "orderId", updateCommand.getOrderId()));
+            }
 
             return command;
         };
     }
 }
+

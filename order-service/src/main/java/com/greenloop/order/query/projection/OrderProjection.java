@@ -25,9 +25,7 @@ public class OrderProjection {
 
     @EventHandler
     public void on(OrderStatusUpdatedEvent event){
-        Order order = new Order();
-        BeanUtils.copyProperties(event, order);
-        orderService.updateOrderStatus(order);
+        orderService.updateOrderStatus(event.getOrderId(), event.getOrderStatus());
     }
 
 
