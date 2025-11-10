@@ -15,6 +15,9 @@ import java.io.Serializable;
 @Builder
 public class DonationItem extends BaseEntity implements Serializable {
 
+    @Column(name = "code", unique = true, nullable = false, length = 25)
+    private String code;
+    
     @Column(name = "name", nullable = false)
     private String name;
     @Column(name = "description", columnDefinition = "TEXT")

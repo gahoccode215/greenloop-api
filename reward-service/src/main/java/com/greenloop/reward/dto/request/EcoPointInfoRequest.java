@@ -7,6 +7,6 @@ import lombok.Data;
 @Data
 @Builder
 public class EcoPointInfoRequest {
-    private EcoActionType ecoActionType;
-    private Long categoryId;
+  private EcoActionType ecoActionType;
+  private Long categoryId;
 }
