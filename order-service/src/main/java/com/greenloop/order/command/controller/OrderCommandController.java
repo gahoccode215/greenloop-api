@@ -17,7 +17,7 @@ public class OrderCommandController {
     private final CommandGateway commandGateway;
 
     @PostMapping
-    public void createOrder(@RequestBody @Valid  CreateOrderCommand command) {
+    public void createOrder(@RequestBody @Valid CreateOrderCommand command) {
         commandGateway.send(command);
     }
 
