@@ -39,9 +39,9 @@ springdoc:
     config-url: /v3/api-docs/swagger-config
     disable-swagger-default-url: true
     urls:
-      - name: Gateway (Production)
+      - name: Gateway
         url: http://${GATEWAY_HOST}/order-service/v3/api-docs
-      - name: Direct (Internal)
+      - name: Direct
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
 
 axon:
@@ -51,3 +51,11 @@ axon:
         mode: subscribing
   axonserver:
     servers: localhost:8124
+
+ghn:
+  api:
+    base-url: https://online-gateway.ghn.vn/shiip/public-api
+    dev-url: https://dev-online-gateway.ghn.vn/shiip/public-api
+    token: ${GHN_API_KEY}
+    shop-id: ${GHN_SHOP_ID}
+    timeout: 30000

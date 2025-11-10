@@ -41,9 +41,11 @@ public class OrderAggregate {
                 command.getCustomerId(),
                 OrderStatus.PENDING,
                 command.getTotalPrice(),
-                command.getOrderItems()
+                command.getOrderItems(),
+                command.getShippingAddress()  // ← Thêm
         ));
     }
+
 
     @EventSourcingHandler
     public void on(OrderCreatedEvent orderCreatedEvent){

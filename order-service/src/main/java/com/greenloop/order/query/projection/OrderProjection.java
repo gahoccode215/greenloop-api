@@ -4,6 +4,7 @@ import com.greenloop.order.command.event.OrderCreatedEvent;
 import com.greenloop.order.command.event.OrderStatusUpdatedEvent;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
+import com.greenloop.order.entity.ShippingAddress;
 import com.greenloop.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.axonframework.config.ProcessingGroup;
@@ -21,8 +22,7 @@ public class OrderProjection {
     private final OrderService orderService;
 
     @EventHandler
-    public void on(OrderCreatedEvent event){
-
+    public void on(OrderCreatedEvent event) {
         Order order = Order.builder()
                 .orderId(event.getOrderId())
                 .orderCode(event.getOrderCode())
@@ -31,6 +31,21 @@ public class OrderProjection {
                 .orderStatus(event.getOrderStatus())
                 .build();
 
+        // Map shipping address
+        if (event.getShippingAddress() != null) {
+            ShippingAddress shippingAddress = ShippingAddress.builder()
+                    .receiverName(event.getShippingAddress().getReceiverName())
+                    .receiverPhone(event.getShippingAddress().getReceiverPhone())
+                    .address(event.getShippingAddress().getAddress())
+                    .wardCode(event.getShippingAddress().getWardCode())
+                    .districtId(event.getShippingAddress().getDistrictId())
+                    .provinceId(event.getShippingAddress().getProvinceId())
+                    .note(event.getShippingAddress().getNote())
+                    .build();
+            order.setShippingAddress(shippingAddress);
+        }
+
+        // Map order items
         if (event.getOrderItems() != null && !event.getOrderItems().isEmpty()) {
             List<OrderItem> items = event.getOrderItems().stream()
                     .map(itemReq -> OrderItem.builder()
@@ -45,6 +60,7 @@ public class OrderProjection {
 
         orderService.createOrder(order);
     }
+
 
     @EventHandler
     public void on(OrderStatusUpdatedEvent event){

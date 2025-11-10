@@ -27,4 +27,8 @@ public class CreateOrderRequest {
     @Size(min = 1, message = "Đơn hàng phải có ít nhất 1 sản phẩm")
     @Valid
     private List<OrderItemRequest> orderItems;
+
+    @NotNull(message = "Địa chỉ giao hàng không được để trống")
+    @Valid
+    private ShippingAddressRequest shippingAddress;
 }

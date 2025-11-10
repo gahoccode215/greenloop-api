@@ -1,6 +1,7 @@
 package com.greenloop.order.command;
 
 import com.greenloop.order.dto.request.OrderItemRequest;
+import com.greenloop.order.dto.request.ShippingAddressRequest;
 import com.greenloop.order.enums.OrderStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -19,4 +20,5 @@ public class CreateOrderCommand {
     private final OrderStatus orderStatus;
     private final BigDecimal totalPrice;
     private final List<OrderItemRequest> orderItems;
+    private final ShippingAddressRequest shippingAddress;
 }

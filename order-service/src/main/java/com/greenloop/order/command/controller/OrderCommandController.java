@@ -41,8 +41,9 @@ public class OrderCommandController {
                 .orderCode(orderCode)
                 .customerId(request.getCustomerId())
                 .totalPrice(request.getTotalPrice())
-                .orderStatus(OrderStatus.PENDING) 
+                .orderStatus(OrderStatus.PENDING)
                 .orderItems(request.getOrderItems())
+                .shippingAddress(request.getShippingAddress())  // ← Thêm
                 .build();
 
         commandGateway.sendAndWait(command);
@@ -59,6 +60,7 @@ public class OrderCommandController {
                         HttpStatus.CREATED
                 ));
     }
+
 
 
     @PatchMapping("/{orderId}/status")

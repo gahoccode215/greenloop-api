@@ -1,6 +1,7 @@
 package com.greenloop.order.command.event;
 
 import com.greenloop.order.dto.request.OrderItemRequest;
+import com.greenloop.order.dto.request.ShippingAddressRequest;
 import com.greenloop.order.enums.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,4 +20,5 @@ public class OrderCreatedEvent {
     private OrderStatus orderStatus;
     private  BigDecimal totalPrice;
     private List<OrderItemRequest> orderItems;
+    private ShippingAddressRequest shippingAddress;
 }
