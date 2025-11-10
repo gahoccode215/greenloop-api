@@ -42,4 +42,9 @@ public class DonationItem extends BaseEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     private Category category;
 
+    public void updateImage(String imageUrl, String mediaKey) {
+        if (imageUrl != null) this.imageUrl = imageUrl;
+        if (mediaKey != null) this.mediaKey = mediaKey;
+    }
+
 }

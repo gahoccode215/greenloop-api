@@ -17,6 +17,11 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
 
+  cloudinary:
+    cloudName: ${CLOUDINARY_NAME}
+    apiKey: ${CLOUDINARY_API_KEY}
+    apiSecret: ${CLOUDINARY_API_SECRET}
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -37,6 +42,7 @@ spring:
           min-idle: 5
           max-wait: 1000ms
       timeout: 2000ms
+      database: 1
 
 eureka:
   client:
@@ -64,3 +70,6 @@ springdoc:
       - name: Direct (Internal)
         url: http://${PRODUCT_HOST:localhost}:${server.port}/v3/api-docs
 
+
+greenloop:
+  defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

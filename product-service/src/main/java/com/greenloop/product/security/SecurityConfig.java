@@ -1,6 +1,7 @@
-package com.greenloop.reward.security;
+package com.greenloop.product.security;
 
-import com.greenloop.reward.utils.SecurityExceptionUtils;
+
+import com.greenloop.product.utils.SecurityExceptionUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +23,7 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/actuator/health",
-            "/api/v1/eco-points/**",
-            "/api/v1/eco-points/internal"
+            "/api/v1/eco-points/**"
     };
 
     @Bean
@@ -57,3 +57,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+
