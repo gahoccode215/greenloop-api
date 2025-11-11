@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -44,12 +46,18 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final CloudinaryService cloudinaryService;
 
   @Override
+//  @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' + #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserRole = getCurrentUserRole(auth);
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-    List<String> allowedRoles = getAllowedRolesToView(currentUserRole);
+    List<String> allowedRoles =
+        isAdmin
+            ? List.of(RoleConstants.STAFF, RoleConstants.MANAGER)
+            : List.of(RoleConstants.STAFF);
 
     Specification<User> spec =
         (root, query, cb) -> {
@@ -83,6 +91,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   }
 
   @Override
+//  @Cacheable(value = "employee_detail", key = "#id")
   public EmployeeResponse getEmployeeDetail(Long id) {
     User user =
         userRepository
@@ -90,32 +99,39 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserRole = getCurrentUserRole(auth);
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
+
     List<String> userRoles = user.getRoles().stream().map(Role::getName).toList();
 
-    validateEmployeeAccess(currentUserRole, userRoles);
+    boolean isStaffOrManager =
+        userRoles.contains(RoleConstants.STAFF) || userRoles.contains(RoleConstants.MANAGER);
+
+    if (!isStaffOrManager) {
+      throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
+    }
+
+    if (!isAdmin && userRoles.contains(RoleConstants.MANAGER)) {
+      throw new EmployeeNotFoundException("Không có quyền xem thông tin quản lý");
+    }
 
     return mapUserToEmployeeResponse(user);
   }
 
   @Override
   @Transactional
+//  @CacheEvict(value = "employees_list", allEntries = true)
   public CreateEmployeeResponse createEmployee(
       CreateEmployeeRequest request, MultipartFile avatar) {
     log.info("Creating employee with email: {}", request.getEmail());
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserRole = getCurrentUserRole(auth);
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-    if (!isAdmin(currentUserRole) && !isManager(currentUserRole)) {
-      throw new InvalidCredentialsException();
-    }
-
-    if (!isAdmin(currentUserRole) && request.getRole().equals(RoleConstants.ADMIN)) {
-      throw new InvalidCredentialsException();
-    }
-
-    if (isManager(currentUserRole) && !isAllowedRoleForManager(request.getRole())) {
+    if (!isAdmin && request.getRole().equals(RoleConstants.MANAGER)) {
       throw new InvalidCredentialsException();
     }
 
@@ -148,6 +164,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             .roles(List.of(role))
             .build();
 
+    // Upload avatar nếu có
     if (avatar != null && !avatar.isEmpty()) {
       handleAvatarUpload(user, avatar);
     }
@@ -170,6 +187,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
+//  @CacheEvict(
+//      value = {"employee_detail", "employees_list"},
+//      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
     log.info("Updating employee with id: {}", id);
@@ -180,20 +200,28 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserRole = getCurrentUserRole(auth);
-    List<String> employeeRoles = employee.getRoles().stream().map(Role::getName).toList();
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-    validateEmployeeAccess(currentUserRole, employeeRoles);
+    List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
 
-    if (request.getRole() != null && !employeeRoles.contains(request.getRole())) {
-      if (!isAdmin(currentUserRole) && !isManager(currentUserRole)) {
-        throw new InvalidCredentialsException();
-      }
-      if (isManager(currentUserRole) && !isAllowedRoleForManager(request.getRole())) {
-        throw new InvalidCredentialsException();
-      }
+    boolean isStaffOrManager =
+        currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
+
+    if (!isStaffOrManager) {
+      throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
     }
 
+    if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
+      throw new InvalidCredentialsException();
+    }
+
+    if (!isAdmin && request.getRole() != null && request.getRole().equals(RoleConstants.MANAGER)) {
+      throw new InvalidCredentialsException();
+    }
+
+    // Update email
     if (request.getEmail() != null && !request.getEmail().equals(employee.getEmail())) {
       if (userRepository.existsByEmail(request.getEmail())) {
         throw new EmailAlreadyExistsException();
@@ -201,6 +229,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       employee.setEmail(request.getEmail());
     }
 
+    // Update phone
     if (request.getPhone() != null && !request.getPhone().equals(employee.getPhone())) {
       if (userRepository.existsByPhone(request.getPhone())) {
         throw new PhoneNumberAlreadyExistsException(request.getPhone());
@@ -224,7 +253,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       employee.setActive(request.getIsActive());
     }
 
-    if (request.getRole() != null && !employeeRoles.contains(request.getRole())) {
+    // Update role
+    if (request.getRole() != null && !currentRoles.contains(request.getRole())) {
       Role newRole =
           roleRepository
               .findByName(request.getRole())
@@ -232,6 +262,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       employee.setRoles(List.of(newRole));
     }
 
+    // Upload avatar mới nếu có
     if (avatar != null && !avatar.isEmpty()) {
       handleAvatarUpload(employee, avatar);
     }
@@ -248,27 +279,49 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
+//  @CacheEvict(
+//      value = {"employee_detail", "employees_list"},
+//      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
     log.info("Changing employee status for id: {} to: {}", id, isActive);
 
+    // Tìm employee
     User employee =
         userRepository
             .findById(id)
             .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
 
+    // Kiểm tra quyền
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserRole = getCurrentUserRole(auth);
-    List<String> employeeRoles = employee.getRoles().stream().map(Role::getName).toList();
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-    validateEmployeeAccess(currentUserRole, employeeRoles);
+    List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
 
+    // Kiểm tra employee có phải STAFF hoặc MANAGER không
+    boolean isStaffOrManager =
+        currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
+
+    if (!isStaffOrManager) {
+      throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
+    }
+
+    // MANAGER không được thay đổi status của MANAGER khác
+    if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
+      throw new InvalidCredentialsException();
+    }
+
+    // Kiểm tra nếu status không thay đổi
     if (employee.isActive() == isActive) {
       log.info("Employee status is already {}, no change needed", isActive);
       return mapUserToEmployeeResponse(employee);
     }
 
+    // Thay đổi status
     employee.setActive(isActive);
 
+    // Set updatedBy
     String currentUserId = auth.getPrincipal().toString();
     employee.setUpdatedBy(Long.parseLong(currentUserId));
 
@@ -282,61 +335,22 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
-  private String getCurrentUserRole(Authentication auth) {
-    return auth.getAuthorities().stream()
-        .map(a -> a.getAuthority().replace("ROLE_", ""))
-        .findFirst()
-        .orElseThrow(InvalidCredentialsException::new);
-  }
-
-  private List<String> getAllowedRolesToView(String currentUserRole) {
-    return switch (currentUserRole) {
-      case RoleConstants.ADMIN ->
-          List.of(RoleConstants.MANAGER, RoleConstants.STORE_MANAGER, RoleConstants.STAFF);
-      case RoleConstants.MANAGER -> List.of(RoleConstants.STORE_MANAGER, RoleConstants.STAFF);
-      default -> throw new InvalidCredentialsException();
-    };
-  }
-
-  private void validateEmployeeAccess(String currentUserRole, List<String> employeeRoles) {
-    if (!isAdmin(currentUserRole) && !isManager(currentUserRole)) {
-      throw new InvalidCredentialsException();
-    }
-
-    String employeeRole = employeeRoles.get(0);
-
-    if (isManager(currentUserRole)) {
-      boolean isAllowed =
-          employeeRole.equals(RoleConstants.STAFF)
-              || employeeRole.equals(RoleConstants.STORE_MANAGER);
-      if (!isAllowed) {
-        throw new InvalidCredentialsException();
-      }
-    }
-  }
-
-  private boolean isAllowedRoleForManager(String role) {
-    return role.equals(RoleConstants.STAFF) || role.equals(RoleConstants.STORE_MANAGER);
-  }
-
-  private boolean isAdmin(String role) {
-    return role.equals(RoleConstants.ADMIN);
-  }
-
-  private boolean isManager(String role) {
-    return role.equals(RoleConstants.MANAGER);
-  }
-
+  /**
+   * Xử lý upload avatar cho nhân viên. Nếu đã có avatar cũ, xóa ảnh cũ trước khi upload ảnh mới.
+   */
   private void handleAvatarUpload(User user, MultipartFile file) {
     try {
+      // Xóa ảnh cũ nếu có
       if (user.getMediaKey() != null) {
         cloudinaryService.deleteImage(user.getMediaKey());
       }
 
+      // Upload ảnh mới
       String AVATAR_FOLDER = "GreenLoop/Employees/Avatars";
       Map<String, String> uploadResult =
           cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
 
+      // Cập nhật URL và media key
       user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
       user.setMediaKey(uploadResult.get("public_id"));
 

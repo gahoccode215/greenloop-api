@@ -47,32 +47,29 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     String email = oAuth2User.getAttribute("email");
     String name = oAuth2User.getAttribute("name");
-    String picture = oAuth2User.getAttribute("picture");
+    //        String picture = oAuth2User.getAttribute("picture");
 
-    // Lấy role từ authorities
     String roleName =
         oAuth2User.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
             .filter(auth -> auth.startsWith("ROLE_"))
             .findFirst()
-            .map(auth -> auth.substring(5)) // Bỏ "ROLE_" prefix
+            .map(auth -> auth.substring(5))
             .orElse("CUSTOMER");
 
     log.info("OAuth2 login successful for email: {} with role: {}", email, roleName);
-    // Tìm hoặc tạo user trong database
+
     User user =
         userRepository
             .findByEmail(email)
-            .map(existingUser -> updateExistingUser(existingUser, name, picture))
-            .orElseGet(() -> createNewGoogleUser(email, name, picture, roleName));
+            .map(existingUser -> handleExistingUser(existingUser, name))
+            .orElseGet(() -> createNewGoogleUser(email, name, roleName));
 
     List<String> roles = user.getRoles().stream().map(Role::getName).toList();
 
-    // Generate JWT tokens
     String accessToken = jwtUtil.generateToken(user);
     String refreshToken = jwtUtil.generateRefreshToken(user);
 
-    // Tạo temporary key
     String tempKey = UUID.randomUUID().toString();
     Map<String, Object> tokenData = new HashMap<>();
     tokenData.put("accessToken", accessToken);
@@ -84,17 +81,15 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     tokenData.put("expiresIn", jwtUtil.getExpirationTime());
     tokenData.put("refreshExpiresIn", jwtUtil.getRefreshExpirationTime());
 
-    // Lưu vào Redis với TTL 5 phút
     String redisKey = "oauth2_success:" + tempKey;
     redisObjectTemplate.opsForValue().set(redisKey, tokenData, 5, TimeUnit.MINUTES);
 
-    // Redirect về frontend với temporary key
     String redirectUrl = frontendRedirectUrl + "?key=" + tempKey;
     log.info("Redirecting to: {}", redirectUrl);
     getRedirectStrategy().sendRedirect(request, response, redirectUrl);
   }
 
-  private User createNewGoogleUser(String email, String name, String picture, String roleName) {
+  private User createNewGoogleUser(String email, String name, String roleName) {
     Role role =
         roleRepository
             .findByName(roleName)
@@ -111,25 +106,43 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             .roles(List.of(role))
             .isEmailVerified(true)
             .provider("GOOGLE")
+            .password("") // Password trống cho GOOGLE-only users
+            .isActive(true)
             .build();
 
     User savedUser = userRepository.save(newUser);
-    log.info("Created new Google user: {} with role: {}", email, role.getName());
+    log.info("Created new Google user: {} with provider: GOOGLE", email);
     return savedUser;
   }
 
-  private User updateExistingUser(User existingUser, String name, String picture) {
-    // Cập nhật thông tin nếu cần
+  private User handleExistingUser(User existingUser, String name) {
+    // Cập nhật thông tin profile
     if (name != null && !name.equals(existingUser.getFullName())) {
       existingUser.setFullName(name);
     }
 
-    // Đảm bảo user active và email verified
     existingUser.setActive(true);
     existingUser.setIsEmailVerified(true);
 
+    // Xử lý provider logic
+    String currentProvider = existingUser.getProvider();
+
+    if ("LOCAL".equals(currentProvider)) {
+      // User đã đăng ký bằng email/password, giờ login bằng Google
+      // => Upgrade thành BOTH
+      existingUser.setProvider("BOTH");
+      log.info("Upgraded user {} from LOCAL to BOTH provider", existingUser.getEmail());
+
+    } else if ("GOOGLE".equals(currentProvider)) {
+      // User vẫn chỉ dùng Google, giữ nguyên
+      log.info("User {} continues using GOOGLE provider", existingUser.getEmail());
+
+    } else if ("BOTH".equals(currentProvider)) {
+      // Đã có BOTH rồi, không cần thay đổi
+      log.info("User {} already has BOTH provider", existingUser.getEmail());
+    }
+
     User updatedUser = userRepository.save(existingUser);
-    log.info("Updated existing Google user: {}", existingUser.getEmail());
     return updatedUser;
   }
 }

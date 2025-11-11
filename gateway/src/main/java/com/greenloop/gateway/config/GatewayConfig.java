@@ -37,7 +37,7 @@ public class GatewayConfig {
         .route(
             "product-service",
             r ->
-                r.path("/api/v1/products/**", "/api/v1/categories/**", "/api/v1/donations/**")
+                r.path("/api/v1/products/**", "/api/v1/categories/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://product-service"))
         .route(
@@ -73,6 +73,19 @@ public class GatewayConfig {
                 r.path("/reward-service/v3/api-docs")
                     .filters(f -> f.rewritePath("/reward-service/v3/api-docs", "/v3/api-docs"))
                     .uri("lb://reward-service"))
+        .route(
+            "order-service",
+            r ->
+                r.path("/api/v1/orders/**")
+                    //                                        .filters(f ->
+                    // f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
+                    .uri("lb://order-service"))
+        .route(
+            "order-service-docs",
+            r ->
+                r.path("/order-service/v3/api-docs")
+                    .filters(f -> f.rewritePath("/order-service/v3/api-docs", "/v3/api-docs"))
+                    .uri("lb://order-service"))
         .build();
   }
 }
