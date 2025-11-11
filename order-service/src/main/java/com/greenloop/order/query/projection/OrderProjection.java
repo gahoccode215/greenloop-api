@@ -31,15 +31,14 @@ public class OrderProjection {
                 .orderStatus(event.getOrderStatus())
                 .build();
 
-        // Map shipping address
         if (event.getShippingAddress() != null) {
             ShippingAddress shippingAddress = ShippingAddress.builder()
                     .receiverName(event.getShippingAddress().getReceiverName())
                     .receiverPhone(event.getShippingAddress().getReceiverPhone())
-                    .address(event.getShippingAddress().getAddress())
-                    .wardCode(event.getShippingAddress().getWardCode())
-                    .districtId(event.getShippingAddress().getDistrictId())
-                    .provinceId(event.getShippingAddress().getProvinceId())
+                    .receiverAddress(event.getShippingAddress().getAddress())
+                    .receiverWardCode(event.getShippingAddress().getWardCode())
+                    .receiverDistrictId(event.getShippingAddress().getDistrictId())
+                    .receiverProvinceId(event.getShippingAddress().getProvinceId())
                     .note(event.getShippingAddress().getNote())
                     .build();
             order.setShippingAddress(shippingAddress);

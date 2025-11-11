@@ -3,8 +3,7 @@ package com.greenloop.order.ghn.client;
 import com.greenloop.order.ghn.config.GHNConfig;
 
 import com.greenloop.order.ghn.dto.request.CreateShippingOrderRequest;
-import com.greenloop.order.ghn.dto.response.GHNTrackingResponse;
-import com.greenloop.order.ghn.dto.response.ShippingOrderResponse;
+import com.greenloop.order.ghn.dto.response.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -12,9 +11,10 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import com.greenloop.order.ghn.dto.response.GHNResponse;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 @Component
 @Slf4j
@@ -90,6 +90,110 @@ public class GHNClient {
         } catch (Exception e) {
             log.error("Failed to track GHN order: {}", orderCode, e);
             return null;
+        }
+    }
+
+    /**
+     * Lấy danh sách Quận/Huyện theo Province ID
+     */
+    public List<DistrictResponse> getDistricts(Integer provinceId) {
+        String url = ghnConfig.getApi().getBaseUrl() + "/master-data/district";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Token", ghnConfig.getApi().getToken());
+
+        // Request body chứa province_id
+        Map<String, Object> body = Map.of("province_id", provinceId);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+        log.debug("Getting districts for province: {}", provinceId);
+
+        try {
+            ResponseEntity<GHNResponse<List<DistrictResponse>>> response = ghnRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<GHNResponse<List<DistrictResponse>>>() {}
+            );
+
+            if (response.getBody() != null && response.getBody().isSuccess()) {
+                return response.getBody().getData();
+            } else {
+                log.warn("GHN get districts failed: {}", response.getBody().getMessage());
+                return List.of();
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to get districts from GHN", e);
+            return List.of();
+        }
+    }
+
+    public List<WardResponse> getWards(Integer districtId) {
+        String url = ghnConfig.getApi().getBaseUrl() + "/master-data/ward";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Token", ghnConfig.getApi().getToken());
+
+        // Request body chứa district_id
+        Map<String, Object> body = Map.of("district_id", districtId);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+        log.debug("Getting wards for district: {}", districtId);
+
+        try {
+            ResponseEntity<GHNResponse<List<WardResponse>>> response = ghnRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<GHNResponse<List<WardResponse>>>() {}
+            );
+
+            if (response.getBody() != null && response.getBody().isSuccess()) {
+                return response.getBody().getData();
+            } else {
+                log.warn("GHN get wards failed: {}", response.getBody().getMessage());
+                return List.of();
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to get wards from GHN", e);
+            return List.of();
+        }
+    }
+
+    public List<ProvinceResponse> getProvinces() {
+        String url = ghnConfig.getApi().getBaseUrl() + "/master-data/province";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Token", ghnConfig.getApi().getToken());
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        log.debug("Getting provinces from GHN");
+
+        try {
+            ResponseEntity<GHNResponse<List<ProvinceResponse>>> response = ghnRestTemplate.exchange(
+                    url,
+                    HttpMethod.GET,  // ← GHN dùng GET method
+                    entity,
+                    new ParameterizedTypeReference<GHNResponse<List<ProvinceResponse>>>() {}
+            );
+
+            if (response.getBody() != null && response.getBody().isSuccess()) {
+                log.info("Successfully fetched {} provinces", response.getBody().getData().size());
+                return response.getBody().getData();
+            } else {
+                log.warn("GHN get provinces failed: {}", response.getBody().getMessage());
+                return List.of();
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to get provinces from GHN", e);
+            return List.of();
         }
     }
 

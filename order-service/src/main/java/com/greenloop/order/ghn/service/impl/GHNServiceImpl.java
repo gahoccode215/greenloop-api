@@ -4,10 +4,9 @@ import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ShippingAddress;
 import com.greenloop.order.ghn.client.GHNClient;
-import com.greenloop.order.ghn.config.GHNConfig;
 import com.greenloop.order.ghn.dto.request.CreateShippingOrderRequest;
-import com.greenloop.order.ghn.dto.response.GHNResponse;
-import com.greenloop.order.ghn.dto.response.ShippingOrderResponse;
+import com.greenloop.order.ghn.dto.request.CreateShippingRequest;
+import com.greenloop.order.ghn.dto.response.*;
 import com.greenloop.order.ghn.service.GHNService;
 import com.greenloop.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,16 +25,15 @@ public class GHNServiceImpl implements GHNService {
 
     private final GHNClient ghnClient;
     private final OrderRepository orderRepository;
-    private final GHNConfig ghnConfig;
 
     @Override
-    public ShippingOrderResponse createShippingOrder(String orderId) {
+    public ShippingOrderResponse createShippingOrder(String orderId, CreateShippingRequest createShippingRequest) {
         // 1. Lấy thông tin order
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        // 2. Build request
-        CreateShippingOrderRequest request = buildShippingRequest(order);
+        // 2. Build request với thông tin người gửi từ request
+        CreateShippingOrderRequest request = buildShippingRequest(order, createShippingRequest);
 
         // 3. Gọi GHN API
         GHNResponse<ShippingOrderResponse> response = ghnClient.createShippingOrder(request);
@@ -56,92 +53,90 @@ public class GHNServiceImpl implements GHNService {
                 ZonedDateTime zonedDateTime = ZonedDateTime.parse(data.getExpectedDeliveryTime());
                 order.setExpectedDeliveryTime(zonedDateTime.toLocalDateTime());
             } catch (Exception e) {
-                log.warn("Failed to parse expected delivery time: {}", data.getExpectedDeliveryTime(), e);
+                log.warn("Failed to parse expected delivery time: {}", data.getExpectedDeliveryTime());
             }
         }
 
         orderRepository.save(order);
 
-        log.info("Created GHN shipping order: {} for order {}",
-                data.getOrderCode(), orderId);
+        log.info("Created GHN shipping order: {} for order {}", data.getOrderCode(), orderId);
 
         return data;
     }
 
-    private CreateShippingOrderRequest buildShippingRequest(Order order) {
-        GHNConfig.ShopConfig shop = ghnConfig.getShop();
+    @Override
+    public List<ProvinceResponse> getProvinces() {
+        return ghnClient.getProvinces();
+    }
+
+    @Override
+    public List<DistrictResponse> getDistricts(Integer provinceId) {
+        return ghnClient.getDistricts(provinceId);
+    }
+
+    @Override
+    public List<WardResponse> getWards(Integer districtId) {
+        return ghnClient.getWards(districtId);
+    }
+
+    private CreateShippingOrderRequest buildShippingRequest(
+            Order order,
+            CreateShippingRequest createShippingRequest) {
+
         ShippingAddress addr = order.getShippingAddress();
 
         return CreateShippingOrderRequest.builder()
-                // Người gửi (từ config)
-                .fromName(shop.getName())
-                .fromPhone(shop.getPhone())
-                .fromAddress(shop.getAddress())
-                .fromWardName(shop.getWardName())
-                .fromDistrictName(shop.getDistrictName())
-                .fromProvinceName(shop.getProvinceName())
+                // Thông tin người gửi
+                .fromName(createShippingRequest.getSenderInfo().getName())
+                .fromPhone(createShippingRequest.getSenderInfo().getPhone())
+                .fromAddress(createShippingRequest.getSenderInfo().getAddress())
+                .fromWardName(createShippingRequest.getSenderInfo().getWardName())
+                .fromDistrictName(createShippingRequest.getSenderInfo().getDistrictName())
+                .fromProvinceName(createShippingRequest.getSenderInfo().getProvinceName())
 
-                // Người nhận (từ order)
+                // Thông tin người nhận
                 .toName(addr.getReceiverName())
                 .toPhone(addr.getReceiverPhone())
-                .toAddress(addr.getAddress())
-                .toWardCode(addr.getWardCode())
-                .toDistrictId(addr.getDistrictId())
+                .toAddress(addr.getReceiverAddress())
+                .toWardCode(addr.getReceiverWardCode())
+                .toDistrictId(addr.getReceiverDistrictId())
+                .toProvinceId(addr.getReceiverProvinceId())
 
                 // Thông tin đơn hàng
                 .codAmount(order.getTotalPrice().intValue())
                 .content("Đơn hàng " + order.getOrderCode())
-                .weight(calculateTotalWeight(order.getOrderItems()))
-                .length(20)
-                .width(15)
-                .height(10)
-                .serviceTypeId(2)  // E-commerce
-                .paymentTypeId(2)  // Người nhận trả phí
-                .requiredNote("CHOTHUHANG")
+                .weight(createShippingRequest.getOrderWeight())
+                .length(createShippingRequest.getOrderLength())
+                .width(createShippingRequest.getOrderWidth())
+                .height(createShippingRequest.getOrderHeight())
+                .serviceTypeId(createShippingRequest.getOrderServiceType())
+                .paymentTypeId(createShippingRequest.getOrderPaymentType())
+                .requiredNote(createShippingRequest.getOrderRequireNote())
                 .note(addr.getNote())
                 .clientOrderCode(order.getOrderCode())
                 .insuranceValue(order.getTotalPrice().intValue())
 
-                // Danh sách sản phẩm
                 .items(mapOrderItems(order.getOrderItems()))
                 .build();
     }
 
-    /**
-     * Map OrderItem entity sang GHN ItemDetail DTO
-     */
     private List<CreateShippingOrderRequest.ItemDetail> mapOrderItems(List<OrderItem> orderItems) {
         return orderItems.stream()
                 .map(item -> CreateShippingOrderRequest.ItemDetail.builder()
-                        .name("Product " + item.getProductId())  // Cần lấy tên thật từ Product service
-                        .code(String.valueOf(item.getProductId()))
+                        .name("Product " + item.getProductId()) // Ở đây sau thay bằng tên sản phẩm
+                        .code("Product " + item.getProductId())
                         .quantity(item.getQuantity())
                         .price(item.getPrice().intValue())
-                        .weight(200)  // 200g mỗi sản phẩm (default)
-                        .length(10)
-                        .width(10)
-                        .height(5)
                         .build())
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Tính tổng cân nặng đơn hàng
-     */
-    private Integer calculateTotalWeight(List<OrderItem> items) {
-        return items.stream()
-                .mapToInt(item -> item.getQuantity() * 200)  // 200g mỗi sản phẩm
-                .sum();
-    }
-
     @Override
     public String trackOrder(String ghnOrderCode) {
-        // TODO: Implement tracking API
         return null;
     }
 
     @Override
     public void cancelOrder(String ghnOrderCode) {
-        // TODO: Implement cancel API
     }
 }

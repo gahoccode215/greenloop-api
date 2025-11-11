@@ -11,7 +11,6 @@ import org.springframework.web.client.RestTemplate;
 @Data
 public class GHNConfig {
     private ApiConfig api;
-    private ShopConfig shop;
 
     @Data
     public static class ApiConfig {
@@ -20,14 +19,5 @@ public class GHNConfig {
         private Integer shopId;
     }
 
-    @Data
-    public static class ShopConfig {
-        private String name;
-        private String phone;
-        private String address;
-        private String wardName;
-        private String districtName;
-        private String provinceName;
-    }
 }
 

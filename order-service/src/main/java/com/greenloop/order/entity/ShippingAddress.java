@@ -21,16 +21,16 @@ public class ShippingAddress {
     private String receiverPhone;
 
     @Column(name = "shipping_address", length = 500)
-    private String address;
+    private String receiverAddress;
 
     @Column(name = "ward_code", length = 20)
-    private String wardCode;
+    private String receiverWardCode;
 
     @Column(name = "district_id")
-    private Integer districtId;
+    private Integer receiverDistrictId;
 
     @Column(name = "province_id")
-    private Integer provinceId;
+    private Integer receiverProvinceId;
 
     @Column(name = "shipping_note", length = 500)
     private String note;

@@ -45,6 +45,9 @@ public class CreateShippingOrderRequest {
     @JsonProperty("to_district_id")
     private Integer toDistrictId;
 
+    @JsonProperty("to_province_id")
+    private Integer toProvinceId;
+
     // ========== THÔNG TIN ĐƠN HÀNG ==========
     @JsonProperty("cod_amount")
     private Integer codAmount;  // Tiền thu hộ
