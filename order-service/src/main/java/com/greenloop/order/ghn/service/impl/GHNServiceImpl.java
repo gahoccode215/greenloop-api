@@ -3,6 +3,7 @@ package com.greenloop.order.ghn.service.impl;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ShippingAddress;
+import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.ghn.client.GHNClient;
 import com.greenloop.order.ghn.dto.request.CreateShippingOrderRequest;
 import com.greenloop.order.ghn.dto.request.CreateShippingRequest;
@@ -79,6 +80,42 @@ public class GHNServiceImpl implements GHNService {
         return ghnClient.getWards(districtId);
     }
 
+    @Override
+    public CancelOrderResponse cancelOrder(String orderId) {
+        // 1. Lấy order từ DB
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+        // 2. Kiểm tra có mã vận đơn GHN không
+        if (order.getGhnOrderCode() == null || order.getGhnOrderCode().isEmpty()) {
+            throw new RuntimeException("Order chưa có mã vận đơn GHN");
+        }
+
+        // 3. Gọi GHN API hủy đơn
+        List<CancelOrderResponse> responses = ghnClient.cancelOrders(
+                List.of(order.getGhnOrderCode())
+        );
+
+        // 4. Xử lý response
+        if (responses != null && !responses.isEmpty()) {
+            CancelOrderResponse response = responses.get(0);
+
+            if (response.getResult()) {
+                order.setShippingStatus("cancelled");
+                order.setOrderStatus(OrderStatus.CANCELLED);
+                orderRepository.save(order);
+
+                log.info("Successfully cancelled order {} with GHN code {}",
+                        orderId, order.getGhnOrderCode());
+            }
+
+            return response;
+        }
+
+        throw new RuntimeException("Failed to cancel order: " + orderId);
+    }
+
+
     private CreateShippingOrderRequest buildShippingRequest(
             Order order,
             CreateShippingRequest createShippingRequest) {
@@ -136,7 +173,5 @@ public class GHNServiceImpl implements GHNService {
         return null;
     }
 
-    @Override
-    public void cancelOrder(String ghnOrderCode) {
-    }
+
 }

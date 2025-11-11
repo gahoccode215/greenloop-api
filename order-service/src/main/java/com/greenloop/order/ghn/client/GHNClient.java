@@ -197,6 +197,39 @@ public class GHNClient {
         }
     }
 
+    public List<CancelOrderResponse> cancelOrders(List<String> orderCodes) {
+        String url = ghnConfig.getApi().getBaseUrl() + "/v2/switch-status/cancel";
+
+        HttpHeaders headers = buildHeaders();
+
+        // Request body chứa danh sách order_codes
+        Map<String, Object> body = Map.of("order_codes", orderCodes);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+        log.info("Cancelling GHN orders: {}", orderCodes);
+
+        try {
+            ResponseEntity<GHNResponse<List<CancelOrderResponse>>> response = ghnRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<GHNResponse<List<CancelOrderResponse>>>() {}
+            );
+
+            if (response.getBody() != null && response.getBody().isSuccess()) {
+                log.info("Successfully cancelled {} orders", orderCodes.size());
+                return response.getBody().getData();
+            } else {
+                log.warn("GHN cancel order failed: {}", response.getBody().getMessage());
+                throw new RuntimeException("GHN cancel failed: " + response.getBody().getMessage());
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to cancel GHN orders", e);
+            throw new RuntimeException("Failed to cancel GHN orders: " + e.getMessage());
+        }
+    }
+
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
