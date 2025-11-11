@@ -32,7 +32,8 @@ public class JwtUtil {
   @Value("${spring.security.jwt.refresh-expiration}")
   private Long refreshExpiration;
 
-  public JwtUtil(@Qualifier("customStringRedisTemplate") RedisTemplate<String, String> redisTemplate) {
+  public JwtUtil(
+      @Qualifier("customStringRedisTemplate") RedisTemplate<String, String> redisTemplate) {
     this.redisTemplate = redisTemplate;
   }
 
