@@ -50,11 +50,11 @@ axon:
       order-group:
         mode: subscribing
   axonserver:
-    servers: localhost:8124
+    servers: ${AXON_SERVER:localhost}:8124
 
 ghn:
   api:
-#    base-url: https://online-gateway.ghn.vn/shiip/public-api
+    #    base-url: https://online-gateway.ghn.vn/shiip/public-api
     dev-url: https://dev-online-gateway.ghn.vn/shiip/public-api
     token: ${GHN_API_KEY}
     shop-id: ${GHN_SHOP_ID}
