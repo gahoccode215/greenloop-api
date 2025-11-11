@@ -5,6 +5,7 @@ import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.CreateEmployeeResponse;
 import com.greenloop.user.dto.response.EmployeeResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
+import com.greenloop.user.dto.response.ResetPasswordResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,4 +19,6 @@ public interface AdminEmployeeService {
   EmployeeResponse updateEmployee(Long id, UpdateEmployeeRequest request, MultipartFile avatar);
 
   EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive);
+
+    ResetPasswordResponse resetEmployeePassword(Long id);
 }

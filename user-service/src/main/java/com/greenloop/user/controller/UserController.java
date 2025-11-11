@@ -11,11 +11,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -41,18 +43,19 @@ public class UserController {
         ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
   }
 
-  @PutMapping("/profile")
+  @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("isAuthenticated()")
   @Operation(summary = "Update current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
-      @Valid @RequestBody UpdateProfileRequest request) {
+      @Valid @RequestBody UpdateProfileRequest request,
+      @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
 
     log.info("Updating profile for user: {}", userId);
 
-    UserProfileResponse response = userService.updateProfile(userId, request);
+    UserProfileResponse response = userService.updateProfile(userId, request, avatar);
 
     return ResponseEntity.ok(
         ApiResponseDTO.success("Cập nhật thông tin cá nhân thành công", response, HttpStatus.OK));

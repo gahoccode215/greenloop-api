@@ -18,7 +18,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -93,7 +96,47 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     return mapUserToCustomerResponse(user);
   }
 
-  private CustomerResponse mapUserToCustomerResponse(User user) {
+    @Override
+    @Transactional
+//  @CacheEvict(
+//      value = {"customer_detail", "customers_list"},
+//      allEntries = true)
+    public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
+        log.info("Changing customer status for id: {} to: {}", id, isActive);
+
+        User customer =
+                userRepository
+                        .findById(id)
+                        .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+
+        List<String> userRoles = customer.getRoles().stream().map(Role::getName).toList();
+
+        if (!userRoles.contains(RoleConstants.CUSTOMER)) {
+            throw new CustomerNotFoundException("Người dùng không phải khách hàng");
+        }
+
+        if (customer.isActive() == isActive) {
+            log.info("Customer status is already {}, no change needed", isActive);
+            return mapUserToCustomerResponse(customer);
+        }
+
+        customer.setActive(isActive);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserId = auth.getPrincipal().toString();
+        customer.setUpdatedBy(Long.parseLong(currentUserId));
+
+        User updatedCustomer = userRepository.save(customer);
+
+        log.info(
+                "Customer status changed successfully for id: {}. New status: {}",
+                id,
+                isActive ? "ACTIVE" : "INACTIVE");
+
+        return mapUserToCustomerResponse(updatedCustomer);
+    }
+
+    private CustomerResponse mapUserToCustomerResponse(User user) {
     return CustomerResponse.builder()
         .id(user.getId())
         .email(user.getEmail())

@@ -63,3 +63,5 @@ hs_err_pid*
 /.env.gateway
 /.env.notification
 /.env.user
+/.env.product
+/.env.order

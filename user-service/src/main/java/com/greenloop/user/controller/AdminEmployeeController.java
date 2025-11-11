@@ -2,10 +2,7 @@ package com.greenloop.user.controller;
 
 import com.greenloop.user.dto.request.CreateEmployeeRequest;
 import com.greenloop.user.dto.request.UpdateEmployeeRequest;
-import com.greenloop.user.dto.response.ApiResponseDTO;
-import com.greenloop.user.dto.response.CreateEmployeeResponse;
-import com.greenloop.user.dto.response.EmployeeResponse;
-import com.greenloop.user.dto.response.PageResponseDTO;
+import com.greenloop.user.dto.response.*;
 import com.greenloop.user.service.AdminEmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -87,7 +84,7 @@ public class AdminEmployeeController {
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  //    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
   @Operation(
       summary = "Create new employee",
       description = "Create new employee account with optional avatar")
@@ -133,4 +130,21 @@ public class AdminEmployeeController {
             : "Vô hiệu hóa tài khoản nhân viên thành công";
     return ResponseEntity.ok(ApiResponseDTO.success(message, response, HttpStatus.OK));
   }
+
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(
+            summary = "Reset employee password",
+            description = "Generate new temporary password for employee who forgot password")
+    public ResponseEntity<ApiResponseDTO<ResetPasswordResponse>> resetEmployeePassword(
+            @PathVariable Long id) {
+
+        log.info("Resetting password for employee id: {}", id);
+
+        ResetPasswordResponse response = adminEmployeeService.resetEmployeePassword(id);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Cấp lại mật khẩu thành công", response, HttpStatus.OK));
+    }
 }

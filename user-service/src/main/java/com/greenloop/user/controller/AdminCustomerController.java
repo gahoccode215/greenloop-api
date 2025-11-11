@@ -7,6 +7,7 @@ import com.greenloop.user.service.AdminCustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -27,7 +28,7 @@ public class AdminCustomerController {
   private final AdminCustomerService adminCustomerService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF', 'STORE_MANAGER')")
   @Operation(
       summary = "Get customer list",
       description = "Retrieve paginated list of customers with search and filter options")
@@ -63,7 +64,7 @@ public class AdminCustomerController {
   }
 
   @GetMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF', 'STORE_MANAGER')")
   @Operation(
       summary = "Get customer detail",
       description = "Retrieve detail information of a customer by id")
@@ -73,4 +74,23 @@ public class AdminCustomerController {
     return ResponseEntity.ok(
         ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK));
   }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(
+            summary = "Change customer status",
+            description = "Change active status of a customer account")
+    public ResponseEntity<ApiResponseDTO<CustomerResponse>> changeCustomerStatus(
+            @PathVariable Long id,
+            @RequestParam Boolean isActive) {
+
+        log.info("Changing customer status for id: {}, new status: {}", id, isActive);
+
+        CustomerResponse customer = adminCustomerService.changeCustomerStatus(id, isActive);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Thay đổi trạng thái khách hàng thành công", customer, HttpStatus.OK));
+    }
+
 }

@@ -7,14 +7,18 @@ import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.PhoneNumberAlreadyExistsException;
 import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
+import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
 import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
+  private final CloudinaryService cloudinaryService;
 
   @Override
   @Transactional(readOnly = true)
@@ -47,7 +52,7 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional
   //  @CacheEvict(value = "user_profile", key = "#userId")
-  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request) {
+  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
     log.info("Updating profile for user: {}", userId);
 
     User user =
@@ -71,6 +76,10 @@ public class UserServiceImpl implements UserService {
     if (request.getPhoneNumber() != null) {
       user.setPhone(request.getPhoneNumber());
     }
+
+      if (avatar != null && !avatar.isEmpty()) {
+          handleAvatarUpload(user, avatar);
+      }
 
     User updatedUser = userRepository.save(user);
     log.info("Profile updated successfully for user: {}", userId);
@@ -97,4 +106,27 @@ public class UserServiceImpl implements UserService {
         .updatedAt(user.getUpdatedAt())
         .build();
   }
+
+    private void handleAvatarUpload(User user, MultipartFile file) {
+        try {
+            // Xóa ảnh cũ nếu có
+            if (user.getMediaKey() != null) {
+                cloudinaryService.deleteImage(user.getMediaKey());
+            }
+
+            // Upload ảnh mới
+            String AVATAR_FOLDER = "GreenLoop/Users/Avatars";
+            Map<String, String> uploadResult =
+                    cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
+
+            // Cập nhật URL và media key
+            user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
+            user.setMediaKey(uploadResult.get("public_id"));
+
+            log.info("Avatar uploaded successfully for user: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
+            throw new RuntimeException("Failed to upload avatar", e);
+        }
+    }
 }

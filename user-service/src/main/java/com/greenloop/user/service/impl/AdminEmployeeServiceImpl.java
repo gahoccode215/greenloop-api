@@ -6,6 +6,7 @@ import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.CreateEmployeeResponse;
 import com.greenloop.user.dto.response.EmployeeResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
+import com.greenloop.user.dto.response.ResetPasswordResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.*;
@@ -335,7 +336,57 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
-  /**
+    @Override
+    @Transactional
+//  @CacheEvict(value = "employee_detail", allEntries = true)
+    public ResetPasswordResponse resetEmployeePassword(Long id) {
+        log.info("Resetting password for employee id: {}", id);
+
+        User employee =
+                userRepository
+                        .findById(id)
+                        .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin =
+                auth.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
+
+        List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
+
+        boolean isStaffOrManager =
+                currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
+
+        if (!isStaffOrManager) {
+            throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
+        }
+
+        if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
+            throw new InvalidCredentialsException();
+        }
+
+        String newTemporaryPassword = passwordGeneratorUtil.generateSecurePassword();
+        employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
+        employee.setIsFirstLogin(true);
+
+        String currentUserId = auth.getPrincipal().toString();
+        employee.setUpdatedBy(Long.parseLong(currentUserId));
+
+        User updatedEmployee = userRepository.save(employee);
+
+        log.info("Password reset successfully for employee id: {}", id);
+
+        return ResetPasswordResponse.builder()
+                .id(updatedEmployee.getId())
+                .email(updatedEmployee.getEmail())
+                .fullName(updatedEmployee.getFullName())
+                .temporaryPassword(newTemporaryPassword)
+                .message("Mật khẩu tạm thời đã được tạo. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.")
+                .build();
+    }
+
+
+    /**
    * Xử lý upload avatar cho nhân viên. Nếu đã có avatar cũ, xóa ảnh cũ trước khi upload ảnh mới.
    */
   private void handleAvatarUpload(User user, MultipartFile file) {

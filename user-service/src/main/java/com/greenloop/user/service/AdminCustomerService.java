@@ -8,4 +8,5 @@ public interface AdminCustomerService {
   PageResponseDTO<CustomerResponse> getCustomers(String search, String status, Pageable pageable);
 
   CustomerResponse getCustomerDetail(Long id);
+    CustomerResponse changeCustomerStatus(Long id, Boolean isActive);
 }
