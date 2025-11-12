@@ -9,6 +9,7 @@ import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
+
 import java.util.List;
 import java.util.Map;
 
@@ -25,87 +26,79 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
-  private final UserRepository userRepository;
-  private final CloudinaryService cloudinaryService;
+    private final UserRepository userRepository;
+    private final CloudinaryService cloudinaryService;
 
-  @Override
-  @Transactional(readOnly = true)
-  public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-    log.debug("Loading user by email: {}", email);
-    return userRepository
-        .findByEmail(email)
-        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  //  @Cacheable(value = "user_profile", key = "#userId")
-  public UserProfileResponse getMyProfile(Long userId) {
-    log.info("Retrieving profile for user: {}", userId);
-
-    User user =
-        userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
-    return mapUserToProfileResponse(user);
-  }
-
-  @Override
-  @Transactional
-  //  @CacheEvict(value = "user_profile", key = "#userId")
-  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
-    log.info("Updating profile for user: {}", userId);
-
-    User user =
-        userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
-    if (request.getPhoneNumber() != null
-        && !request.getPhoneNumber().equals(user.getPhone())
-        && userRepository.existsByPhone(request.getPhoneNumber())) {
-      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        log.debug("Loading user by email: {}", email);
+        return userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
 
-    if (request.getFullName() != null) {
-      user.setFullName(request.getFullName());
-    }
-    if (request.getDateOfBirth() != null) {
-      user.setDateOfBirth(request.getDateOfBirth());
-    }
-    if (request.getGender() != null) {
-      user.setGender(request.getGender());
-    }
-    if (request.getPhoneNumber() != null) {
-      user.setPhone(request.getPhoneNumber());
+    @Override
+    @Transactional(readOnly = true)
+    //  @Cacheable(value = "user_profile", key = "#userId")
+    public UserProfileResponse getMyProfile(Long userId) {
+        log.info("Retrieving profile for user: {}", userId);
+        User user =
+                userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+        return mapUserToProfileResponse(user);
     }
 
-      if (avatar != null && !avatar.isEmpty()) {
-          handleAvatarUpload(user, avatar);
-      }
+    @Override
+    @Transactional
+    //  @CacheEvict(value = "user_profile", key = "#userId")
+    public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
+        log.info("Updating profile for user: {}", userId);
+        User user =
+                userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+        if (request.getPhoneNumber() != null
+                && !request.getPhoneNumber().equals(user.getPhone())
+                && userRepository.existsByPhone(request.getPhoneNumber())) {
+            throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+        }
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+        }
+        if (request.getDateOfBirth() != null) {
+            user.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getGender() != null) {
+            user.setGender(request.getGender());
+        }
+        if (request.getPhoneNumber() != null) {
+            user.setPhone(request.getPhoneNumber());
+        }
+        if (avatar != null && !avatar.isEmpty()) {
+            handleAvatarUpload(user, avatar);
+        }
+        User updatedUser = userRepository.save(user);
+        log.info("Profile updated successfully for user: {}", userId);
+        return mapUserToProfileResponse(updatedUser);
+    }
 
-    User updatedUser = userRepository.save(user);
-    log.info("Profile updated successfully for user: {}", userId);
+    private UserProfileResponse mapUserToProfileResponse(User user) {
+        List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
 
-    return mapUserToProfileResponse(updatedUser);
-  }
-
-  private UserProfileResponse mapUserToProfileResponse(User user) {
-    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
-
-    return UserProfileResponse.builder()
-        .userId(user.getId())
-        .email(user.getEmail())
-        .fullName(user.getFullName())
-        .dateOfBirth(user.getDateOfBirth())
-        .gender(user.getGender() != null ? user.getGender().name() : null)
-        .phoneNumber(user.getPhone())
-        .avatarUrl(user.getAvatarUrl())
-        .roles(roleNames)
-        .isActive(user.isActive())
-        .isEmailVerified(user.getIsEmailVerified())
-        .provider(user.getProvider())
-        .createdAt(user.getCreatedAt())
-        .updatedAt(user.getUpdatedAt())
-        .build();
-  }
+        return UserProfileResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .dateOfBirth(user.getDateOfBirth())
+                .gender(user.getGender() != null ? user.getGender().name() : null)
+                .phoneNumber(user.getPhone())
+                .avatarUrl(user.getAvatarUrl())
+                .roles(roleNames)
+                .isActive(user.isActive())
+                .isEmailVerified(user.getIsEmailVerified())
+                .provider(user.getProvider())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
 
     private void handleAvatarUpload(User user, MultipartFile file) {
         try {
@@ -113,19 +106,13 @@ public class UserServiceImpl implements UserService {
             if (user.getMediaKey() != null) {
                 cloudinaryService.deleteImage(user.getMediaKey());
             }
-
             // Upload ảnh mới
-            String AVATAR_FOLDER = "GreenLoop/Users/Avatars";
             Map<String, String> uploadResult =
-                    cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
-
+                    cloudinaryService.uploadImage(file.getBytes(), "GreenLoop/Users/Avatars");
             // Cập nhật URL và media key
             user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
             user.setMediaKey(uploadResult.get("public_id"));
-
-            log.info("Avatar uploaded successfully for user: {}", user.getEmail());
         } catch (Exception e) {
-            log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
             throw new RuntimeException("Failed to upload avatar", e);
         }
     }

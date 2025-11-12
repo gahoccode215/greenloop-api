@@ -1,5 +1,6 @@
 package com.greenloop.user.service.impl;
 
+import com.greenloop.user.constant.ProviderConstants;
 import com.greenloop.user.constant.RoleConstants;
 import com.greenloop.user.dto.event.PasswordResetEvent;
 import com.greenloop.user.dto.event.UserRegistrationEvent;
@@ -11,15 +12,17 @@ import com.greenloop.user.exception.*;
 import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AuthService;
+import com.greenloop.user.service.CacheService;
 import com.greenloop.user.util.JwtUtil;
 import com.greenloop.user.util.OtpUtil;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,120 +33,99 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
-  private final UserRepository userRepository;
-  private final RoleRepository roleRepository;
-  private final PasswordEncoder passwordEncoder;
-  private final JwtUtil jwtUtil;
-  private final OtpUtil otpUtil;
-  private final StreamBridge streamBridge;
-  private final RedisTemplate<String, String> redisTemplate;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final OtpUtil otpUtil;
+    private final StreamBridge streamBridge;
+    private final CacheService cacheService;
 
-  @Value("${app.otp.expiry-in-minutes}")
-  private long otpExpiryMinutes;
+    @Value("${app.otp.expiry-in-minutes}")
+    private long otpExpiryMinutes;
 
-  @Value("${app.otp.redis.email-verification-prefix}")
-  private String emailVerificationPrefix;
+    @Value("${app.otp.redis.email-verify-prefix}")
+    private String emailVerifyPrefix;
 
-  @Value("${app.otp.redis.password-reset-prefix}")
-  private String passwordResetPrefix;
+    @Value("${app.otp.redis.password-reset-prefix}")
+    private String passwordResetPrefix;
 
-  @Override
-  public AuthResponse login(LoginRequest request) {
-    User user = userRepository.findByEmail(request.getEmail()).orElseThrow(LoginException::new);
-
-    if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-      throw new LoginException();
-    }
-    if (!user.getIsEmailVerified()) {
-      throw new EmailNotVerifiedException();
-    }
-
-    if (!user.isActive()) {
-      throw new AccountDisabledException();
-    }
-    if (user.getIsFirstLogin() != null && user.getIsFirstLogin()) {
-      log.info("First login required for: {}", request.getEmail());
-      throw new FirstLoginException("Tài khoản mới tạo yêu cầu đổi mật khẩu");
-    }
-
-    String accessToken = jwtUtil.generateToken(user);
-    String refreshToken = jwtUtil.generateRefreshToken(user);
-
-    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
-
-    log.info("User logged in: {}", user.getEmail());
-
-    return AuthResponse.builder()
-        .accessToken(accessToken)
-        .refreshToken(refreshToken)
-        .type("Bearer")
-        .userId(user.getId())
-        .fullName(user.getFullName())
-        .email(user.getEmail())
-        .roles(roleNames)
-        .expiresIn(jwtUtil.getExpirationTime())
-        .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
-        .build();
-  }
-
-  @Transactional
-  @Override
-  public void register(RegisterRequest request) {
-    if (!request.getPassword().equals(request.getConfirmPassword())) {
-      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
-    }
-    if (userRepository.existsByPhone(request.getPhoneNumber())) {
-      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
-    }
-    User user = userRepository.findByEmail(request.getEmail()).orElse(null);
-    String emailVerificationOtp = otpUtil.generateOtp();
-    if (user != null) {
-      if (user.getIsEmailVerified()) {
-        throw new EmailAlreadyExistsException();
-      } else {
-        // Email chưa xác thực, cập nhật OTP mới và gửi lại OTP
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        userRepository.save(user);
-        storeEmailVerificationOtp(user.getEmail(), emailVerificationOtp);
-        log.info("Resend OTP for unverified email: {}", user.getEmail());
-        UserRegistrationEvent event =
-            UserRegistrationEvent.builder()
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(LoginException::new);
+        if (!user.getIsEmailVerified() || !user.isActive()) {
+            throw new AccountNotActiveException();
+        }
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new LoginException();
+        }
+        if (Boolean.TRUE.equals(user.getIsFirstLogin())) {
+            throw new FirstLoginException();
+        }
+        String accessToken = jwtUtil.generateToken(user);
+        String refreshToken = jwtUtil.generateRefreshToken(user);
+        List<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .toList();
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .type("Bearer")
+                .userId(user.getId())
+                .fullName(user.getFullName())
                 .email(user.getEmail())
+                .roles(roleNames)
+                .expiresIn(jwtUtil.getExpirationTime())
+                .refreshExpiresIn(jwtUtil.getRefreshExpirationTime())
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public void register(RegisterRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new RegisterException("Mật khẩu xác nhận không khớp");
+        }
+        if (userRepository.existsByPhone(request.getPhoneNumber())) {
+            throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+        }
+        User existingUser = userRepository.findByEmail(request.getEmail()).orElse(null);
+        String emailVerificationOtp = otpUtil.generateOtp();
+        if (existingUser != null) {
+            if (existingUser.getIsEmailVerified()) {
+                throw new EmailAlreadyExistsException();
+            }
+            storeEmailVerificationOtp(existingUser.getEmail(), emailVerificationOtp);
+            UserRegistrationEvent event = UserRegistrationEvent.builder()
+                    .email(existingUser.getEmail())
+                    .otpCode(emailVerificationOtp)
+                    .otpExpiryTime(otpUtil.getOtpExpiryTime())
+                    .build();
+            streamBridge.send("userRegistration-out-0", event);
+            return;
+        }
+        Role userRole = roleRepository.findByName(RoleConstants.CUSTOMER)
+                .orElseThrow(() -> new RoleNotFoundException(RoleConstants.CUSTOMER));
+        User newUser = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .dateOfBirth(request.getDateOfBirth())
+                .phone(request.getPhoneNumber())
+                .roles(List.of(userRole))
+                .isEmailVerified(false)
+                .provider(ProviderConstants.LOCAL)
+                .build();
+        userRepository.save(newUser);
+        storeEmailVerificationOtp(newUser.getEmail(), emailVerificationOtp);
+        UserRegistrationEvent event = UserRegistrationEvent.builder()
+                .email(newUser.getEmail())
                 .otpCode(emailVerificationOtp)
                 .otpExpiryTime(otpUtil.getOtpExpiryTime())
                 .build();
         streamBridge.send("userRegistration-out-0", event);
-        return;
-      }
     }
-    // Email chưa tồn tại, tạo user mới
-    Role userRole =
-        roleRepository
-            .findByName(RoleConstants.CUSTOMER)
-            .orElseThrow(() -> new RoleNotFoundException(RoleConstants.CUSTOMER));
-    User newUser =
-        User.builder()
-            .email(request.getEmail())
-            .password(passwordEncoder.encode(request.getPassword()))
-            .fullName(request.getFullName())
-            .dateOfBirth(request.getDateOfBirth())
-            .phone(request.getPhoneNumber())
-            .roles(List.of(userRole))
-            .isEmailVerified(false)
-            .provider("LOCAL")
-            .build();
-    userRepository.save(newUser);
-
-    storeEmailVerificationOtp(newUser.getEmail(), emailVerificationOtp);
-    log.info("New user registered: {}", newUser.getEmail());
-    UserRegistrationEvent event =
-        UserRegistrationEvent.builder()
-            .email(newUser.getEmail())
-            .otpCode(emailVerificationOtp)
-            .otpExpiryTime(otpUtil.getOtpExpiryTime())
-            .build();
-    streamBridge.send("userRegistration-out-0", event);
-  }
 
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
@@ -151,20 +133,14 @@ public class AuthServiceImpl implements AuthService {
                 || !jwtUtil.isRefreshToken(request.getRefreshToken())) {
             throw new InvalidCredentialsException();
         }
-
         String email = jwtUtil.extractUsername(request.getRefreshToken());
         User user = userRepository.findByEmail(email)
                 .orElseThrow(InvalidCredentialsException::new);
-
         if (!user.isActive()) {
-            throw new AccountDisabledException();
+            throw new AccountNotActiveException();
         }
-
         String newAccessToken = jwtUtil.generateToken(user);
         String newRefreshToken = jwtUtil.generateRefreshToken(user);
-
-        log.info("Token refreshed for user: {}", email);
-
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
@@ -174,248 +150,192 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public void logout(String accessToken) {
+        if (accessToken == null || !jwtUtil.validateToken(accessToken)) {
+            throw new InvalidCredentialsException();
+        }
+        jwtUtil.blacklistToken(accessToken);
+    }
 
     @Override
-  @Transactional
-  public void logout(String accessToken) {
-    if (accessToken == null || !jwtUtil.validateToken(accessToken)) {
-      throw new InvalidCredentialsException();
-    }
-    jwtUtil.blacklistToken(accessToken);
-  }
-
-  @Override
-  @Transactional
-  public void changePassword(String accessToken, ChangePasswordRequest request) {
-
-    String email = jwtUtil.extractUsername(accessToken);
-    if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
-    }
-    User user =
-        userRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new UsernameNotFoundException("User không tồn tại " + email));
-    if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-      throw new PasswordChangeException("Mật khẩu hiện tại không đúng");
-    }
-    if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-      throw new PasswordChangeException("Mật khẩu mới phải khác mật khẩu hiện tại");
-    }
-    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    if (user.getIsFirstLogin() != null && user.getIsFirstLogin()) {
-      user.setIsFirstLogin(false);
-    }
-    userRepository.save(user);
-
-    // Blacklist force logout
-    //        jwtUtil.blacklistToken(accessToken);
-    log.info("Password changed successfully for user: {}", email);
-  }
-
-  @Override
-  @Transactional
-  public void verifyEmailOtp(VerifyEmailRequest request) {
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (user.getIsEmailVerified()) {
-      throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
-    }
-    if (!isEmailVerificationOtpValid(request.getEmail(), request.getOtp())) {
-      throw new VerifyEmailException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
-    }
-    user.setIsEmailVerified(true);
-    user.setActive(true);
-    userRepository.save(user);
-
-    deleteEmailVerificationOtp(request.getEmail());
-  }
-
-  @Override
-  @Transactional
-  public void resendVerificationOtp(String email) {
-    User user =
-        userRepository.findByEmail(email).orElseThrow(() -> new EmailNotFoundException(email));
-    if (user.getIsEmailVerified()) {
-      throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
-    }
-    String newOtp = otpUtil.generateOtp();
-    storeEmailVerificationOtp(email, newOtp);
-    UserRegistrationEvent event =
-        UserRegistrationEvent.builder()
-            .email(user.getEmail())
-            .otpCode(newOtp)
-            .otpExpiryTime(otpUtil.getOtpExpiryTime())
-            .build();
-    log.info("Resend OTP for unverified email: {}", email);
-    streamBridge.send("userRegistration-out-0", event);
-  }
-
-  @Override
-  @Transactional
-  public void resendPasswordResetOtp(String email) {
-    User user =
-        userRepository.findByEmail(email).orElseThrow(() -> new EmailNotFoundException(email));
-    if (!user.isActive()) {
-      throw new AccountDisabledException();
-    }
-    if (getPasswordResetOtp(email) == null) {
-      throw new PasswordResetException(
-          "Không có yêu cầu đặt lại mật khẩu trước đó", "NO_RESET_REQUEST");
-    }
-    String newPasswordResetOtp = otpUtil.generateOtp();
-    storePasswordResetOtp(email, newPasswordResetOtp);
-    PasswordResetEvent event =
-        PasswordResetEvent.builder()
-            .email(user.getEmail())
-            .otpCode(newPasswordResetOtp)
-            .otpExpiryTime(otpUtil.getOtpExpiryTime())
-            .build();
-
-    streamBridge.send("passwordReset-out-0", event);
-
-    log.info("Resent password reset OTP for: {}", email);
-  }
-
-  @Override
-  @Transactional
-  public void forgotPassword(ForgotPasswordRequest request) {
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (!user.isActive()) {
-      throw new AccountDisabledException();
-    }
-    String passwordResetOtp = otpUtil.generateOtp();
-    storePasswordResetOtp(user.getEmail(), passwordResetOtp);
-
-    PasswordResetEvent event =
-        PasswordResetEvent.builder()
-            .email(user.getEmail())
-            .otpCode(passwordResetOtp)
-            .otpExpiryTime(otpUtil.getOtpExpiryTime())
-            .build();
-
-    streamBridge.send("passwordReset-out-0", event);
-  }
-
-  @Override
-  @Transactional
-  public void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request) {
-    log.info("Verifying password reset OTP for: {}", request.getEmail());
-
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-
-    // Verify OTP
-    if (!isPasswordResetOtpValid(request.getEmail(), request.getOtp())) {
-      throw new PasswordResetException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
+    @Transactional
+    public void changePassword(String accessToken, ChangePasswordRequest request) {
+        String email = jwtUtil.extractUsername(accessToken);
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new ChangePasswordException("Mật khẩu xác nhận không khớp");
+        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User không tồn tại " + email));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new ChangePasswordException("Mật khẩu hiện tại không đúng");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new ChangePasswordException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        if (Boolean.TRUE.equals(user.getIsFirstLogin())) {
+            user.setIsFirstLogin(false);
+        }
+        userRepository.save(user);
     }
 
-    log.info("Password reset OTP verified for: {}", request.getEmail());
-  }
-
-  @Override
-  @Transactional
-  public void resetPassword(ResetPasswordRequest request) {
-    log.info("Resetting password for: {}", request.getEmail());
-
-    // Validate confirm password
-    if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+    @Override
+    @Transactional
+    public void verifyEmailOtp(VerifyEmailRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (user.getIsEmailVerified()) {
+            throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
+        }
+        if (!isEmailVerificationOtpValid(request.getEmail(), request.getOtp())) {
+            throw new VerifyEmailException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
+        }
+        user.setIsEmailVerified(true);
+        user.setActive(true);
+        userRepository.save(user);
+        deleteEmailVerificationOtp(request.getEmail());
     }
 
-    // Find user
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-
-    // Update password
-    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    userRepository.save(user);
-
-    deletePasswordResetOtp(request.getEmail());
-
-    log.info("Password reset successful for: {}", request.getEmail());
-  }
-
-  @Override
-  @Transactional
-  public void changePasswordFirstTime(ChangePasswordFirstTimeRequest request) {
-    log.info("First time password change for: {}", request.getEmail());
-
-    // Validate password confirm
-    if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-      throw new PasswordChangeException("Mật khẩu xác nhận không khớp");
+    @Override
+    @Transactional
+    public void resendVerificationOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EmailNotFoundException(email));
+        if (user.getIsEmailVerified()) {
+            throw new VerifyEmailException("Email đã được xác thực", "EMAIL_ALREADY_VERIFIED");
+        }
+        String newOtp = otpUtil.generateOtp();
+        storeEmailVerificationOtp(email, newOtp);
+        UserRegistrationEvent event = UserRegistrationEvent.builder()
+                .email(user.getEmail())
+                .otpCode(newOtp)
+                .otpExpiryTime(otpUtil.getOtpExpiryTime())
+                .build();
+        streamBridge.send("userRegistration-out-0", event);
     }
 
-    // Tìm user
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (user.getIsFirstLogin() == null || !user.getIsFirstLogin()) {
-      throw new PasswordChangeException("Tài khoản này đã đổi mật khẩu rồi");
+    @Override
+    @Transactional
+    public void resendPasswordResetOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EmailNotFoundException(email));
+        if (!user.isActive()) {
+            throw new AccountNotActiveException();
+        }
+        if (getPasswordResetOtp(email) == null) {
+            throw new PasswordResetException(
+                    "Không có yêu cầu đặt lại mật khẩu trước đó", "NO_RESET_REQUEST");
+        }
+        String newPasswordResetOtp = otpUtil.generateOtp();
+        storePasswordResetOtp(email, newPasswordResetOtp);
+        PasswordResetEvent event = PasswordResetEvent.builder()
+                .email(user.getEmail())
+                .otpCode(newPasswordResetOtp)
+                .otpExpiryTime(otpUtil.getOtpExpiryTime())
+                .build();
+        streamBridge.send("passwordReset-out-0", event);
     }
 
-    // Validate temporary password
-    if (!passwordEncoder.matches(request.getTemporaryPassword(), user.getPassword())) {
-      throw new PasswordChangeException("Mật khẩu tạm thời không đúng");
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (!user.isActive()) {
+            throw new AccountNotActiveException();
+        }
+        String passwordResetOtp = otpUtil.generateOtp();
+        storePasswordResetOtp(user.getEmail(), passwordResetOtp);
+        PasswordResetEvent event = PasswordResetEvent.builder()
+                .email(user.getEmail())
+                .otpCode(passwordResetOtp)
+                .otpExpiryTime(otpUtil.getOtpExpiryTime())
+                .build();
+        streamBridge.send("passwordReset-out-0", event);
     }
 
-    // Validate new password khác temporary password
-    if (request.getNewPassword().equals(request.getTemporaryPassword())) {
-      throw new PasswordChangeException("Mật khẩu mới phải khác mật khẩu tạm thời");
+    @Override
+    @Transactional
+    public void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (!isPasswordResetOtpValid(request.getEmail(), request.getOtp())) {
+            throw new PasswordResetException("Mã OTP không đúng hoặc đã hết hạn", "INVALID_OTP");
+        }
     }
 
-    // Update password + set isFirstLogin = false
-    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    user.setIsFirstLogin(false);
-    userRepository.save(user);
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new ChangePasswordException("Mật khẩu xác nhận không khớp");
+        }
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        deletePasswordResetOtp(request.getEmail());
+    }
 
-    log.info("First time password change completed for user: {}", request.getEmail());
-  }
+    @Override
+    @Transactional
+    public void changePasswordFirstTime(ChangePasswordFirstTimeRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new ChangePasswordException("Mật khẩu xác nhận không khớp");
+        }
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
+        if (!Boolean.TRUE.equals(user.getIsFirstLogin())) {
+            throw new ChangePasswordException("Tài khoản này đã đổi mật khẩu rồi");
+        }
+        if (!passwordEncoder.matches(request.getTemporaryPassword(), user.getPassword())) {
+            throw new ChangePasswordException("Mật khẩu tạm thời không đúng");
+        }
+        if (request.getNewPassword().equals(request.getTemporaryPassword())) {
+            throw new ChangePasswordException("Mật khẩu mới phải khác mật khẩu tạm thời");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setIsFirstLogin(false);
+        userRepository.save(user);
+    }
 
-  private void storeEmailVerificationOtp(String email, String otp) {
-    String key = emailVerificationPrefix + email;
-    redisTemplate.opsForValue().set(key, otp, otpExpiryMinutes, TimeUnit.MINUTES);
-  }
 
-  private boolean isEmailVerificationOtpValid(String email, String inputOtp) {
-    String key = emailVerificationPrefix + email;
-    String storedOtp = redisTemplate.opsForValue().get(key);
-    return storedOtp != null && storedOtp.equals(inputOtp);
-  }
+    private void storeEmailVerificationOtp(String email, String otp) {
+        String key = emailVerifyPrefix + email;
+        cacheService.set(key, otp, otpExpiryMinutes, TimeUnit.MINUTES);
+    }
 
-  private void deleteEmailVerificationOtp(String email) {
-    String key = emailVerificationPrefix + email;
-    redisTemplate.delete(key);
-  }
+    private boolean isEmailVerificationOtpValid(String email, String inputOtp) {
+        String key = emailVerifyPrefix + email;
+        String storedOtp = cacheService.get(key, String.class);
+        return storedOtp != null && storedOtp.equals(inputOtp);
+    }
 
-  private void storePasswordResetOtp(String email, String otp) {
-    String key = passwordResetPrefix + email;
-    redisTemplate.opsForValue().set(key, otp, otpExpiryMinutes, TimeUnit.MINUTES);
-  }
+    private void deleteEmailVerificationOtp(String email) {
+        String key = emailVerifyPrefix + email;
+        cacheService.delete(key);
+    }
 
-  private String getPasswordResetOtp(String email) {
-    String key = passwordResetPrefix + email;
-    return redisTemplate.opsForValue().get(key);
-  }
+    private void storePasswordResetOtp(String email, String otp) {
+        String key = passwordResetPrefix + email;
+        cacheService.set(key, otp, otpExpiryMinutes, TimeUnit.MINUTES);
+    }
 
-  private boolean isPasswordResetOtpValid(String email, String inputOtp) {
-    String key = passwordResetPrefix + email;
-    String storedOtp = redisTemplate.opsForValue().get(key);
-    return storedOtp != null && storedOtp.equals(inputOtp);
-  }
+    private String getPasswordResetOtp(String email) {
+        String key = passwordResetPrefix + email;
+        return cacheService.get(key, String.class);
+    }
 
-  private void deletePasswordResetOtp(String email) {
-    String key = passwordResetPrefix + email;
-    redisTemplate.delete(key);
-  }
+    private boolean isPasswordResetOtpValid(String email, String inputOtp) {
+        String key = passwordResetPrefix + email;
+        String storedOtp = cacheService.get(key, String.class);
+        return storedOtp != null && storedOtp.equals(inputOtp);
+    }
+
+    private void deletePasswordResetOtp(String email) {
+        String key = passwordResetPrefix + email;
+        cacheService.delete(key);
+    }
 }

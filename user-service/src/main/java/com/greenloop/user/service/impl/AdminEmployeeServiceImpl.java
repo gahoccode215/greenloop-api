@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -146,7 +144,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       throw new PhoneNumberAlreadyExistsException(request.getPhone());
     }
 
-    String temporaryPassword = passwordGeneratorUtil.generateSecurePassword();
+    String temporaryPassword = passwordGeneratorUtil.generatePassword();
 
     Role role =
         roleRepository
@@ -365,7 +363,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             throw new InvalidCredentialsException();
         }
 
-        String newTemporaryPassword = passwordGeneratorUtil.generateSecurePassword();
+        String newTemporaryPassword = passwordGeneratorUtil.generatePassword();
         employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
         employee.setIsFirstLogin(true);
 

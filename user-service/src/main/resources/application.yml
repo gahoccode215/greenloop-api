@@ -79,8 +79,8 @@ app:
     length: 6
     expiry-in-minutes: 5
     redis:
-      email-verification-prefix: "otp:email_verification:"
-      password-reset-prefix: "otp:password_reset:"
+      email-verify-prefix: "otp:verify:"
+      password-reset-prefix: "otp:reset:"
 springdoc:
   api-docs:
     enabled: true
