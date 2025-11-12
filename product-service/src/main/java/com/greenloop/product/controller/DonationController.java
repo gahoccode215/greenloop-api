@@ -1,6 +1,7 @@
 package com.greenloop.product.controller;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
+import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.response.ApiResponseDTO;
 import com.greenloop.product.dto.response.DonationDetailResponse;
 import com.greenloop.product.dto.response.DonationResponse;
@@ -84,5 +85,23 @@ public class DonationController {
                         .build());
     }
 
+    @PostMapping("/update-status")
+    @Operation(summary = "Update donation item status",
+            description = "Updates the status of donation items based on provided codes.")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<Void>> updateStatusOfDonationItem(
+            @Valid @RequestBody DonationItemCodeRequest request) {
+
+        donationService.updateDonationItemStatus(request);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.<Void>builder()
+                        .data(null)
+                        .message("Donation items checked in successfully")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build()
+        );
+    }
 
 }
