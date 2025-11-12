@@ -13,4 +13,6 @@ public interface ProductService {
             Long categoryId,
             Pageable pageable
     );
+
+    ProductResponse getProductDetail(Long id);
 }

@@ -6,6 +6,7 @@ import com.greenloop.product.entity.Product;
 import com.greenloop.product.entity.ProductAsset;
 import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;
+import com.greenloop.product.exception.ProductNotFoundException;
 import com.greenloop.product.repository.ProductRepository;
 import com.greenloop.product.service.ProductService;
 import com.greenloop.product.utils.PageResponseUtil;
@@ -93,6 +94,16 @@ public class ProductServiceImpl implements ProductService {
                 response.getTotalElements());
 
         return response;
+    }
+
+    @Override
+    public ProductResponse getProductDetail(Long id) {
+        log.info("Getting product detail for id: {}", id);
+
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
+
+        return mapProductToProductResponse(product);
     }
 
     private ProductResponse mapProductToProductResponse(Product product) {

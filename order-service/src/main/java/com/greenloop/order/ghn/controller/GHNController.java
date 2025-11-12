@@ -1,6 +1,6 @@
 package com.greenloop.order.ghn.controller;
 
-import com.greenloop.order.dto.ApiResponseDTO;
+import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.ghn.dto.request.CreateShippingRequest;
 import com.greenloop.order.ghn.dto.response.*;
 import com.greenloop.order.ghn.service.GHNService;

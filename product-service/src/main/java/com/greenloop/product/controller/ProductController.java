@@ -71,4 +71,25 @@ public class ProductController {
                 )
         );
     }
+
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "Get product detail",
+            description = "Retrieve detail information of a product by ID"
+    )
+    public ResponseEntity<ApiResponseDTO<ProductResponse>> getProductDetail(
+            @PathVariable Long id) {
+
+        log.info("Getting product detail for id: {}", id);
+
+        ProductResponse product = productService.getProductDetail(id);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Lấy chi tiết sản phẩm thành công",
+                        product,
+                        HttpStatus.OK
+                )
+        );
+    }
 }

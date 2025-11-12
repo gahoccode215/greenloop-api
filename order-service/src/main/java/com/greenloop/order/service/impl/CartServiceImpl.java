@@ -1,0 +1,191 @@
+package com.greenloop.order.service.impl;
+
+import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.request.AddToCartRequest;
+import com.greenloop.order.dto.request.UpdateCartItemRequest;
+import com.greenloop.order.dto.response.ApiResponseDTO;
+import com.greenloop.order.dto.response.CartItemResponse;
+import com.greenloop.order.dto.response.CartResponse;
+import com.greenloop.order.entity.Cart;
+import com.greenloop.order.entity.CartItem;
+import com.greenloop.order.exception.*;
+import com.greenloop.order.repository.CartItemRepository;
+import com.greenloop.order.repository.CartRepository;
+import com.greenloop.order.service.CartService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CartServiceImpl implements CartService {
+
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
+    private final ProductClient productClient;
+
+    @Override
+    public CartResponse getCart(Long customerId) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseGet(() -> createNewCart(customerId));
+
+        return mapToCartResponse(cart);
+    }
+
+    @Override
+    @Transactional
+    public CartResponse addToCart(Long customerId, AddToCartRequest request) {
+        log.info("Adding product {} to cart for customer {}", request.getProductId(), customerId);
+
+        // 1. Get or create cart
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseGet(() -> createNewCart(customerId));
+
+        // 2. Get product info from Product Service
+        ApiResponseDTO<ProductDTO> response = productClient.getProductById(request.getProductId());
+
+        if (!response.isSuccess() || response.getData() == null) {
+            throw new ProductNotFoundException(request.getProductId());
+        }
+
+        ProductDTO product = response.getData();
+
+        if (!"AVAILABLE".equals(product.getStatus())) {
+            throw new ProductNotAvailableException(product.getId());
+        }
+
+        // 3. Check if product already in cart
+        CartItem existingItem = cartItemRepository
+                .findByCartIdAndProductId(cart.getId(), request.getProductId())
+                .orElse(null);
+
+        if (existingItem != null) {
+            // Update quantity
+            existingItem.setQuantity(existingItem.getQuantity() + request.getQuantity());
+            existingItem.calculateSubtotal();
+            cartItemRepository.save(existingItem);
+        } else {
+            // Add new item
+
+            String imageUrl = (product.getImageUrls() != null && !product.getImageUrls().isEmpty())
+                    ? product.getImageUrls().get(0)
+                    : null;
+            CartItem newItem = CartItem.builder()
+                    .cart(cart)
+                    .productId(product.getId())
+                    .productName(product.getName())
+                    .productImage(imageUrl)
+                    .price(product.getPrice())
+                    .quantity(request.getQuantity())
+                    .build();
+            newItem.calculateSubtotal();
+            cart.addItem(newItem);
+        }
+
+        cart.recalculateTotal();
+        cartRepository.save(cart);
+
+        log.info("Cart updated successfully for customer {}", customerId);
+        return mapToCartResponse(cart);
+    }
+
+    @Override
+    @Transactional
+    public CartResponse updateCartItem(Long customerId, Long cartItemId, UpdateCartItemRequest request) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CartNotFoundException(customerId));
+
+        CartItem item = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new CartItemNotFoundException(cartItemId));
+
+        // Check ownership
+        if (!item.getCart().getId().equals(cart.getId())) {
+            throw new UnauthorizedCartAccessException();
+        }
+
+        item.setQuantity(request.getQuantity());
+        item.calculateSubtotal();
+        cartItemRepository.save(item);
+
+        cart.recalculateTotal();
+        cartRepository.save(cart);
+
+        return mapToCartResponse(cart);
+    }
+
+    @Override
+    @Transactional
+    public CartResponse removeCartItem(Long customerId, Long cartItemId) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CartNotFoundException(customerId));
+
+        CartItem item = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new CartItemNotFoundException(cartItemId));
+
+        if (!item.getCart().getId().equals(cart.getId())) {
+            throw new UnauthorizedCartAccessException();
+        }
+
+        cart.removeItem(item);
+        cartItemRepository.delete(item);
+        cartRepository.save(cart);
+
+        return mapToCartResponse(cart);
+    }
+
+    @Override
+    @Transactional
+    public void clearCart(Long customerId) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CartNotFoundException(customerId));
+
+        cart.getItems().clear();
+        cart.recalculateTotal();
+        cartRepository.save(cart);
+    }
+
+    private Cart createNewCart(Long customerId) {
+        Cart cart = Cart.builder()
+                .customerId(customerId)
+                .totalAmount(BigDecimal.ZERO)
+                .totalItems(0)
+                .build();
+        return cartRepository.save(cart);
+    }
+
+    private CartResponse mapToCartResponse(Cart cart) {
+        List<CartItemResponse> items = cart.getItems().stream()
+                .map(this::mapToCartItemResponse)
+                .collect(Collectors.toList());
+
+        return CartResponse.builder()
+                .id(cart.getId())
+                .customerId(cart.getCustomerId())
+                .items(items)
+                .totalAmount(cart.getTotalAmount())
+                .totalItems(cart.getTotalItems())
+                .createdAt(cart.getCreatedAt())
+                .updatedAt(cart.getUpdatedAt())
+                .build();
+    }
+
+    private CartItemResponse mapToCartItemResponse(CartItem item) {
+        return CartItemResponse.builder()
+                .id(item.getId())
+                .productId(item.getProductId())
+                .productName(item.getProductName())
+                .productImage(item.getProductImage())
+                .price(item.getPrice())
+                .quantity(item.getQuantity())
+                .subtotal(item.getSubtotal())
+                .createdAt(item.getCreatedAt())
+                .build();
+    }
+}

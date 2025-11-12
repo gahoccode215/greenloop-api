@@ -1,6 +1,7 @@
 package com.greenloop.order.exception;
 
-import com.greenloop.order.dto.ApiResponseDTO;
+import com.greenloop.order.dto.response.ApiResponseDTO;
+import feign.FeignException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandExecutionException;
@@ -75,6 +76,22 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.error(
                         "Internal server error",
                         HttpStatus.INTERNAL_SERVER_ERROR,
+                        request.getRequestURI()));
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleFeignException(
+            FeignException ex,
+            HttpServletRequest request) {
+
+        log.error("Feign client error: status={}, message={}", ex.status(), ex.getMessage());
+
+        HttpStatus status = HttpStatus.valueOf(ex.status());
+
+        return ResponseEntity.status(status)
+                .body(ApiResponseDTO.error(
+                        "Service communication error: " + ex.getMessage(),
+                        status,
                         request.getRequestURI()));
     }
 }

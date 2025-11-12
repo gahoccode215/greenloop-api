@@ -2,7 +2,7 @@ package com.greenloop.order.command.controller;
 
 import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.command.UpdateOrderStatusCommand;
-import com.greenloop.order.dto.ApiResponseDTO;
+import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.request.CreateOrderRequest;
 import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
 import com.greenloop.order.enums.OrderStatus;
@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;

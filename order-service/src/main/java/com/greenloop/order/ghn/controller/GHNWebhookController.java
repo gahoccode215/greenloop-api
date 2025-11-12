@@ -1,7 +1,7 @@
 package com.greenloop.order.ghn.controller;
 
 import com.greenloop.order.command.UpdateOrderStatusCommand;
-import com.greenloop.order.dto.ApiResponseDTO;
+import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.ghn.dto.webhook.GHNWebhookRequest;
