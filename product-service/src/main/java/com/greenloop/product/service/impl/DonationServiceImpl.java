@@ -1,18 +1,22 @@
 package com.greenloop.product.service.impl;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
+import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
 import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Donation;
 import com.greenloop.product.entity.DonationItem;
+import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.enums.EcoActionType;
 import com.greenloop.product.enums.ErrorCode;
 import com.greenloop.product.exception.BusinessException;
 import com.greenloop.product.repository.CategoryRepository;
+import com.greenloop.product.repository.DonationItemRepository;
 import com.greenloop.product.repository.DonationRepository;
 import com.greenloop.product.service.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
@@ -37,6 +41,7 @@ public class DonationServiceImpl implements DonationService {
     private final CacheService cacheService;
     private final CategoryRepository categoryRepository;
     private final DonationRepository donationRepository;
+    private final DonationItemRepository donationItemRepository;
     private final String localImagePath = "GreenLoop/Donations";
     private final String ecoPointRedisKey = "eco_point_rule_";
 
@@ -70,10 +75,11 @@ public class DonationServiceImpl implements DonationService {
             );
             validateEcoPointRule(itemReq);
             DonationItem item = DonationItem.builder()
-                    .code(randomCodeDonationItemCode())
+                    .code(randomCodeDonationItemCode(String.valueOf(category.getId())))
                     .name(itemReq.getName())
                     .description(itemReq.getDescription())
                     .conditionGrade(itemReq.getConditionGrade())
+                    .status(DonationItemStatus.AT_STORE)
                     .ecoPointValue(itemReq.getEcoPointValue())
                     .category(category)
                     .donation(donation)
@@ -189,6 +195,26 @@ public class DonationServiceImpl implements DonationService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public void updateDonationItemStatus(DonationItemCodeRequest donationItemCodeRequest) {
+        Long currentUserId = getCurrentUserId();
+        log.info("Update Donation Item Status to IN_WAREHOUSE by User ID: {}", currentUserId);
+        try {
+            List<DonationItem> items = donationItemRepository.findAllByCodeIn(donationItemCodeRequest.getCodes());
+            for (DonationItem item : items) {
+                item.setStatus(donationItemCodeRequest.getStatus());
+                item.setUpdatedBy(currentUserId);
+            }
+            donationItemRepository.saveAll(items);
+            log.info("Updated {} Donation Items to status {}", items.size(), donationItemCodeRequest.getStatus());
+        } catch (Exception e) {
+            log.error("Error updating donation item statuses: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.DONATION_ITEM_STATUS_UPDATE_FAILED);
+        }
+
+    }
+
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
         String redisKey = ecoPointRedisKey + EcoActionType.DONATION + "_" + itemReq.getCategoryId();
         EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
@@ -234,11 +260,11 @@ public class DonationServiceImpl implements DonationService {
     }
 
 
-    private String randomCodeDonationItemCode() {
+    private String randomCodeDonationItemCode(String categoryId) {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
         String secondPart = String.format("%06d", now.getSecond());
-        return "DN_PRO" + datePart + "_" + secondPart;
+        return "DN_PRO_" + categoryId + "_" + datePart + "_" + secondPart;
     }
 
 }

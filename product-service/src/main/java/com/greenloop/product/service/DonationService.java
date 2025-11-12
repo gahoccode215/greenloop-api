@@ -1,6 +1,7 @@
 package com.greenloop.product.service;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
+import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.response.DonationDetailResponse;
 import com.greenloop.product.dto.response.DonationResponse;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,4 +16,6 @@ public interface DonationService {
     List<DonationResponse> getMyDonations();
 
     DonationDetailResponse getDonationById(Long donationId);
+
+    void updateDonationItemStatus(DonationItemCodeRequest donationItemCodeRequest);
 }

@@ -1,6 +1,7 @@
 package com.greenloop.product.entity;
 
 import com.greenloop.product.enums.ConditionGrade;
+import com.greenloop.product.enums.DonationItemStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,9 +16,9 @@ import java.io.Serializable;
 @Builder
 public class DonationItem extends BaseEntity implements Serializable {
 
-    @Column(name = "code", unique = true, nullable = false, length = 25)
+    @Column(name = "code", unique = true, nullable = false, length = 30)
     private String code;
-    
+
     @Column(name = "name", nullable = false)
     private String name;
     @Column(name = "description", columnDefinition = "TEXT")
@@ -29,6 +30,10 @@ public class DonationItem extends BaseEntity implements Serializable {
 
     @Column(name = "eco_point_value")
     private Integer ecoPointValue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private DonationItemStatus status;
 
     @Column(name = "convert_product_id")
     private Long convertProductId;

@@ -16,7 +16,8 @@ public enum ErrorCode {
     ECO_POINT_VALUE_OUT_OF_BOUNDS("PROD_006", "Eco point value is out of bounds", HttpStatus.BAD_REQUEST),
     EVENT_OR_STAFF_NOT_VALID("PROD_007", "Event or staff is not valid", HttpStatus.BAD_REQUEST),
     DONATION_NOT_FOUND("PROD_008", "Donation not found", HttpStatus.NOT_FOUND),
-    ACCESS_DENIED("PROD_009", "Access denied", HttpStatus.FORBIDDEN);
+    ACCESS_DENIED("PROD_009", "Access denied", HttpStatus.FORBIDDEN),
+    DONATION_ITEM_STATUS_UPDATE_FAILED("PROD_010", "Failed to update donation item status", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;
