@@ -1,12 +1,10 @@
 package com.greenloop.user.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.greenloop.user.enums.Gender;
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,42 +19,46 @@ import org.springframework.security.core.userdetails.UserDetails;
 @Setter
 public class User extends BaseEntity implements UserDetails {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
-
   @Column(name = "email", unique = true)
   private String email;
 
   @Column(name = "password")
   private String password;
 
-  @Column(name = "first_name")
-  private String firstName;
-
-  @Column(name = "last_name")
-  private String lastName;
-
-  @Column(name = "phone_number")
-  private String phoneNumber;
-
-  @Column(name = "avatar_url")
-  private String avatarUrl;
+  @Column(name = "full_name", length = 100)
+  private String fullName;
 
   @Column(name = "date_of_birth")
   private LocalDate dateOfBirth;
 
+  @Column(name = "phone", unique = true, length = 20)
+  private String phone;
+
+  @Column(name = "gender", length = 10)
+  @Enumerated(EnumType.STRING)
+  private Gender gender;
+
+  @Column(name = "avatar_url")
+  private String avatarUrl;
+
+  @Column(name = "is_active")
+  @Builder.Default
+  private boolean isActive = true;
+
+  @Column(name = "media_key")
+  private String mediaKey;
+
   @Column(name = "is_email_verified")
   private Boolean isEmailVerified = false;
 
-  private Boolean mustChangePassword = false;
-
-  private String department;
-
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "role_id", nullable = false)
+  @ManyToMany(fetch = FetchType.LAZY)
+  @JoinTable(
+      name = "user_roles",
+      joinColumns = @JoinColumn(name = "user_id"),
+      inverseJoinColumns = @JoinColumn(name = "role_id"))
+  @Builder.Default
   @JsonIgnore
-  private Role role;
+  private List<Role> roles = new ArrayList<>();
 
   @OneToMany(
       mappedBy = "user",
@@ -66,15 +68,18 @@ public class User extends BaseEntity implements UserDetails {
   @JsonIgnore
   private Set<UserAddress> addresses = new HashSet<>();
 
-  @Column(name = "is_active")
-  private Boolean isActive = false;
-
   @Column(name = "provider")
   private String provider;
 
+  @Column(name = "is_first_login")
+  @Builder.Default
+  private Boolean isFirstLogin = false;
+
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.getName()));
+    return roles.stream()
+        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
+        .toList();
   }
 
   @Override

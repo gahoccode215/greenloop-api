@@ -19,6 +19,11 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
+  cloudinary:
+    cloudName: ${CLOUDINARY_NAME}
+    apiKey: ${CLOUDINARY_API_KEY}
+    apiSecret: ${CLOUDINARY_API_SECRET}
+
 eureka:
   client:
     service-url:
@@ -39,6 +44,10 @@ springdoc:
     disable-swagger-default-url: true
     urls:
       - name: Gateway (Production)
-        url: http://${GATEWAY_HOST}:8080/event-service/v3/api-docs
+        url: http://${GATEWAY_HOST}/event-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${SERVICE_HOST}:${server.port}/v3/api-docs
+
+
+greenloop:
+  defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

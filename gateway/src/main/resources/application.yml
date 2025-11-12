@@ -26,16 +26,15 @@ spring:
               - PUT
               - PATCH
               - DELETE
-
 server:
   port: 8080
 
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:eureka-server}:8761/eureka
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
   instance:
-    hostname: ${GATEWAY_HOST:api-gateway}
+    hostname: ${GATEWAY_HOST:localhost}
     prefer-ip-address: false
 
 springdoc:
@@ -52,3 +51,9 @@ springdoc:
         url: /user-service/v3/api-docs
       - name: Event Service
         url: /event-service/v3/api-docs
+      - name: Reward Service
+        url: /reward-service/v3/api-docs
+      - name: Product Service
+        url: /product-service/v3/api-docs
+      - name: Order Service
+        url: /order-service/v3/api-docs

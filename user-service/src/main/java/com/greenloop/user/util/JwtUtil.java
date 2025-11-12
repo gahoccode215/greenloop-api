@@ -1,17 +1,18 @@
 package com.greenloop.user.util;
 
 import com.greenloop.user.constant.JwtConstants;
+import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.time.Duration;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -31,7 +32,8 @@ public class JwtUtil {
   @Value("${spring.security.jwt.refresh-expiration}")
   private Long refreshExpiration;
 
-  public JwtUtil(RedisTemplate<String, String> redisTemplate) {
+  public JwtUtil(
+      @Qualifier("customStringRedisTemplate") RedisTemplate<String, String> redisTemplate) {
     this.redisTemplate = redisTemplate;
   }
 
@@ -43,9 +45,9 @@ public class JwtUtil {
     Map<String, Object> claims = new HashMap<>();
     claims.put(JwtConstants.CLAIM_USER_ID, user.getId().toString());
     claims.put(JwtConstants.CLAIM_EMAIL, user.getEmail());
-    claims.put(JwtConstants.CLAIM_FIRST_NAME, user.getFirstName());
-    claims.put(JwtConstants.CLAIM_LAST_NAME, user.getLastName());
-    claims.put(JwtConstants.CLAIM_ROLE, user.getRole().getName());
+    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
+    claims.put(JwtConstants.CLAIM_ROLES, roleNames);
+
     claims.put(JwtConstants.CLAIM_JTI, UUID.randomUUID().toString());
     claims.put(JwtConstants.CLAIM_TYPE, JwtConstants.TOKEN_TYPE_ACCESS);
 

@@ -52,9 +52,16 @@ Thumbs.db
 hs_err_pid*
 
 # Environment files
-.env
+.env.user
+.env.gateway
+.env.notification
 .env.local
 .env.*.local
 
 # No parent pom needed
 # Each service is independent
+/.env.gateway
+/.env.notification
+/.env.user
+/.env.product
+/.env.order

@@ -1,25 +1,24 @@
 package com.greenloop.user.service.impl;
 
-import com.greenloop.user.dto.request.CreateEmployeeRequest;
-import com.greenloop.user.dto.response.CreateEmployeeResponse;
+import com.greenloop.user.dto.request.UpdateProfileRequest;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
-import com.greenloop.user.exception.EmailAlreadyExistsException;
-import com.greenloop.user.exception.RoleNotFoundException;
+import com.greenloop.user.exception.PhoneNumberAlreadyExistsException;
 import com.greenloop.user.exception.UserNotFoundException;
-import com.greenloop.user.repository.RoleRepository;
 import com.greenloop.user.repository.UserRepository;
+import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
-import com.greenloop.user.util.PasswordGenerator;
 import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -27,9 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
-  private final RoleRepository roleRepository;
-  private final PasswordGenerator passwordGenerator;
-  private final PasswordEncoder passwordEncoder;
+  private final CloudinaryService cloudinaryService;
 
   @Override
   @Transactional(readOnly = true)
@@ -41,67 +38,95 @@ public class UserServiceImpl implements UserService {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  //  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
+    log.info("Retrieving profile for user: {}", userId);
+
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
 
-    log.info("Retrieved profile for user: {}", user.getEmail());
-
-    return UserProfileResponse.builder()
-        .userId(user.getId())
-        .email(user.getEmail())
-        .firstName(user.getFirstName())
-        .lastName(user.getLastName())
-        .role(user.getRole().getName())
-        .isActive(user.getIsActive())
-        .build();
+    return mapUserToProfileResponse(user);
   }
 
   @Override
   @Transactional
-  public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
-    if (userRepository.existsByEmail(request.getEmail())) {
-      throw new EmailAlreadyExistsException();
+  //  @CacheEvict(value = "user_profile", key = "#userId")
+  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
+    log.info("Updating profile for user: {}", userId);
+
+    User user =
+        userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+    if (request.getPhoneNumber() != null
+        && !request.getPhoneNumber().equals(user.getPhone())
+        && userRepository.existsByPhone(request.getPhoneNumber())) {
+      throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
     }
-    Role role =
-        roleRepository
-            .findByName(request.getRole())
-            .orElseThrow(() -> new RoleNotFoundException(request.getRole()));
-    String tempPassword = passwordGenerator.generateTemporaryPassword();
-    log.info("Generated temporary password for {}: {}", request.getEmail(), tempPassword);
-    User employee =
-        User.builder()
-            .email(request.getEmail())
-            .firstName(request.getFirstName())
-            .lastName(request.getLastName())
-            .phoneNumber(request.getPhoneNumber())
-            .department(request.getDepartment())
-            .role(role)
-            .password(passwordEncoder.encode(tempPassword))
-            .provider("LOCAL")
-            .isActive(true)
-            .isEmailVerified(false)
-            .mustChangePassword(true)
-            .build();
-    User savedEmployee = userRepository.save(employee);
 
-    log.info("Employee {} created successfully", savedEmployee.getEmail());
+    if (request.getFullName() != null) {
+      user.setFullName(request.getFullName());
+    }
+    if (request.getDateOfBirth() != null) {
+      user.setDateOfBirth(request.getDateOfBirth());
+    }
+    if (request.getGender() != null) {
+      user.setGender(request.getGender());
+    }
+    if (request.getPhoneNumber() != null) {
+      user.setPhone(request.getPhoneNumber());
+    }
 
-    return CreateEmployeeResponse.builder()
-        .id(savedEmployee.getId())
-        .email(savedEmployee.getEmail())
-        .firstName(savedEmployee.getFirstName())
-        .lastName(savedEmployee.getLastName())
-        .role(role.getName())
-        .department(savedEmployee.getDepartment())
-        .isActive(savedEmployee.getIsActive())
-        .temporaryPassword(tempPassword)
-        .message("Nhân viên đã được tạo. Vui lòng cung cấp mật khẩu tạm cho nhân viên.")
+      if (avatar != null && !avatar.isEmpty()) {
+          handleAvatarUpload(user, avatar);
+      }
+
+    User updatedUser = userRepository.save(user);
+    log.info("Profile updated successfully for user: {}", userId);
+
+    return mapUserToProfileResponse(updatedUser);
+  }
+
+  private UserProfileResponse mapUserToProfileResponse(User user) {
+    List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
+
+    return UserProfileResponse.builder()
+        .userId(user.getId())
+        .email(user.getEmail())
+        .fullName(user.getFullName())
+        .dateOfBirth(user.getDateOfBirth())
+        .gender(user.getGender() != null ? user.getGender().name() : null)
+        .phoneNumber(user.getPhone())
+        .avatarUrl(user.getAvatarUrl())
+        .roles(roleNames)
+        .isActive(user.isActive())
+        .isEmailVerified(user.getIsEmailVerified())
+        .provider(user.getProvider())
+        .createdAt(user.getCreatedAt())
+        .updatedAt(user.getUpdatedAt())
         .build();
   }
 
-  @Override
-  public List<User> getAllUser() {
-    return userRepository.findAll();
-  }
+    private void handleAvatarUpload(User user, MultipartFile file) {
+        try {
+            // Xóa ảnh cũ nếu có
+            if (user.getMediaKey() != null) {
+                cloudinaryService.deleteImage(user.getMediaKey());
+            }
+
+            // Upload ảnh mới
+            String AVATAR_FOLDER = "GreenLoop/Users/Avatars";
+            Map<String, String> uploadResult =
+                    cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
+
+            // Cập nhật URL và media key
+            user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
+            user.setMediaKey(uploadResult.get("public_id"));
+
+            log.info("Avatar uploaded successfully for user: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
+            throw new RuntimeException("Failed to upload avatar", e);
+        }
+    }
 }

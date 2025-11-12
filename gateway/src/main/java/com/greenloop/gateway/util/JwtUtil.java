@@ -1,8 +1,11 @@
 package com.greenloop.gateway.util;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
+import java.util.List;
 import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +19,7 @@ public class JwtUtil {
   private final RedisTemplate<String, String> redisTemplate;
 
   private final String CLAIM_USER_ID = "userId";
-  private final String CLAIM_ROLE = "role";
+  private final String CLAIM_ROLES = "roles";
   private final String JTI = "jti";
   private final String REDIS_BLACKLIST_PREFIX = "bl:";
 
@@ -39,8 +42,12 @@ public class JwtUtil {
     return extractClaim(token, claims -> claims.get(CLAIM_USER_ID, String.class));
   }
 
-  public String extractRole(String token) {
-    return extractClaim(token, claims -> claims.get(CLAIM_ROLE, String.class));
+  public List<String> extractRoles(String token) {
+    Object roles = extractClaim(token, claims -> claims.get(CLAIM_ROLES));
+    if (roles instanceof List<?>) {
+      return ((List<?>) roles).stream().map(Object::toString).toList();
+    }
+    return List.of();
   }
 
   public <T> T extractClaim(String token, java.util.function.Function<Claims, T> claimsResolver) {
@@ -50,9 +57,20 @@ public class JwtUtil {
 
   private boolean isBlacklisted(String jti) {
     if (jti == null) return false;
+    String key = REDIS_BLACKLIST_PREFIX + jti;
+
     try {
-      return redisTemplate.hasKey(REDIS_BLACKLIST_PREFIX + jti);
+      //      long startTime = System.nanoTime();
+      //      boolean result = redisTemplate.hasKey(key);
+      //      long endTime = System.nanoTime();
+      //
+      //      long latencyMs = (endTime - startTime) / 1_000_000;
+      //
+      //      log.info("[RedisLatency] hasKey('{}') took {} ms", key, latencyMs);
+
+      return redisTemplate.hasKey(key);
     } catch (Exception e) {
+      log.error("[RedisLatency] Error checking key '{}': {}", key, e.getMessage());
       return false;
     }
   }
