@@ -5,6 +5,13 @@ spring:
   application:
     name: product-service
 
+  cloud:
+    stream:
+      bindings:
+        ecoPointDonation-out-0:
+          destination: ecopoint-donation
+
+
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_product_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -43,6 +50,12 @@ spring:
           max-wait: 1000ms
       timeout: 2000ms
       database: 1
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 eureka:
   client:
