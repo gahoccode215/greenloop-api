@@ -20,5 +20,5 @@ public interface AdminEmployeeService {
 
   EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive);
 
-    ResetPasswordResponse resetEmployeePassword(Long id);
+  ResetPasswordResponse resetEmployeePassword(Long id);
 }

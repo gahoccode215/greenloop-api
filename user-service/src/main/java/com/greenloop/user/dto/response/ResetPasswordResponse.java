@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResetPasswordResponse {
-    private Long id;
-    private String email;
-    private String fullName;
-    private String temporaryPassword;
-    private String message;
+  private Long id;
+  private String email;
+  private String fullName;
+  private String temporaryPassword;
+  private String message;
 }

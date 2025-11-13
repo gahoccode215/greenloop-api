@@ -12,7 +12,7 @@ public class VerifyPasswordResetOtpRequest {
   @Email(message = "Email không hợp lệ")
   private String email;
 
-    @NotBlank(message = "Mã OTP không được để trống")
-    @Size(min = 6, max = 6, message = "Mã OTP phải có 6 chữ số")
+  @NotBlank(message = "Mã OTP không được để trống")
+  @Size(min = 6, max = 6, message = "Mã OTP phải có 6 chữ số")
   private String otp;
 }

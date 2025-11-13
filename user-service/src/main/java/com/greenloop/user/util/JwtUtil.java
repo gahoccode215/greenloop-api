@@ -11,10 +11,8 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -34,7 +32,6 @@ public class JwtUtil {
 
   @Value("${spring.security.jwt.refresh-expiration}")
   private Long refreshExpiration;
-
 
   private SecretKey getSigningKey() {
     return Keys.hmacShaKeyFor(secret.getBytes());

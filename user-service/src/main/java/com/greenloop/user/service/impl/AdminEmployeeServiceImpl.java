@@ -45,7 +45,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final CloudinaryService cloudinaryService;
 
   @Override
-//  @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' + #status")
+  //  @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' +
+  // #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -90,7 +91,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   }
 
   @Override
-//  @Cacheable(value = "employee_detail", key = "#id")
+  //  @Cacheable(value = "employee_detail", key = "#id")
   public EmployeeResponse getEmployeeDetail(Long id) {
     User user =
         userRepository
@@ -120,7 +121,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-//  @CacheEvict(value = "employees_list", allEntries = true)
+  //  @CacheEvict(value = "employees_list", allEntries = true)
   public CreateEmployeeResponse createEmployee(
       CreateEmployeeRequest request, MultipartFile avatar) {
     log.info("Creating employee with email: {}", request.getEmail());
@@ -186,9 +187,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-//  @CacheEvict(
-//      value = {"employee_detail", "employees_list"},
-//      allEntries = true)
+  //  @CacheEvict(
+  //      value = {"employee_detail", "employees_list"},
+  //      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
     log.info("Updating employee with id: {}", id);
@@ -278,9 +279,9 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-//  @CacheEvict(
-//      value = {"employee_detail", "employees_list"},
-//      allEntries = true)
+  //  @CacheEvict(
+  //      value = {"employee_detail", "employees_list"},
+  //      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
     log.info("Changing employee status for id: {} to: {}", id, isActive);
 
@@ -334,57 +335,56 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
-    @Override
-    @Transactional
-//  @CacheEvict(value = "employee_detail", allEntries = true)
-    public ResetPasswordResponse resetEmployeePassword(Long id) {
-        log.info("Resetting password for employee id: {}", id);
+  @Override
+  @Transactional
+  //  @CacheEvict(value = "employee_detail", allEntries = true)
+  public ResetPasswordResponse resetEmployeePassword(Long id) {
+    log.info("Resetting password for employee id: {}", id);
 
-        User employee =
-                userRepository
-                        .findById(id)
-                        .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
+    User employee =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin =
-                auth.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-        List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
+    List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
 
-        boolean isStaffOrManager =
-                currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
+    boolean isStaffOrManager =
+        currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
 
-        if (!isStaffOrManager) {
-            throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
-        }
-
-        if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
-            throw new InvalidCredentialsException();
-        }
-
-        String newTemporaryPassword = passwordGeneratorUtil.generatePassword();
-        employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
-        employee.setIsFirstLogin(true);
-
-        String currentUserId = auth.getPrincipal().toString();
-        employee.setUpdatedBy(Long.parseLong(currentUserId));
-
-        User updatedEmployee = userRepository.save(employee);
-
-        log.info("Password reset successfully for employee id: {}", id);
-
-        return ResetPasswordResponse.builder()
-                .id(updatedEmployee.getId())
-                .email(updatedEmployee.getEmail())
-                .fullName(updatedEmployee.getFullName())
-                .temporaryPassword(newTemporaryPassword)
-                .message("Mật khẩu tạm thời đã được tạo. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.")
-                .build();
+    if (!isStaffOrManager) {
+      throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
     }
 
+    if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
+      throw new InvalidCredentialsException();
+    }
 
-    /**
+    String newTemporaryPassword = passwordGeneratorUtil.generatePassword();
+    employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
+    employee.setIsFirstLogin(true);
+
+    String currentUserId = auth.getPrincipal().toString();
+    employee.setUpdatedBy(Long.parseLong(currentUserId));
+
+    User updatedEmployee = userRepository.save(employee);
+
+    log.info("Password reset successfully for employee id: {}", id);
+
+    return ResetPasswordResponse.builder()
+        .id(updatedEmployee.getId())
+        .email(updatedEmployee.getEmail())
+        .fullName(updatedEmployee.getFullName())
+        .temporaryPassword(newTemporaryPassword)
+        .message("Mật khẩu tạm thời đã được tạo. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.")
+        .build();
+  }
+
+  /**
    * Xử lý upload avatar cho nhân viên. Nếu đã có avatar cũ, xóa ảnh cũ trước khi upload ảnh mới.
    */
   private void handleAvatarUpload(User user, MultipartFile file) {

@@ -3,6 +3,7 @@ package com.greenloop.order.command;
 import com.greenloop.order.dto.request.OrderItemRequest;
 import com.greenloop.order.dto.request.ShippingAddressRequest;
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.PaymentStatus;
 import lombok.Builder;
 import lombok.Data;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
@@ -17,6 +18,7 @@ public class CreateOrderCommand {
     private final String orderId;
     private final String orderCode;
     private final Long customerId;
+    private final PaymentStatus paymentStatus;
     private final OrderStatus orderStatus;
     private final BigDecimal totalPrice;
     private final List<OrderItemRequest> orderItems;
