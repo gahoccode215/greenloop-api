@@ -1,11 +1,15 @@
 package com.greenloop.user.service.impl;
 
 import com.greenloop.user.constant.RoleConstants;
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.CustomerNotFoundException;
+import com.greenloop.user.exception.EmailAlreadyExistsException;
+import com.greenloop.user.exception.PhoneNumberAlreadyExistsException;
+import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminCustomerService;
 import com.greenloop.user.util.PageResponseUtil;
@@ -135,6 +139,44 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
 
         return mapUserToCustomerResponse(updatedCustomer);
     }
+
+    @Override
+    @Transactional
+    public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request) {
+        User customer = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            customer.setFullName(request.getFullName());
+        }
+
+        if (request.getEmail() != null && !request.getEmail().equals(customer.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new EmailAlreadyExistsException();
+            }
+            customer.setEmail(request.getEmail());
+        }
+
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(customer.getPhone())) {
+            if (userRepository.existsByPhone(request.getPhoneNumber())) {
+                throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+            }
+            customer.setPhone(request.getPhoneNumber());
+        }
+
+        if (request.getDateOfBirth() != null) {
+            customer.setDateOfBirth(request.getDateOfBirth());
+        }
+
+        if (request.getGender() != null) {
+            customer.setGender(request.getGender());
+        }
+
+        User savedCustomer = userRepository.save(customer);
+
+        return mapUserToCustomerResponse(savedCustomer);
+    }
+
 
     private CustomerResponse mapUserToCustomerResponse(User user) {
     return CustomerResponse.builder()

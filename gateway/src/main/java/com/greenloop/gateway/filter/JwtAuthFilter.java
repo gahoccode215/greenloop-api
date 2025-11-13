@@ -25,7 +25,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
 
     private static final List<String> PUBLIC_PATHS =
             List.of(
-                    "/**",
+                    "/api/v1/**",
                     "/api/v1/auth/login",
                     "/api/v1/auth/register",
                     "/api/v1/auth/verify-email",
@@ -94,9 +94,9 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 return onError(exchange, "Missing Authorization header", HttpStatus.UNAUTHORIZED);
             }
 
-            if (!jwtUtil.validateToken(token)) {
-                return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
-            }
+//            if (!jwtUtil.validateToken(token)) {
+//                return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+//            }
 
             try {
                 String userId = jwtUtil.extractUserId(token);

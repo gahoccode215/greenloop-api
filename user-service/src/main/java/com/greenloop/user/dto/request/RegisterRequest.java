@@ -19,7 +19,7 @@ public class RegisterRequest {
   private LocalDate dateOfBirth;
 
   @NotBlank(message = "Số điện thoại không được để trống")
-  @Pattern(regexp = "^(\\+84|0)[0-9]{9}$", message = "Số điện thoại không đúng định dạng")
+  @Pattern(regexp = "^\\+?[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
   private String phoneNumber;
 
   @NotBlank(message = "Mật khẩu không được để trống")

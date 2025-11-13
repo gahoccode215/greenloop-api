@@ -1,5 +1,6 @@
 package com.greenloop.user.controller;
 
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
@@ -91,6 +92,16 @@ public class AdminCustomerController {
         return ResponseEntity.ok(
                 ApiResponseDTO.success(
                         "Thay đổi trạng thái khách hàng thành công", customer, HttpStatus.OK));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF', 'STORE_MANAGER')")
+    @Operation(summary = "Update customer information")
+    public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomer(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCustomerRequest request) {
+        CustomerResponse updated = adminCustomerService.updateCustomer(id, request);
+        return ResponseEntity.ok(ApiResponseDTO.success("Cập nhật khách hàng thành công", updated, HttpStatus.OK));
     }
 
 }

@@ -66,10 +66,8 @@ public class Cart {
 
     public void recalculateTotal() {
         this.totalAmount = items.stream()
-                .map(CartItem::getSubtotal)
+                .map(CartItem::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        this.totalItems = items.stream()
-                .mapToInt(CartItem::getQuantity)
-                .sum();
+        this.totalItems = items.size();
     }
 }
