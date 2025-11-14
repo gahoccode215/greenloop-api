@@ -39,8 +39,9 @@ public enum ErrorCode {
     USER_NOT_FOUND("3000", "User Not Found", HttpStatus.NOT_FOUND),
     ALREADY_REGISTERED("3001", "User Already Registered to Event", HttpStatus.BAD_REQUEST),
     REGISTRATION_NOT_FOUND("3002", "Event Registration Not Found", HttpStatus.NOT_FOUND),
-    UNAUTHORIZED_ACCESS("3003", "Unauthorized Access", HttpStatus.UNAUTHORIZED);
-
+    UNAUTHORIZED_ACCESS("3003", "Unauthorized Access", HttpStatus.UNAUTHORIZED),
+    FAILED_TO_CALL_USER_SERVICE(
+            "3004", "Failed to Call User Service", HttpStatus.SERVICE_UNAVAILABLE);
     private final String code;
     private final String message;
     private final HttpStatus status;
