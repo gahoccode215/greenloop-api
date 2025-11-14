@@ -999,6 +999,7 @@ public class EventServiceImpl implements EventService {
                             .checkInTime(reg.getCheckinTime())
                             .isActive(reg.isActive())
                             .createdAt(reg.getCreatedAt())
+                            .note(reg.getNote())
                             .build();
                 });
     }
@@ -1011,6 +1012,69 @@ public class EventServiceImpl implements EventService {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public List<EventStaffScheduleResponse> getStaffSchedules() {
+
+        Long staffId = getCurrentUserId();
+
+        List<EventStaffAssignment> staffAssignment =
+                assignmentRepository.findByStaffIdAndIsActiveTrue(staffId);
+        if (staffAssignment != null && !staffAssignment.isEmpty()) {
+            return staffAssignment.stream()
+                    .map(
+                            assignment -> {
+                                Event event = assignment.getEvent();
+                                return EventStaffScheduleResponse.builder()
+                                        .staffId(assignment.getStaffId())
+                                        .isStoreManager(assignment.isStoreManager())
+                                        .eventId(event.getId())
+                                        .code(event.getCode())
+                                        .name(event.getName())
+                                        .location(event.getLocationDetail())
+                                        .imageUrl(event.getImageUrl())
+                                        .startTime(event.getStartTime())
+                                        .endTime(event.getEndTime())
+                                        .status(event.getStatus())
+                                        .latitude(event.getLatitude())
+                                        .longitude(event.getLongitude())
+                                        .build();
+                            })
+                    .toList();
+        }
+        return List.of();
+    }
+
+    @Override
+    public EventUserRegistrationResponse getUserRegistrationByTicketCode(String ticketCode) {
+        EventRegistration registration =
+                registrationRepository
+                        .findByQrCodeAndIsActiveTrue(ticketCode)
+                        .orElseThrow(
+                                () -> {
+                                    log.warn("No active registration found with ticket code {}", ticketCode);
+                                    return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                                });
+        UserProfileResponse user = null;
+        try {
+            user = userServiceFeign.getUserInfoById(registration.getUserId());
+
+        } catch (Exception e) {
+            log.error(
+                    "Failed to get user info for userId {}: {}", registration.getUserId(), e.getMessage());
+        }
+        return EventUserRegistrationResponse.builder()
+                .userId(registration.getUserId())
+                .fullName(user.getFullName() != null ? user.getFullName() : null)
+                .email(user.getEmail() != null ? user.getEmail() : null)
+                .registrationStatus(registration.getStatus())
+                .checkInTime(registration.getCheckinTime())
+                .isActive(registration.isActive())
+                .createdAt(registration.getCreatedAt())
+                .note(registration.getNote())
+                .build();
+
     }
 
     private Long getCurrentUserId() {
