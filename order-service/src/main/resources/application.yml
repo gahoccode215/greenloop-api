@@ -61,3 +61,13 @@ ghn:
     timeout: 30000
     base-url: https://dev-online-gateway.ghn.vn/shiip/public-api
 
+vnpay:
+  tmn-code: ${VNP_TMN_CODE:1DG2F9EA}
+  hash-secret: ${VNP_HASH_SECRET:2MO9BQB0W0FK4D9N9NS2E1NM68SPOTIH}
+  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: ${VNP_RETURN_URL:http://localhost:5173/payments/success}
+  version: 2.1.0
+  command: pay
+  order-type: other
+  currency: VND
+

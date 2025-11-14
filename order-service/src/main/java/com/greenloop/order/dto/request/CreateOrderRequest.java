@@ -31,4 +31,6 @@ public class CreateOrderRequest {
     @NotNull(message = "Địa chỉ giao hàng không được để trống")
     @Valid
     private ShippingAddressRequest shippingAddress;
+
+
 }

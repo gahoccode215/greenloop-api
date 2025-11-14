@@ -76,7 +76,7 @@ public class GatewayConfig {
         .route(
             "order-service",
             r ->
-                r.path("/api/v1/orders/**", "/api/v1/carts/**")
+                r.path("/api/v1/orders/**", "/api/v1/carts/**", "/api/v1/checkout/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://order-service"))
         .route(

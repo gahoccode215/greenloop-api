@@ -29,6 +29,8 @@ public class OrderProjection {
                 .customerId(event.getCustomerId())
                 .totalPrice(event.getTotalPrice())
                 .orderStatus(event.getOrderStatus())
+                .paymentStatus(event.getPaymentStatus())
+                .paymentMethod(event.getPaymentMethod())
                 .build();
 
         if (event.getShippingAddress() != null) {

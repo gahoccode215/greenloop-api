@@ -3,6 +3,7 @@ package com.greenloop.order.command;
 import com.greenloop.order.dto.request.OrderItemRequest;
 import com.greenloop.order.dto.request.ShippingAddressRequest;
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -23,4 +24,5 @@ public class CreateOrderCommand {
     private final BigDecimal totalPrice;
     private final List<OrderItemRequest> orderItems;
     private final ShippingAddressRequest shippingAddress;
+    private final PaymentMethod paymentMethod;
 }

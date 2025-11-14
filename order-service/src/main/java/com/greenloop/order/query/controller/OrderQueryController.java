@@ -27,7 +27,7 @@ public class OrderQueryController {
         GetOrderQuery
                 query = new GetOrderQuery(orderId);
         OrderDTO orderDTO = queryGateway.query(query, ResponseTypes.instanceOf(OrderDTO.class))
-                .join();  // Blocking call
+                .join();
         return ResponseEntity.ok(orderDTO);
     }
 }

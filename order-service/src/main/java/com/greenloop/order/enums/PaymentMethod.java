@@ -2,8 +2,7 @@ package com.greenloop.order.enums;
 
 public enum PaymentMethod {
     COD("Thanh toán khi nhận hàng"),
-    VNPAY("Thanh toán qua VNPAY"),
-    PAYOS("Thanh toán qua PayOS");
+    VNPAY("Thanh toán qua VNPAY");
 
     private final String description;
 
@@ -11,7 +10,4 @@ public enum PaymentMethod {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
-    }
 }
