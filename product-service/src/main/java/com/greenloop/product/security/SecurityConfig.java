@@ -24,7 +24,9 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/actuator/health",
             "/api/v1/eco-points/**",
-            "/api/v1/products/**"
+            "/api/v1/products/**",
+            "/api/v1/categories/**",
+            "/api/v1/donations/**"
     };
 
     @Bean
