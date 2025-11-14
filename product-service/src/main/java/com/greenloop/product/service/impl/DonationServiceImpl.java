@@ -1,5 +1,6 @@
 package com.greenloop.product.service.impl;
 
+import com.greenloop.product.dto.event.EcoPointTransactionDTO;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
@@ -8,9 +9,7 @@ import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Donation;
 import com.greenloop.product.entity.DonationItem;
-import com.greenloop.product.enums.DonationItemStatus;
-import com.greenloop.product.enums.EcoActionType;
-import com.greenloop.product.enums.ErrorCode;
+import com.greenloop.product.enums.*;
 import com.greenloop.product.exception.BusinessException;
 import com.greenloop.product.repository.CategoryRepository;
 import com.greenloop.product.repository.DonationItemRepository;
@@ -44,6 +43,9 @@ public class DonationServiceImpl implements DonationService {
     private final DonationItemRepository donationItemRepository;
     private final String localImagePath = "GreenLoop/Donations";
     private final String ecoPointRedisKey = "eco_point_rule_";
+    private final EcoPointDonationProducer ecoPointDonationProducer;
+
+    private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
     @Override
     public Long createDonation(DonationCreateRequest request, List<MultipartFile> files) {
@@ -93,6 +95,17 @@ public class DonationServiceImpl implements DonationService {
         donation.setDonationItems(items);
         Donation savedDonation = donationRepository.save(donation);
         log.info("Save Donation success with Code and ID: {}, {}", savedDonation.getCode(), savedDonation.getId());
+        EcoPointTransactionDTO ecoPointTransaction = EcoPointTransactionDTO.builder()
+                .userId(request.getUserId())
+                .points(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
+                .description("Eco points for donation ID: " + savedDonation.getId())
+                .sourceType(SourceType.DONATION)
+                .sourceId(savedDonation.getId())
+                .type(EcoPointType.EARNED)
+                .build();
+        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 
