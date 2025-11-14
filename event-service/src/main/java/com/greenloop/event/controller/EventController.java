@@ -292,9 +292,9 @@ public class EventController {
       description = "Retrieve detailed info for a registered event",
       tags = {"Event Registration"})
   @PreAuthorize("hasRole('ROLE_CUSTOMER')")
-  public ResponseEntity<ApiResponseDTO<List<UserEventDetailResponse>>> getMyEventDetail(
+  public ResponseEntity<ApiResponseDTO<UserEventDetailResponse>> getMyEventDetail(
       @PathVariable Long eventId) {
-    List<UserEventDetailResponse> detail = eventService.getUserEventDetail(eventId);
+    UserEventDetailResponse detail = eventService.getUserEventDetail(eventId);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Event detail retrieved successfully", detail, HttpStatus.OK));
   }

@@ -911,6 +911,7 @@ public class EventServiceImpl implements EventService {
             reg -> {
               Event event = reg.getEvent();
               return UserEventResponse.builder()
+                  .id(reg.getId())
                   .eventId(event.getId())
                   .eventName(event.getName())
                   .eventCode(event.getCode())
@@ -924,47 +925,41 @@ public class EventServiceImpl implements EventService {
   }
 
   /**
-   * Retrieves detailed information about a user's registration for a specific event.
+   * Retrieves detailed information about a user's event registration by registration ID.
    *
-   * @param eventId the ID of the event
-   * @return a UserEventDetailResponse containing detailed registration information
-   * @throws BusinessException if no active registration is found for the user and event
+   * @param registrationId the ID of the event registration
+   * @return a UserEventDetailResponse containing detailed information about the registration
+   * @throws BusinessException if no registration is found for the given ID
    */
   @Override
-  public List<UserEventDetailResponse> getUserEventDetail(Long eventId) {
-    log.info("Fetching user event detail for event {} and current user", eventId);
-
-    Long userId = getCurrentUserId();
-
-    List<EventRegistration> registrations = registrationRepository.findByUserId(userId);
-
-    if (registrations.isEmpty()) {
-      log.warn("No active registration found for user {} and event {}", userId, eventId);
-      throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
-    }
-
-    return registrations.stream()
-        .map(
-            registration -> {
-              Event event = registration.getEvent();
-              return UserEventDetailResponse.builder()
-                  .eventId(event.getId())
-                  .registrationId(registration.getId())
-                  .ticketCode(registration.getQrCode())
-                  .eventCode(event.getCode())
-                  .eventName(event.getName())
-                  .location(event.getLocationDetail())
-                  .startTime(event.getStartTime())
-                  .endTime(event.getEndTime())
-                  .imageUrl(event.getImageUrl())
-                  .latitude(event.getLatitude())
-                  .longitude(event.getLongitude())
-                  .checkInTime(registration.getCheckinTime())
-                  .registrationStatus(registration.getStatus())
-                  .isActive(registration.isActive())
-                  .build();
-            })
-        .toList();
+  public UserEventDetailResponse getUserEventDetail(Long registrationId) {
+    log.info("Fetching event registration detail for registration ID {}", registrationId);
+    EventRegistration registration =
+        registrationRepository
+            .findById(registrationId)
+            .orElseThrow(
+                () -> {
+                  log.warn("No registration found for ID {}", registrationId);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    Event event = registration.getEvent();
+    return UserEventDetailResponse.builder()
+        .registerId(registration.getId())
+        .eventId(event.getId())
+        .registrationId(registration.getId())
+        .ticketCode(registration.getQrCode())
+        .eventCode(event.getCode())
+        .eventName(event.getName())
+        .location(event.getLocationDetail())
+        .startTime(event.getStartTime())
+        .endTime(event.getEndTime())
+        .imageUrl(event.getImageUrl())
+        .latitude(event.getLatitude())
+        .longitude(event.getLongitude())
+        .checkInTime(registration.getCheckinTime())
+        .registrationStatus(registration.getStatus())
+        .isActive(registration.isActive())
+        .build();
   }
 
   /**

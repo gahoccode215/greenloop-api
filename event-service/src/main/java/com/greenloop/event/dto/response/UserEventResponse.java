@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 @Builder
 public class UserEventResponse {
+  private Long id;
   private Long eventId;
   private String eventCode;
   private String eventName;
