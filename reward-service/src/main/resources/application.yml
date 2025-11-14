@@ -39,6 +39,11 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+rabbitmq:
+  exchangeName: greenloop.exchange
+  eco-donation-queue: ecoDonationQueue
+  eco-donation-routing-key: ecoDonationQueueRoutingKey
+
 eureka:
   client:
     service-url:

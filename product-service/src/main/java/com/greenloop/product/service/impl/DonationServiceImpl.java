@@ -18,7 +18,6 @@ import com.greenloop.product.service.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -42,9 +41,9 @@ public class DonationServiceImpl implements DonationService {
     private final CategoryRepository categoryRepository;
     private final DonationRepository donationRepository;
     private final DonationItemRepository donationItemRepository;
-    private final StreamBridge streamBridge;
     private final String localImagePath = "GreenLoop/Donations";
     private final String ecoPointRedisKey = "eco_point_rule_";
+    private final EcoPointDonationProducer ecoPointDonationProducer;
 
     private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
@@ -105,7 +104,7 @@ public class DonationServiceImpl implements DonationService {
                 .type(EcoPointType.EARNED)
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
-        streamBridge.send(donationEcoPointBindingName, ecoPointTransaction);
+        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
