@@ -935,6 +935,7 @@ public class EventServiceImpl implements EventService {
     @Override
     public UserEventDetailResponse getUserEventDetail(Long registrationId) {
         log.info("Fetching event registration detail for registration ID {}", registrationId);
+        Long currentUserId = getCurrentUserId();
         EventRegistration registration =
                 registrationRepository
                         .findById(registrationId)
@@ -943,6 +944,10 @@ public class EventServiceImpl implements EventService {
                                     log.warn("No registration found for ID {}", registrationId);
                                     return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
                                 });
+        if (!registration.getUserId().equals(currentUserId)) {
+            log.warn("User {} is not authorized to access registration ID {}", currentUserId, registrationId);
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
         Event event = registration.getEvent();
         return UserEventDetailResponse.builder()
                 .registerId(registration.getId())
