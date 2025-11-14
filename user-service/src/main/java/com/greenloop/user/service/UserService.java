@@ -8,5 +8,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface UserService extends UserDetailsService {
   UserProfileResponse getMyProfile(Long userId);
 
-  UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar);
+  UserProfileResponse updateProfile(
+      Long userId, UpdateProfileRequest request, MultipartFile avatar);
 }

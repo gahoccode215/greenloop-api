@@ -63,10 +63,14 @@ public interface EventService {
 
   List<UserEventResponse> getUserRegisteredEvents();
 
-  List<UserEventDetailResponse> getUserEventDetail(Long eventId);
+  UserEventDetailResponse getUserEventDetail(Long registrationId);
 
   Page<EventUserRegistrationResponse> getRegistrationsByEvent(
       Long eventId, RegistrationStatus status, Pageable pageable);
 
   Boolean validateStaffInEvent(Long eventId, Long staffId);
+
+  List<EventStaffScheduleResponse> getStaffSchedules();
+
+  EventUserRegistrationResponse getUserRegistrationByTicketCode(String ticketCode);
 }

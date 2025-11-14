@@ -11,7 +11,6 @@ import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
 import java.util.List;
 import java.util.Map;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -42,28 +41,24 @@ public class UserServiceImpl implements UserService {
   //  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
     log.info("Retrieving profile for user: {}", userId);
-
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
     return mapUserToProfileResponse(user);
   }
 
   @Override
   @Transactional
   //  @CacheEvict(value = "user_profile", key = "#userId")
-  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
+  public UserProfileResponse updateProfile(
+      Long userId, UpdateProfileRequest request, MultipartFile avatar) {
     log.info("Updating profile for user: {}", userId);
-
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
     if (request.getPhoneNumber() != null
         && !request.getPhoneNumber().equals(user.getPhone())
         && userRepository.existsByPhone(request.getPhoneNumber())) {
       throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
     }
-
     if (request.getFullName() != null) {
       user.setFullName(request.getFullName());
     }
@@ -76,14 +71,11 @@ public class UserServiceImpl implements UserService {
     if (request.getPhoneNumber() != null) {
       user.setPhone(request.getPhoneNumber());
     }
-
-      if (avatar != null && !avatar.isEmpty()) {
-          handleAvatarUpload(user, avatar);
-      }
-
+    if (avatar != null && !avatar.isEmpty()) {
+      handleAvatarUpload(user, avatar);
+    }
     User updatedUser = userRepository.save(user);
     log.info("Profile updated successfully for user: {}", userId);
-
     return mapUserToProfileResponse(updatedUser);
   }
 
@@ -107,26 +99,20 @@ public class UserServiceImpl implements UserService {
         .build();
   }
 
-    private void handleAvatarUpload(User user, MultipartFile file) {
-        try {
-            // Xóa ảnh cũ nếu có
-            if (user.getMediaKey() != null) {
-                cloudinaryService.deleteImage(user.getMediaKey());
-            }
-
-            // Upload ảnh mới
-            String AVATAR_FOLDER = "GreenLoop/Users/Avatars";
-            Map<String, String> uploadResult =
-                    cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
-
-            // Cập nhật URL và media key
-            user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
-            user.setMediaKey(uploadResult.get("public_id"));
-
-            log.info("Avatar uploaded successfully for user: {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Failed to upload avatar", e);
-        }
+  private void handleAvatarUpload(User user, MultipartFile file) {
+    try {
+      // Xóa ảnh cũ nếu có
+      if (user.getMediaKey() != null) {
+        cloudinaryService.deleteImage(user.getMediaKey());
+      }
+      // Upload ảnh mới
+      Map<String, String> uploadResult =
+          cloudinaryService.uploadImage(file.getBytes(), "GreenLoop/Users/Avatars");
+      // Cập nhật URL và media key
+      user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
+      user.setMediaKey(uploadResult.get("public_id"));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to upload avatar", e);
     }
+  }
 }

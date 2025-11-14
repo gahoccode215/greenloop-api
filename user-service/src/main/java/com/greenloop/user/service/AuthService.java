@@ -9,7 +9,7 @@ public interface AuthService {
 
   void register(RegisterRequest request);
 
-  AuthResponse refreshToken(RefreshTokenRequest request, String oldAccessToken);
+  AuthResponse refreshToken(RefreshTokenRequest request);
 
   void logout(String accessToken);
 
@@ -26,6 +26,4 @@ public interface AuthService {
   void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request);
 
   void resetPassword(ResetPasswordRequest request);
-
-  void changePasswordFirstTime(ChangePasswordFirstTimeRequest request);
 }

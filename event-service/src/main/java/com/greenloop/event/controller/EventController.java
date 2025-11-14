@@ -286,15 +286,15 @@ public class EventController {
         ApiResponseDTO.success("User events retrieved successfully", events, HttpStatus.OK));
   }
 
-  @GetMapping("/my-events/{eventId}")
+  @GetMapping("/my-events/{registerId}")
   @Operation(
       summary = "Get My Event Detail",
       description = "Retrieve detailed info for a registered event",
       tags = {"Event Registration"})
   @PreAuthorize("hasRole('ROLE_CUSTOMER')")
-  public ResponseEntity<ApiResponseDTO<List<UserEventDetailResponse>>> getMyEventDetail(
-      @PathVariable Long eventId) {
-    List<UserEventDetailResponse> detail = eventService.getUserEventDetail(eventId);
+  public ResponseEntity<ApiResponseDTO<UserEventDetailResponse>> getMyEventDetail(
+      @PathVariable Long registerId) {
+    UserEventDetailResponse detail = eventService.getUserEventDetail(registerId);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Event detail retrieved successfully", detail, HttpStatus.OK));
   }
@@ -321,6 +321,22 @@ public class EventController {
   public ResponseEntity<ApiResponseDTO<String>> checkInByCode(@PathVariable String ticketCode) {
     eventService.checkInByTicketCode(ticketCode);
     return ResponseEntity.ok(ApiResponseDTO.success("Check-in successful", "OK", HttpStatus.OK));
+  }
+
+  @GetMapping("/{ticketCode}/user-registration")
+  @Operation(
+      summary = "Get User Registration by Ticket Code",
+      description =
+          "Retrieve user registration details using ticket code by staff, store manager, manager, or admin",
+      tags = {"Event Registration"})
+  @PreAuthorize("hasAnyRole('ROLE_STAFF','ROLE_STORE_MANAGER', 'ROLE_MANAGER','ROLE_ADMIN')")
+  public ResponseEntity<ApiResponseDTO<EventUserRegistrationResponse>>
+      getUserRegistrationByTicketCode(@PathVariable String ticketCode) {
+    EventUserRegistrationResponse registration =
+        eventService.getUserRegistrationByTicketCode(ticketCode);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success(
+            "User registration retrieved successfully", registration, HttpStatus.OK));
   }
 
   // --------------------------- Event Admin ---------------------------
@@ -359,6 +375,21 @@ public class EventController {
         ApiResponseDTO.success(
             "Registrations retrieved successfully", registrations, HttpStatus.OK));
   }
+
+  // --------------------------- Event Staff Schedule ---------------------------
+  @GetMapping("/staffs/schedule")
+  @Operation(
+      summary = "Get Staff Event Schedule",
+      description = "Retrieve the event schedule for the current staff member",
+      tags = {"Event Staff Management"})
+  @PreAuthorize("hasAnyRole('ROLE_STAFF')")
+  public ResponseEntity<ApiResponseDTO<List<EventStaffScheduleResponse>>> getStaffEventSchedule() {
+    List<EventStaffScheduleResponse> schedules = eventService.getStaffSchedules();
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Staff schedules retrieved successfully", schedules, HttpStatus.OK));
+  }
+
+  // --------------------------- Internal APIs ---------------------------
 
   @Hidden
   @GetMapping("/internal/{eventId}/staff/{staffId}/validate")

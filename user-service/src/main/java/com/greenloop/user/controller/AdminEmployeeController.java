@@ -84,7 +84,7 @@ public class AdminEmployeeController {
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
   @Operation(
       summary = "Create new employee",
       description = "Create new employee account with optional avatar")
@@ -131,20 +131,19 @@ public class AdminEmployeeController {
     return ResponseEntity.ok(ApiResponseDTO.success(message, response, HttpStatus.OK));
   }
 
-    @PostMapping("/{id}/reset-password")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(
-            summary = "Reset employee password",
-            description = "Generate new temporary password for employee who forgot password")
-    public ResponseEntity<ApiResponseDTO<ResetPasswordResponse>> resetEmployeePassword(
-            @PathVariable Long id) {
+  @PostMapping("/{id}/reset-password")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  @Operation(
+      summary = "Reset employee password",
+      description = "Generate new temporary password for employee who forgot password")
+  public ResponseEntity<ApiResponseDTO<ResetPasswordResponse>> resetEmployeePassword(
+      @PathVariable Long id) {
 
-        log.info("Resetting password for employee id: {}", id);
+    log.info("Resetting password for employee id: {}", id);
 
-        ResetPasswordResponse response = adminEmployeeService.resetEmployeePassword(id);
+    ResetPasswordResponse response = adminEmployeeService.resetEmployeePassword(id);
 
-        return ResponseEntity.ok(
-                ApiResponseDTO.success(
-                        "Cấp lại mật khẩu thành công", response, HttpStatus.OK));
-    }
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Cấp lại mật khẩu thành công", response, HttpStatus.OK));
+  }
 }

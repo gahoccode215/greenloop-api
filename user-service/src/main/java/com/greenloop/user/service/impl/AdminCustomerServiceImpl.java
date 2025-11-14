@@ -1,11 +1,15 @@
 package com.greenloop.user.service.impl;
 
 import com.greenloop.user.constant.RoleConstants;
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
 import com.greenloop.user.exception.CustomerNotFoundException;
+import com.greenloop.user.exception.EmailAlreadyExistsException;
+import com.greenloop.user.exception.PhoneNumberAlreadyExistsException;
+import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.AdminCustomerService;
 import com.greenloop.user.util.PageResponseUtil;
@@ -96,47 +100,83 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     return mapUserToCustomerResponse(user);
   }
 
-    @Override
-    @Transactional
-//  @CacheEvict(
-//      value = {"customer_detail", "customers_list"},
-//      allEntries = true)
-    public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
-        log.info("Changing customer status for id: {} to: {}", id, isActive);
+  @Override
+  @Transactional
+  //  @CacheEvict(
+  //      value = {"customer_detail", "customers_list"},
+  //      allEntries = true)
+  public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
+    log.info("Changing customer status for id: {} to: {}", id, isActive);
 
-        User customer =
-                userRepository
-                        .findById(id)
-                        .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+    User customer =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
 
-        List<String> userRoles = customer.getRoles().stream().map(Role::getName).toList();
+    List<String> userRoles = customer.getRoles().stream().map(Role::getName).toList();
 
-        if (!userRoles.contains(RoleConstants.CUSTOMER)) {
-            throw new CustomerNotFoundException("Người dùng không phải khách hàng");
-        }
-
-        if (customer.isActive() == isActive) {
-            log.info("Customer status is already {}, no change needed", isActive);
-            return mapUserToCustomerResponse(customer);
-        }
-
-        customer.setActive(isActive);
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserId = auth.getPrincipal().toString();
-        customer.setUpdatedBy(Long.parseLong(currentUserId));
-
-        User updatedCustomer = userRepository.save(customer);
-
-        log.info(
-                "Customer status changed successfully for id: {}. New status: {}",
-                id,
-                isActive ? "ACTIVE" : "INACTIVE");
-
-        return mapUserToCustomerResponse(updatedCustomer);
+    if (!userRoles.contains(RoleConstants.CUSTOMER)) {
+      throw new CustomerNotFoundException("Người dùng không phải khách hàng");
     }
 
-    private CustomerResponse mapUserToCustomerResponse(User user) {
+    if (customer.isActive() == isActive) {
+      log.info("Customer status is already {}, no change needed", isActive);
+      return mapUserToCustomerResponse(customer);
+    }
+
+    customer.setActive(isActive);
+
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String currentUserId = auth.getPrincipal().toString();
+    customer.setUpdatedBy(Long.parseLong(currentUserId));
+
+    User updatedCustomer = userRepository.save(customer);
+
+    log.info(
+        "Customer status changed successfully for id: {}. New status: {}",
+        id,
+        isActive ? "ACTIVE" : "INACTIVE");
+
+    return mapUserToCustomerResponse(updatedCustomer);
+  }
+
+  @Override
+  @Transactional
+  public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request) {
+    User customer = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+
+    if (request.getFullName() != null && !request.getFullName().isBlank()) {
+      customer.setFullName(request.getFullName());
+    }
+
+    if (request.getEmail() != null && !request.getEmail().equals(customer.getEmail())) {
+      if (userRepository.existsByEmail(request.getEmail())) {
+        throw new EmailAlreadyExistsException();
+      }
+      customer.setEmail(request.getEmail());
+    }
+
+    if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(customer.getPhone())) {
+      if (userRepository.existsByPhone(request.getPhoneNumber())) {
+        throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+      }
+      customer.setPhone(request.getPhoneNumber());
+    }
+
+    if (request.getDateOfBirth() != null) {
+      customer.setDateOfBirth(request.getDateOfBirth());
+    }
+
+    if (request.getGender() != null) {
+      customer.setGender(request.getGender());
+    }
+
+    User savedCustomer = userRepository.save(customer);
+
+    return mapUserToCustomerResponse(savedCustomer);
+  }
+
+  private CustomerResponse mapUserToCustomerResponse(User user) {
     return CustomerResponse.builder()
         .id(user.getId())
         .email(user.getEmail())

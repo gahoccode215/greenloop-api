@@ -15,4 +15,5 @@ public class EventUserRegistrationResponse {
   private LocalDateTime createdAt;
   private LocalDateTime checkInTime;
   private RegistrationStatus registrationStatus;
+  private String note;
 }

@@ -47,7 +47,7 @@ public class UserController {
   @PreAuthorize("isAuthenticated()")
   @Operation(summary = "Update current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
-      @Valid @RequestBody UpdateProfileRequest request,
+      @RequestPart("request") @Valid UpdateProfileRequest request,
       @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();

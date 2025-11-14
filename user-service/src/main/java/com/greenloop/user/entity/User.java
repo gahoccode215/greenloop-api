@@ -71,10 +71,6 @@ public class User extends BaseEntity implements UserDetails {
   @Column(name = "provider")
   private String provider;
 
-  @Column(name = "is_first_login")
-  @Builder.Default
-  private Boolean isFirstLogin = false;
-
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
     return roles.stream()

@@ -911,6 +911,7 @@ public class EventServiceImpl implements EventService {
             reg -> {
               Event event = reg.getEvent();
               return UserEventResponse.builder()
+                  .registerId(reg.getId())
                   .eventId(event.getId())
                   .eventName(event.getName())
                   .eventCode(event.getCode())
@@ -924,47 +925,47 @@ public class EventServiceImpl implements EventService {
   }
 
   /**
-   * Retrieves detailed information about a user's registration for a specific event.
+   * Retrieves detailed information about a user's event registration by registration ID.
    *
-   * @param eventId the ID of the event
-   * @return a UserEventDetailResponse containing detailed registration information
-   * @throws BusinessException if no active registration is found for the user and event
+   * @param registrationId the ID of the event registration
+   * @return a UserEventDetailResponse containing detailed information about the registration
+   * @throws BusinessException if no registration is found for the given ID
    */
   @Override
-  public List<UserEventDetailResponse> getUserEventDetail(Long eventId) {
-    log.info("Fetching user event detail for event {} and current user", eventId);
-
-    Long userId = getCurrentUserId();
-
-    List<EventRegistration> registrations = registrationRepository.findByUserId(userId);
-
-    if (registrations.isEmpty()) {
-      log.warn("No active registration found for user {} and event {}", userId, eventId);
-      throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+  public UserEventDetailResponse getUserEventDetail(Long registrationId) {
+    log.info("Fetching event registration detail for registration ID {}", registrationId);
+    Long currentUserId = getCurrentUserId();
+    EventRegistration registration =
+        registrationRepository
+            .findById(registrationId)
+            .orElseThrow(
+                () -> {
+                  log.warn("No registration found for ID {}", registrationId);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    if (!registration.getUserId().equals(currentUserId)) {
+      log.warn(
+          "User {} is not authorized to access registration ID {}", currentUserId, registrationId);
+      throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
     }
-
-    return registrations.stream()
-        .map(
-            registration -> {
-              Event event = registration.getEvent();
-              return UserEventDetailResponse.builder()
-                  .eventId(event.getId())
-                  .registrationId(registration.getId())
-                  .ticketCode(registration.getQrCode())
-                  .eventCode(event.getCode())
-                  .eventName(event.getName())
-                  .location(event.getLocationDetail())
-                  .startTime(event.getStartTime())
-                  .endTime(event.getEndTime())
-                  .imageUrl(event.getImageUrl())
-                  .latitude(event.getLatitude())
-                  .longitude(event.getLongitude())
-                  .checkInTime(registration.getCheckinTime())
-                  .registrationStatus(registration.getStatus())
-                  .isActive(registration.isActive())
-                  .build();
-            })
-        .toList();
+    Event event = registration.getEvent();
+    return UserEventDetailResponse.builder()
+        .registerId(registration.getId())
+        .eventId(event.getId())
+        .registrationId(registration.getId())
+        .ticketCode(registration.getQrCode())
+        .eventCode(event.getCode())
+        .eventName(event.getName())
+        .location(event.getLocationDetail())
+        .startTime(event.getStartTime())
+        .endTime(event.getEndTime())
+        .imageUrl(event.getImageUrl())
+        .latitude(event.getLatitude())
+        .longitude(event.getLongitude())
+        .checkInTime(registration.getCheckinTime())
+        .registrationStatus(registration.getStatus())
+        .isActive(registration.isActive())
+        .build();
   }
 
   /**
@@ -998,6 +999,7 @@ public class EventServiceImpl implements EventService {
               .checkInTime(reg.getCheckinTime())
               .isActive(reg.isActive())
               .createdAt(reg.getCreatedAt())
+              .note(reg.getNote())
               .build();
         });
   }
@@ -1010,6 +1012,68 @@ public class EventServiceImpl implements EventService {
       return true;
     }
     return false;
+  }
+
+  @Override
+  public List<EventStaffScheduleResponse> getStaffSchedules() {
+
+    Long staffId = getCurrentUserId();
+
+    List<EventStaffAssignment> staffAssignment =
+        assignmentRepository.findByStaffIdAndIsActiveTrue(staffId);
+    if (staffAssignment != null && !staffAssignment.isEmpty()) {
+      return staffAssignment.stream()
+          .map(
+              assignment -> {
+                Event event = assignment.getEvent();
+                return EventStaffScheduleResponse.builder()
+                    .staffId(assignment.getStaffId())
+                    .isStoreManager(assignment.isStoreManager())
+                    .eventId(event.getId())
+                    .code(event.getCode())
+                    .name(event.getName())
+                    .location(event.getLocationDetail())
+                    .imageUrl(event.getImageUrl())
+                    .startTime(event.getStartTime())
+                    .endTime(event.getEndTime())
+                    .status(event.getStatus())
+                    .latitude(event.getLatitude())
+                    .longitude(event.getLongitude())
+                    .build();
+              })
+          .toList();
+    }
+    return List.of();
+  }
+
+  @Override
+  public EventUserRegistrationResponse getUserRegistrationByTicketCode(String ticketCode) {
+    EventRegistration registration =
+        registrationRepository
+            .findByQrCodeAndIsActiveTrue(ticketCode)
+            .orElseThrow(
+                () -> {
+                  log.warn("No active registration found with ticket code {}", ticketCode);
+                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+    UserProfileResponse user = null;
+    try {
+      user = userServiceFeign.getUserInfoById(registration.getUserId());
+
+    } catch (Exception e) {
+      log.error(
+          "Failed to get user info for userId {}: {}", registration.getUserId(), e.getMessage());
+    }
+    return EventUserRegistrationResponse.builder()
+        .userId(registration.getUserId())
+        .fullName(user.getFullName() != null ? user.getFullName() : null)
+        .email(user.getEmail() != null ? user.getEmail() : null)
+        .registrationStatus(registration.getStatus())
+        .checkInTime(registration.getCheckinTime())
+        .isActive(registration.isActive())
+        .createdAt(registration.getCreatedAt())
+        .note(registration.getNote())
+        .build();
   }
 
   private Long getCurrentUserId() {

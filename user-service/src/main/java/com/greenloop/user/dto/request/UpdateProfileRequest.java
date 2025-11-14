@@ -18,6 +18,6 @@ public class UpdateProfileRequest {
 
   private Gender gender;
 
-  @Pattern(regexp = "^[0-9]{10,20}$", message = "Số điện thoại phải có 10-20 chữ số")
+  @Pattern(regexp = "^\\+?[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
   private String phoneNumber;
 }

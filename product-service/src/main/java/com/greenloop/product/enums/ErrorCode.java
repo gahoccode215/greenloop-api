@@ -19,6 +19,7 @@ public enum ErrorCode {
     ACCESS_DENIED("PROD_009", "Access denied", HttpStatus.FORBIDDEN),
     DONATION_ITEM_STATUS_UPDATE_FAILED("PROD_010", "Failed to update donation item status", HttpStatus.INTERNAL_SERVER_ERROR);
 
+
     private final String code;
     private final String message;
     private final HttpStatus status;

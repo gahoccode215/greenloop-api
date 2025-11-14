@@ -1,5 +1,6 @@
 package com.greenloop.user.controller;
 
+import com.greenloop.user.dto.request.UpdateCustomerRequest;
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.CustomerResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
@@ -75,22 +76,30 @@ public class AdminCustomerController {
         ApiResponseDTO.success("Lấy chi tiết khách hàng thành công", customer, HttpStatus.OK));
   }
 
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(
-            summary = "Change customer status",
-            description = "Change active status of a customer account")
-    public ResponseEntity<ApiResponseDTO<CustomerResponse>> changeCustomerStatus(
-            @PathVariable Long id,
-            @RequestParam Boolean isActive) {
+  @PatchMapping("/{id}/status")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  @Operation(
+      summary = "Change customer status",
+      description = "Change active status of a customer account")
+  public ResponseEntity<ApiResponseDTO<CustomerResponse>> changeCustomerStatus(
+      @PathVariable Long id, @RequestParam Boolean isActive) {
 
-        log.info("Changing customer status for id: {}, new status: {}", id, isActive);
+    log.info("Changing customer status for id: {}, new status: {}", id, isActive);
 
-        CustomerResponse customer = adminCustomerService.changeCustomerStatus(id, isActive);
+    CustomerResponse customer = adminCustomerService.changeCustomerStatus(id, isActive);
 
-        return ResponseEntity.ok(
-                ApiResponseDTO.success(
-                        "Thay đổi trạng thái khách hàng thành công", customer, HttpStatus.OK));
-    }
+    return ResponseEntity.ok(
+        ApiResponseDTO.success(
+            "Thay đổi trạng thái khách hàng thành công", customer, HttpStatus.OK));
+  }
 
+  @PutMapping("/{id}")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF', 'STORE_MANAGER')")
+  @Operation(summary = "Update customer information")
+  public ResponseEntity<ApiResponseDTO<CustomerResponse>> updateCustomer(
+      @PathVariable Long id, @Valid @RequestBody UpdateCustomerRequest request) {
+    CustomerResponse updated = adminCustomerService.updateCustomer(id, request);
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Cập nhật khách hàng thành công", updated, HttpStatus.OK));
+  }
 }
