@@ -125,15 +125,6 @@ public class AuthController {
             HttpStatus.OK));
   }
 
-  @PostMapping("/change-password-first-time")
-  public ResponseEntity<ApiResponseDTO<Void>> changePasswordFirstTime(
-      @Valid @RequestBody ChangePasswordFirstTimeRequest request) {
-    log.info("Changing first time password for: {}", request.getEmail());
-    authService.changePasswordFirstTime(request);
-    return ResponseEntity.ok(
-        ApiResponseDTO.success("Đổi mật khẩu thành công", null, HttpStatus.OK));
-  }
-
   @Operation(
       summary = "Exchange OAuth2 temporary key",
       description = "Exchange temporary key from OAuth2 login for access token and refresh token")
@@ -141,7 +132,6 @@ public class AuthController {
   public ResponseEntity<ApiResponseDTO<AuthResponse>> exchangeTempKey(
       @RequestParam String key, HttpServletRequest request) {
     try {
-      // Validate key format
       if (key == null || key.isBlank()) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(

@@ -57,9 +57,6 @@ public class AuthServiceImpl implements AuthService {
     if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
       throw new LoginException();
     }
-    if (Boolean.TRUE.equals(user.getIsFirstLogin())) {
-      throw new FirstLoginException();
-    }
     String accessToken = jwtUtil.generateToken(user);
     String refreshToken = jwtUtil.generateRefreshToken(user);
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
@@ -176,9 +173,6 @@ public class AuthServiceImpl implements AuthService {
       throw new ChangePasswordException("Mật khẩu mới phải khác mật khẩu hiện tại");
     }
     user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    if (Boolean.TRUE.equals(user.getIsFirstLogin())) {
-      user.setIsFirstLogin(false);
-    }
     userRepository.save(user);
   }
 
@@ -289,30 +283,6 @@ public class AuthServiceImpl implements AuthService {
     user.setPassword(passwordEncoder.encode(request.getNewPassword()));
     userRepository.save(user);
     deletePasswordResetOtp(request.getEmail());
-  }
-
-  @Override
-  @Transactional
-  public void changePasswordFirstTime(ChangePasswordFirstTimeRequest request) {
-    if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-      throw new ChangePasswordException("Mật khẩu xác nhận không khớp");
-    }
-    User user =
-        userRepository
-            .findByEmail(request.getEmail())
-            .orElseThrow(() -> new EmailNotFoundException(request.getEmail()));
-    if (!Boolean.TRUE.equals(user.getIsFirstLogin())) {
-      throw new ChangePasswordException("Tài khoản này đã đổi mật khẩu rồi");
-    }
-    if (!passwordEncoder.matches(request.getTemporaryPassword(), user.getPassword())) {
-      throw new ChangePasswordException("Mật khẩu tạm thời không đúng");
-    }
-    if (request.getNewPassword().equals(request.getTemporaryPassword())) {
-      throw new ChangePasswordException("Mật khẩu mới phải khác mật khẩu tạm thời");
-    }
-    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    user.setIsFirstLogin(false);
-    userRepository.save(user);
   }
 
   private void storeEmailVerificationOtp(String email, String otp) {

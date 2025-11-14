@@ -26,6 +26,4 @@ public interface AuthService {
   void verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request);
 
   void resetPassword(ResetPasswordRequest request);
-
-  void changePasswordFirstTime(ChangePasswordFirstTimeRequest request);
 }

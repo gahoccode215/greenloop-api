@@ -160,7 +160,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             .phone(request.getPhone())
             .isEmailVerified(true)
             .isActive(true)
-            .isFirstLogin(true)
             .roles(List.of(role))
             .build();
 
@@ -366,7 +365,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     String newTemporaryPassword = passwordGeneratorUtil.generatePassword();
     employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
-    employee.setIsFirstLogin(true);
 
     String currentUserId = auth.getPrincipal().toString();
     employee.setUpdatedBy(Long.parseLong(currentUserId));
