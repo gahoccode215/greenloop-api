@@ -52,14 +52,6 @@ axon:
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
     dev-mode: true
-ghn:
-  api:
-    #    base-url: https://online-gateway.ghn.vn/shiip/public-api
-    dev-url: https://dev-online-gateway.ghn.vn/shiip/public-api
-    token: ${GHN_API_KEY}
-    shop-id: ${GHN_SHOP_ID}
-    timeout: 30000
-    base-url: https://dev-online-gateway.ghn.vn/shiip/public-api
 
 goship:
   token: ${GOSHIP_TOKEN}
