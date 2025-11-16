@@ -52,7 +52,7 @@ public class PaymentWebhookController {
                 if (orderId != null) {
                     // Cập nhật trạng thái thanh toán
                     orderService.updatePaymentStatus(orderId, PaymentStatus.PAID);
-                    orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+                    orderService.updateOrderStatus(orderId, OrderStatus.PENDING);
 
                     // Lưu transaction ID
                     orderService.updatePaymentTransactionId(orderId, webhookData.getReference());

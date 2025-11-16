@@ -1,10 +1,6 @@
 package com.greenloop.order.goship.client;
 
-import com.greenloop.order.goship.dto.CityDTO;
-import com.greenloop.order.goship.dto.DistrictDTO;
-import com.greenloop.order.goship.dto.GoShipResponse;
-import com.greenloop.order.goship.dto.WardDTO;
-import lombok.RequiredArgsConstructor;
+import com.greenloop.order.goship.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,27 +10,26 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class GoShipClient {
 
-    @Qualifier("goshipRestTemplate")
     private final RestTemplate restTemplate;
 
     @Value("${goship.base-url}")
     private String baseUrl;
 
-    /**
-     * Lấy danh sách tỉnh/thành phố
-     * GET /api/v2/cities
-     */
-    public List<CityDTO> getCities() {
-        try {
-            String url = baseUrl + "/cities";
+    public GoShipClient(@Qualifier("goshipRestTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
+    public List<CityDTO> getCities() {
+        String url = baseUrl + "/cities";
+
+        try {
             log.info("Fetching cities from GoShip API: {}", url);
 
             ResponseEntity<GoShipResponse<List<CityDTO>>> response = restTemplate.exchange(
@@ -46,29 +41,82 @@ public class GoShipClient {
 
             GoShipResponse<List<CityDTO>> body = response.getBody();
 
-            if (body != null && "Success".equals(body.getCode())) {
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus()) && body.getData() != null) {
                 log.info("Successfully fetched {} cities", body.getData().size());
                 return body.getData();
-            } else {
-                log.error("Failed to fetch cities: {}", body != null ? body.getMessage() : "No response");
-                throw new RuntimeException("Failed to fetch cities from GoShip");
             }
 
+            throw new RuntimeException("Failed to fetch cities from GoShip");
+
         } catch (Exception e) {
-            log.error("Error fetching cities from GoShip: {}", e.getMessage(), e);
+            log.error("Error fetching cities: {}", e.getMessage(), e);
             throw new RuntimeException("Error fetching cities: " + e.getMessage());
         }
     }
 
     /**
-     * Lấy danh sách quận/huyện theo cityId
-     * GET /api/v2/cities/{cityId}/districts
+     * Lấy tất cả districts (auto loop qua tất cả pages)
      */
     public List<DistrictDTO> getDistricts(String cityId) {
-        try {
-            String url = baseUrl + "/cities/" + cityId + "/districts";
+        List<DistrictDTO> allDistricts = new ArrayList<>();
+        int currentPage = 1;
+        boolean hasMorePages = true;
 
-            log.info("Fetching districts for city {} from GoShip API", cityId);
+        try {
+            log.info("Fetching all districts for city {} with pagination", cityId);
+
+            while (hasMorePages) {
+                // Sử dụng parameter 'page' thay vì 'page'
+                String url = baseUrl + "/cities/" + cityId + "/districts?page=" + currentPage;
+
+                log.info("Fetching districts page {}", currentPage);
+
+                ResponseEntity<GoShipResponse<List<DistrictDTO>>> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<GoShipResponse<List<DistrictDTO>>>() {}
+                );
+
+                GoShipResponse<List<DistrictDTO>> body = response.getBody();
+
+                if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                    if (body.getData() != null && !body.getData().isEmpty()) {
+                        allDistricts.addAll(body.getData());
+                        log.info("Added {} districts from page {}", body.getData().size(), currentPage);
+                    }
+
+                    if (body.getMeta() != null && body.getMeta().getPagination() != null) {
+                        PaginationMeta.Pagination pagination = body.getMeta().getPagination();
+                        hasMorePages = pagination.getCurrentPage() < pagination.getTotalPages();
+                        currentPage++;
+                    } else {
+                        hasMorePages = false;
+                    }
+                } else {
+                    log.error("Failed to fetch districts at page {}", currentPage);
+                    break;
+                }
+            }
+
+            log.info("Successfully fetched total {} districts for city {}", allDistricts.size(), cityId);
+            return allDistricts;
+
+        } catch (Exception e) {
+            log.error("Error fetching districts: {}", e.getMessage(), e);
+            throw new RuntimeException("Error fetching districts: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lấy districts theo page cụ thể - Dùng parameter 'size' thay vì 'per_page'
+     */
+    public GoShipResponse<List<DistrictDTO>> getDistrictsByPage(String cityId, int page, int size) {
+        try {
+            // Sử dụng 'size' thay vì 'per_page'
+            String url = baseUrl + "/cities/" + cityId + "/districts?page=" + page + "&size=" + size;
+
+            log.info("Fetching districts page {} with size {} for city {}", page, size, cityId);
 
             ResponseEntity<GoShipResponse<List<DistrictDTO>>> response = restTemplate.exchange(
                     url,
@@ -79,29 +127,96 @@ public class GoShipClient {
 
             GoShipResponse<List<DistrictDTO>> body = response.getBody();
 
-            if (body != null && "Success".equals(body.getCode())) {
-                log.info("Successfully fetched {} districts for city {}", body.getData().size(), cityId);
-                return body.getData();
-            } else {
-                log.error("Failed to fetch districts: {}", body != null ? body.getMessage() : "No response");
-                throw new RuntimeException("Failed to fetch districts from GoShip");
+            // Tạo meta nếu null
+            if (body != null && body.getMeta() == null && body.getData() != null) {
+                PaginationMeta.Pagination pagination = new PaginationMeta.Pagination();
+                pagination.setCurrentPage(page);
+                pagination.setPerPage(size);
+                pagination.setCount(body.getData().size());
+                pagination.setTotal(body.getData().size());
+                pagination.setTotalPages(1);
+
+                PaginationMeta.Links links = new PaginationMeta.Links();
+                links.setNext(null);
+                links.setPrevious(null);
+
+                pagination.setLinks(links);
+
+                PaginationMeta meta = new PaginationMeta();
+                meta.setPagination(pagination);
+
+                body.setMeta(meta);
             }
 
+            return body;
+
         } catch (Exception e) {
-            log.error("Error fetching districts from GoShip: {}", e.getMessage(), e);
-            throw new RuntimeException("Error fetching districts: " + e.getMessage());
+            log.error("Error fetching districts page: {}", e.getMessage());
+            throw new RuntimeException("Error fetching districts page: " + e.getMessage());
         }
     }
 
     /**
-     * Lấy danh sách phường/xã theo districtId
-     * GET /api/v2/districts/{districtId}/wards
+     * Lấy tất cả wards (auto loop qua tất cả pages)
      */
     public List<WardDTO> getWards(String districtId) {
-        try {
-            String url = baseUrl + "/districts/" + districtId + "/wards";
+        List<WardDTO> allWards = new ArrayList<>();
+        int currentPage = 1;
+        boolean hasMorePages = true;
 
-            log.info("Fetching wards for district {} from GoShip API", districtId);
+        try {
+            log.info("Fetching all wards for district {} with pagination", districtId);
+
+            while (hasMorePages) {
+                String url = baseUrl + "/districts/" + districtId + "/wards?page=" + currentPage;
+
+                log.info("Fetching wards page {}", currentPage);
+
+                ResponseEntity<GoShipResponse<List<WardDTO>>> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<GoShipResponse<List<WardDTO>>>() {}
+                );
+
+                GoShipResponse<List<WardDTO>> body = response.getBody();
+
+                if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                    if (body.getData() != null && !body.getData().isEmpty()) {
+                        allWards.addAll(body.getData());
+                        log.info("Added {} wards from page {}", body.getData().size(), currentPage);
+                    }
+
+                    if (body.getMeta() != null && body.getMeta().getPagination() != null) {
+                        PaginationMeta.Pagination pagination = body.getMeta().getPagination();
+                        hasMorePages = pagination.getCurrentPage() < pagination.getTotalPages();
+                        currentPage++;
+                    } else {
+                        hasMorePages = false;
+                    }
+                } else {
+                    log.error("Failed to fetch wards at page {}", currentPage);
+                    break;
+                }
+            }
+
+            log.info("Successfully fetched total {} wards for district {}", allWards.size(), districtId);
+            return allWards;
+
+        } catch (Exception e) {
+            log.error("Error fetching wards: {}", e.getMessage(), e);
+            throw new RuntimeException("Error fetching wards: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lấy wards theo page cụ thể - Dùng parameter 'size'
+     */
+    public GoShipResponse<List<WardDTO>> getWardsByPage(String districtId, int page, int size) {
+        try {
+            String url = baseUrl + "/districts/" + districtId + "/wards?page=" + page + "&size=" + size;
+
+            log.info("Fetching wards page {} with size {} for district {}", page, size, districtId);
 
             ResponseEntity<GoShipResponse<List<WardDTO>>> response = restTemplate.exchange(
                     url,
@@ -112,17 +227,31 @@ public class GoShipClient {
 
             GoShipResponse<List<WardDTO>> body = response.getBody();
 
-            if (body != null && "Success".equals(body.getCode())) {
-                log.info("Successfully fetched {} wards for district {}", body.getData().size(), districtId);
-                return body.getData();
-            } else {
-                log.error("Failed to fetch wards: {}", body != null ? body.getMessage() : "No response");
-                throw new RuntimeException("Failed to fetch wards from GoShip");
+            if (body != null && body.getMeta() == null && body.getData() != null) {
+                PaginationMeta.Pagination pagination = new PaginationMeta.Pagination();
+                pagination.setCurrentPage(page);
+                pagination.setPerPage(size);
+                pagination.setCount(body.getData().size());
+                pagination.setTotal(body.getData().size());
+                pagination.setTotalPages(1);
+
+                PaginationMeta.Links links = new PaginationMeta.Links();
+                links.setNext(null);
+                links.setPrevious(null);
+
+                pagination.setLinks(links);
+
+                PaginationMeta meta = new PaginationMeta();
+                meta.setPagination(pagination);
+
+                body.setMeta(meta);
             }
 
+            return body;
+
         } catch (Exception e) {
-            log.error("Error fetching wards from GoShip: {}", e.getMessage(), e);
-            throw new RuntimeException("Error fetching wards: " + e.getMessage());
+            log.error("Error fetching wards page: {}", e.getMessage());
+            throw new RuntimeException("Error fetching wards page: " + e.getMessage());
         }
     }
 }
