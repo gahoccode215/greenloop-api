@@ -51,7 +51,7 @@ axon:
         mode: subscribing
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
-
+    dev-mode: true
 ghn:
   api:
     #    base-url: https://online-gateway.ghn.vn/shiip/public-api
@@ -71,3 +71,9 @@ vnpay:
   order-type: other
   currency: VND
 
+payos:
+  client-id: ${PAYOS_CLIENT_ID}
+  api-key: ${PAYOS_API_KEY}
+  checksum-key: ${PAYOS_CHECKSUM_KEY}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payments/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}

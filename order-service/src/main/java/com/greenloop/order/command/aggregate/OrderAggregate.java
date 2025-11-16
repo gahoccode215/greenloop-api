@@ -28,6 +28,7 @@ public class OrderAggregate {
     private BigDecimal totalPrice;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
+    private Long paymentOrderCode;
 
     public OrderAggregate() {
     }
@@ -47,7 +48,8 @@ public class OrderAggregate {
                 command.getOrderItems(),
                 command.getShippingAddress(),
                 command.getPaymentStatus(),
-                command.getPaymentMethod()
+                command.getPaymentMethod(),
+                command.getPaymentOrderCode()
         ));
     }
 
@@ -61,6 +63,7 @@ public class OrderAggregate {
         this.totalPrice = orderCreatedEvent.getTotalPrice();
         this.paymentStatus = orderCreatedEvent.getPaymentStatus();
         this.paymentMethod = orderCreatedEvent.getPaymentMethod();
+        this.paymentOrderCode = orderCreatedEvent.getPaymentOrderCode();
     }
 
     @CommandHandler

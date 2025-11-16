@@ -25,4 +25,5 @@ public class OrderCreatedEvent {
     private ShippingAddressRequest shippingAddress;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
+    private Long paymentOrderCode;
 }

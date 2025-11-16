@@ -10,6 +10,7 @@ import com.greenloop.order.dto.request.CheckoutRequest;
 import com.greenloop.order.dto.request.OrderItemRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.CheckoutResponse;
+import com.greenloop.order.dto.response.PayOSPaymentResponse;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.entity.Order;
@@ -24,6 +25,7 @@ import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.OrderService;
+import com.greenloop.order.service.PayOSPayment;
 import com.greenloop.order.util.OrderCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +51,8 @@ public class OrderServiceImpl implements OrderService {
     private final ProductClient productClient;
     private final CommandGateway commandGateway;
     private final CartService cartService;
-    private final PaymentService paymentService;
+    private final PayOSPayment payOSPayment;
+
 
     @Override
     @Transactional
@@ -119,7 +122,7 @@ public class OrderServiceImpl implements OrderService {
         String orderId = UUID.randomUUID().toString();
         String orderCode = OrderCodeGenerator.generateOrderCode();
 
-        CreateOrderCommand command = CreateOrderCommand.builder()
+        CreateOrderCommand.CreateOrderCommandBuilder command = CreateOrderCommand.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .customerId(userId)
@@ -128,12 +131,9 @@ public class OrderServiceImpl implements OrderService {
                 .paymentStatus(PaymentStatus.UNPAID)
                 .orderItems(orderItems)
                 .shippingAddress(request.getShippingAddress())
-                .paymentMethod(request.getPaymentMethod())
-                .build();
+                .paymentMethod(request.getPaymentMethod());
 
-        commandGateway.sendAndWait(command);
 
-        cartService.clearCart(userId);
 
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
@@ -143,15 +143,50 @@ public class OrderServiceImpl implements OrderService {
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             responseBuilder.paymentUrl(null)
                     .message("Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng.");
-        } else if (request.getPaymentMethod() == PaymentMethod.VNPAY) {
-            String paymentUrl = paymentService.createPaymentUrl(orderId, totalPrice, ipAddress);
-            responseBuilder.paymentUrl(paymentUrl)
+        } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
+            PayOSPaymentResponse paymentResponse = payOSPayment.createPaymentUrl(orderId, totalPrice);
+            command.paymentOrderCode(paymentResponse.getPaymentOrderCode());
+            log.info("Payment link created - OrderId: {}, PaymentOrderCode: {}",
+                    orderId, paymentResponse.getPaymentOrderCode());
+            responseBuilder.paymentUrl(paymentResponse.getCheckoutUrl())
                     .message("Vui lòng thanh toán để hoàn tất đơn hàng.");
         }
+
+        commandGateway.sendAndWait(command.build());
+
+        // Clear cart
+        cartService.clearCart(userId);
 
         log.info("Checkout completed for order {}", orderCode);
         return responseBuilder.build();
     }
+
+    @Override
+    public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
+        return orderRepository.findByPaymentOrderCode(paymentOrderCode)
+                .map(Order::getOrderId)
+                .orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public void updatePaymentStatus(String orderId, PaymentStatus status) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setPaymentStatus(status);
+            orderRepository.save(order);
+            log.info("Updated payment status to {} for order {}", status, orderId);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void updatePaymentTransactionId(String orderId, String transactionId) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setPaymentTransactionId(transactionId);
+            orderRepository.save(order);
+        });
+    }
+
 
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {
         ApiResponseDTO<ProductDTO> response = productClient.getProductById(cartItem.getProductId());

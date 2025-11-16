@@ -43,9 +43,13 @@ public class Order {
     @Column(name = "payment_transaction_id")
     private String paymentTransactionId;
 
+    @Column(name = "payment_order_code")
+    private Long paymentOrderCode;
+
     @Column(name = "payment_method")
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
+
 
     // GHN
     @Column(name = "ghn_order_code", length = 50)

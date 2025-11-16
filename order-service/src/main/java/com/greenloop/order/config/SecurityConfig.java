@@ -21,7 +21,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/v1/orders/ghn/master-data/**"
+            "/api/v1/orders/ghn/master-data/**",
+            "/api/v1/orders/payment/payos-webhook"
     };
 
     private final HeaderAuthFilter headerAuthFilter;

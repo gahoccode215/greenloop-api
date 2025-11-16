@@ -31,6 +31,7 @@ public class OrderProjection {
                 .orderStatus(event.getOrderStatus())
                 .paymentStatus(event.getPaymentStatus())
                 .paymentMethod(event.getPaymentMethod())
+                .paymentOrderCode(event.getPaymentOrderCode())
                 .build();
 
         if (event.getShippingAddress() != null) {

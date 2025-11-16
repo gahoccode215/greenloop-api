@@ -25,4 +25,5 @@ public class CreateOrderCommand {
     private final List<OrderItemRequest> orderItems;
     private final ShippingAddressRequest shippingAddress;
     private final PaymentMethod paymentMethod;
+    private final Long paymentOrderCode;
 }
