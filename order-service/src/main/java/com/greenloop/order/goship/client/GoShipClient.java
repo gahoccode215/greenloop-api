@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -252,6 +253,136 @@ public class GoShipClient {
         } catch (Exception e) {
             log.error("Error fetching wards page: {}", e.getMessage());
             throw new RuntimeException("Error fetching wards page: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Tính phí vận chuyển
+     * POST /api/v2/rates
+     */
+    public List<RateResponse> calculateRates(CalculateRateRequest request) {
+        try {
+            String url = baseUrl + "/rates";
+
+            log.info("Calculating rates: {}", url);
+
+            HttpEntity<CalculateRateRequest> httpEntity = new HttpEntity<>(request);
+
+            ResponseEntity<GoShipResponse<List<RateResponse>>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    httpEntity,
+                    new ParameterizedTypeReference<GoShipResponse<List<RateResponse>>>() {}
+            );
+
+            GoShipResponse<List<RateResponse>> body = response.getBody();
+
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                log.info("Successfully calculated rates: {} options available", body.getData().size());
+                return body.getData();
+            }
+
+            throw new RuntimeException("Failed to calculate rates from GoShip");
+
+        } catch (Exception e) {
+            log.error("Error calculating rates: {}", e.getMessage(), e);
+            throw new RuntimeException("Error calculating rates: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Tạo shipment
+     * POST /api/v2/shipments
+     */
+    public ShipmentResponse createShipment(CreateShipmentRequest request) {
+        try {
+            String url = baseUrl + "/shipments";
+
+            log.info("Creating shipment: {}", url);
+
+            HttpEntity<CreateShipmentRequest> httpEntity = new HttpEntity<>(request);
+
+            ResponseEntity<GoShipResponse<ShipmentResponse>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    httpEntity,
+                    new ParameterizedTypeReference<GoShipResponse<ShipmentResponse>>() {}
+            );
+
+            GoShipResponse<ShipmentResponse> body = response.getBody();
+
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                log.info("Successfully created shipment: {}", body.getData().getTrackingCode());
+                return body.getData();
+            }
+
+            throw new RuntimeException("Failed to create shipment from GoShip");
+
+        } catch (Exception e) {
+            log.error("Error creating shipment: {}", e.getMessage(), e);
+            throw new RuntimeException("Error creating shipment: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lấy thông tin shipment
+     * GET /api/v2/shipments/{id}
+     */
+    public ShipmentResponse getShipment(String shipmentId) {
+        try {
+            String url = baseUrl + "/shipments/" + shipmentId;
+
+            log.info("Getting shipment: {}", url);
+
+            ResponseEntity<GoShipResponse<ShipmentResponse>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<GoShipResponse<ShipmentResponse>>() {}
+            );
+
+            GoShipResponse<ShipmentResponse> body = response.getBody();
+
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                return body.getData();
+            }
+
+            throw new RuntimeException("Failed to get shipment from GoShip");
+
+        } catch (Exception e) {
+            log.error("Error getting shipment: {}", e.getMessage(), e);
+            throw new RuntimeException("Error getting shipment: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hủy shipment
+     * DELETE /api/v2/shipments/{id}
+     */
+    public void cancelShipment(String shipmentId) {
+        try {
+            String url = baseUrl + "/shipments/" + shipmentId;
+
+            log.info("Cancelling shipment: {}", url);
+
+            ResponseEntity<GoShipResponse<Void>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.DELETE,
+                    null,
+                    new ParameterizedTypeReference<GoShipResponse<Void>>() {}
+            );
+
+            GoShipResponse<Void> body = response.getBody();
+
+            if (body == null || body.getCode() != 200) {
+                throw new RuntimeException("Failed to cancel shipment from GoShip");
+            }
+
+            log.info("Successfully cancelled shipment: {}", shipmentId);
+
+        } catch (Exception e) {
+            log.error("Error cancelling shipment: {}", e.getMessage(), e);
+            throw new RuntimeException("Error cancelling shipment: " + e.getMessage());
         }
     }
 }

@@ -25,12 +25,11 @@ import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.OrderService;
-import com.greenloop.order.service.PayOSPayment;
+import com.greenloop.order.service.PayOSPaymentService;
 import com.greenloop.order.util.OrderCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +50,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductClient productClient;
     private final CommandGateway commandGateway;
     private final CartService cartService;
-    private final PayOSPayment payOSPayment;
+    private final PayOSPaymentService payOSPaymentService;
 
 
     @Override
@@ -81,6 +80,12 @@ public class OrderServiceImpl implements OrderService {
                             .customerId(order.getCustomerId())
                             .totalPrice(order.getTotalPrice())
                             .orderStatus(order.getOrderStatus())
+                            .goshipShipmentId(order.getGoshipShipmentId())
+                            .goshipTrackingCode(order.getGoshipTrackingCode())
+                            .carrier(order.getCarrier())
+                            .shippingFee(order.getShippingFee())
+                            .expectedDeliveryTime(order.getExpectedDeliveryTime())
+                            .shippingStatus(order.getShippingStatus())
                             .build();
 
                     if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
@@ -98,6 +103,7 @@ public class OrderServiceImpl implements OrderService {
                     return dto;
                 });
     }
+
 
     @Override
     @Transactional
@@ -144,7 +150,7 @@ public class OrderServiceImpl implements OrderService {
             responseBuilder.paymentUrl(null)
                     .message("Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng.");
         } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
-            PayOSPaymentResponse paymentResponse = payOSPayment.createPaymentUrl(orderId, totalPrice);
+            PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(orderId, totalPrice);
             command.paymentOrderCode(paymentResponse.getPaymentOrderCode());
             log.info("Payment link created - OrderId: {}, PaymentOrderCode: {}",
                     orderId, paymentResponse.getPaymentOrderCode());
@@ -186,6 +192,38 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.save(order);
         });
     }
+
+    @Override
+    @Transactional
+    public void updateShippingInfo(String orderId, String shipmentId, String trackingCode,
+                                   String carrier, BigDecimal shippingFee, LocalDateTime expectedDeliveryTime) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setGoshipShipmentId(shipmentId);
+            order.setGoshipTrackingCode(trackingCode);
+            order.setCarrier(carrier);
+            order.setShippingFee(shippingFee);
+            order.setExpectedDeliveryTime(expectedDeliveryTime);
+            orderRepository.save(order);
+            log.info("Updated shipping info for order {}: shipmentId={}, trackingCode={}",
+                    orderId, shipmentId, trackingCode);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void updateShippingStatus(String orderId, String shippingStatus) {
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setShippingStatus(shippingStatus);
+            orderRepository.save(order);
+            log.info("Updated shipping status to {} for order {}", shippingStatus, orderId);
+        });
+    }
+
+    @Override
+    public Optional<Order> findById(String orderId) {
+        return orderRepository.findById(orderId);
+    }
+
 
 
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {

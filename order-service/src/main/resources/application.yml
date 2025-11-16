@@ -67,6 +67,13 @@ goship:
   client-secret: ${GOSHIP_CLIENT_SECRET}
   access-token: ${GOSHIP_ACCESS_TOKEN}
   base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
+  default-warehouse:
+    city: "100000"           # Hà Nội
+    district: "100100"       # Quận Ba Đình
+    ward: "100101"           # Phường Phúc Xá
+    address: "39 Nguyễn Trãi"
+    name: "GreenLoop Warehouse"
+    phone: "0987654321"
 
 vnpay:
   tmn-code: ${VNP_TMN_CODE:1DG2F9EA}
@@ -84,3 +91,4 @@ payos:
   checksum-key: ${PAYOS_CHECKSUM_KEY}
   return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payments/success}
   cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
+

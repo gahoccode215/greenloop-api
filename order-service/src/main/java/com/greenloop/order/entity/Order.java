@@ -50,6 +50,15 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    @Column(name = "goship_shipment_id", length = 50)
+    private String goshipShipmentId;
+
+    @Column(name = "goship_tracking_code", length = 50)
+    private String goshipTrackingCode;
+
+    @Column(name = "carrier", length = 20)
+    private String carrier;
+
 
     // GHN
     @Column(name = "ghn_order_code", length = 50)

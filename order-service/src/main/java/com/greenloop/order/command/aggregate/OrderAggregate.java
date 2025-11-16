@@ -1,9 +1,7 @@
 package com.greenloop.order.command.aggregate;
 
-import com.greenloop.order.command.CreateOrderCommand;
-import com.greenloop.order.command.UpdateOrderStatusCommand;
-import com.greenloop.order.command.event.OrderCreatedEvent;
-import com.greenloop.order.command.event.OrderStatusUpdatedEvent;
+import com.greenloop.order.command.*;
+import com.greenloop.order.command.event.*;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
@@ -16,6 +14,7 @@ import org.axonframework.modelling.command.AggregateLifecycle;
 import org.axonframework.spring.stereotype.Aggregate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Aggregate
 public class OrderAggregate {
@@ -29,6 +28,14 @@ public class OrderAggregate {
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
+
+    // GoShip fields
+    private String goshipShipmentId;
+    private String goshipTrackingCode;
+    private String carrier;
+    private BigDecimal shippingFee;
+    private LocalDateTime expectedDeliveryTime;
+    private String shippingStatus;
 
     public OrderAggregate() {
     }
@@ -53,22 +60,20 @@ public class OrderAggregate {
         ));
     }
 
-
     @EventSourcingHandler
-    public void on(OrderCreatedEvent orderCreatedEvent){
-        this.orderId = orderCreatedEvent.getOrderId();
-        this.orderCode = orderCreatedEvent.getOrderCode();
-        this.customerId = orderCreatedEvent.getCustomerId();
-        this.orderStatus = orderCreatedEvent.getOrderStatus();
-        this.totalPrice = orderCreatedEvent.getTotalPrice();
-        this.paymentStatus = orderCreatedEvent.getPaymentStatus();
-        this.paymentMethod = orderCreatedEvent.getPaymentMethod();
-        this.paymentOrderCode = orderCreatedEvent.getPaymentOrderCode();
+    public void on(OrderCreatedEvent event) {
+        this.orderId = event.getOrderId();
+        this.orderCode = event.getOrderCode();
+        this.customerId = event.getCustomerId();
+        this.orderStatus = event.getOrderStatus();
+        this.totalPrice = event.getTotalPrice();
+        this.paymentStatus = event.getPaymentStatus();
+        this.paymentMethod = event.getPaymentMethod();
+        this.paymentOrderCode = event.getPaymentOrderCode();
     }
 
     @CommandHandler
     public void handle(UpdateOrderStatusCommand command) {
-
         if (!this.orderStatus.canTransitionTo(command.getOrderStatus())) {
             throw new InvalidOrderStatusException(
                     this.orderStatus.getDescription(),
@@ -82,15 +87,68 @@ public class OrderAggregate {
         ));
     }
 
-
-
     @EventSourcingHandler
-    public void on(OrderStatusUpdatedEvent orderStatusUpdatedEvent){
-        this.orderStatus = orderStatusUpdatedEvent.getOrderStatus();
+    public void on(OrderStatusUpdatedEvent event) {
+        this.orderStatus = event.getOrderStatus();
     }
 
+    /**
+     * Handler cho CreateShipmentCommand
+     * Command này sẽ được gọi khi Order chuyển sang PROCESSING
+     */
+    @CommandHandler
+    public void handle(CreateShipmentCommand command) {
+        // Validation: Chỉ tạo shipment khi order ở trạng thái PROCESSING
+        if (this.orderStatus != OrderStatus.PROCESSING) {
+            throw new IllegalStateException(
+                    "Cannot create shipment. Order must be in PROCESSING status. Current: " + this.orderStatus
+            );
+        }
 
+        // Event này sẽ trigger Saga để gọi GoShip API
+        AggregateLifecycle.apply(new ShipmentCreationRequestedEvent(
+                command.getOrderId()
+        ));
+    }
 
+    /**
+     * Handler cho UpdateShippingInfoCommand
+     * Command này được gọi sau khi GoShip API trả về thành công
+     */
+    @CommandHandler
+    public void handle(UpdateShippingInfoCommand command) {
+        AggregateLifecycle.apply(new ShipmentCreatedEvent(
+                command.getOrderId(),
+                command.getGoshipShipmentId(),
+                command.getGoshipTrackingCode(),
+                command.getCarrier(),
+                command.getShippingFee(),
+                command.getExpectedDeliveryTime()
+        ));
+    }
 
+    @EventSourcingHandler
+    public void on(ShipmentCreatedEvent event) {
+        this.goshipShipmentId = event.getGoshipShipmentId();
+        this.goshipTrackingCode = event.getGoshipTrackingCode();
+        this.carrier = event.getCarrier();
+        this.shippingFee = event.getShippingFee();
+        this.expectedDeliveryTime = event.getExpectedDeliveryTime();
+    }
 
+    /**
+     * Handler cho UpdateShippingStatusCommand (từ webhook)
+     */
+    @CommandHandler
+    public void handle(UpdateShippingStatusCommand command) {
+        AggregateLifecycle.apply(new ShippingStatusUpdatedEvent(
+                command.getOrderId(),
+                command.getShippingStatus()
+        ));
+    }
+
+    @EventSourcingHandler
+    public void on(ShippingStatusUpdatedEvent event) {
+        this.shippingStatus = event.getShippingStatus();
+    }
 }

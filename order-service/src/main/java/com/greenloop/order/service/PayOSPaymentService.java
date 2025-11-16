@@ -2,7 +2,6 @@ package com.greenloop.order.service;
 
 
 import com.greenloop.order.dto.response.PayOSPaymentResponse;
-import com.greenloop.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,15 +9,13 @@ import org.springframework.stereotype.Service;
 import vn.payos.PayOS;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
-import vn.payos.model.v2.paymentRequests.PaymentLinkItem;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PayOSPayment {
+public class PayOSPaymentService {
 
     private final PayOS payOS;
 

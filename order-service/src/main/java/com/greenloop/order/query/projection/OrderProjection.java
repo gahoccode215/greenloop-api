@@ -1,7 +1,6 @@
 package com.greenloop.order.query.projection;
 
-import com.greenloop.order.command.event.OrderCreatedEvent;
-import com.greenloop.order.command.event.OrderStatusUpdatedEvent;
+import com.greenloop.order.command.event.*;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ShippingAddress;
@@ -9,7 +8,6 @@ import com.greenloop.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.axonframework.config.ProcessingGroup;
 import org.axonframework.eventhandling.EventHandler;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,6 +17,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @ProcessingGroup("order-group")
 public class OrderProjection {
+
     private final OrderService orderService;
 
     @EventHandler
@@ -47,7 +46,6 @@ public class OrderProjection {
             order.setShippingAddress(shippingAddress);
         }
 
-        // Map order items
         if (event.getOrderItems() != null && !event.getOrderItems().isEmpty()) {
             List<OrderItem> items = event.getOrderItems().stream()
                     .map(itemReq -> OrderItem.builder()
@@ -63,11 +61,25 @@ public class OrderProjection {
         orderService.createOrder(order);
     }
 
-
     @EventHandler
-    public void on(OrderStatusUpdatedEvent event){
+    public void on(OrderStatusUpdatedEvent event) {
         orderService.updateOrderStatus(event.getOrderId(), event.getOrderStatus());
     }
 
+    @EventHandler
+    public void on(ShipmentCreatedEvent event) {
+        orderService.updateShippingInfo(
+                event.getOrderId(),
+                event.getGoshipShipmentId(),
+                event.getGoshipTrackingCode(),
+                event.getCarrier(),
+                event.getShippingFee(),
+                event.getExpectedDeliveryTime()
+        );
+    }
 
+    @EventHandler
+    public void on(ShippingStatusUpdatedEvent event) {
+        orderService.updateShippingStatus(event.getOrderId(), event.getShippingStatus());
+    }
 }
