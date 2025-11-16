@@ -4,6 +4,7 @@ import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.service.OrderService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import vn.payos.model.webhooks.WebhookData;
 @RequestMapping("/api/v1/orders/payment")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Payment Webhook Controller", description = "Controller xử lý webhook thanh toán")
 public class PaymentWebhookController {
 
     private final PayOS payOS;

@@ -61,6 +61,13 @@ ghn:
     timeout: 30000
     base-url: https://dev-online-gateway.ghn.vn/shiip/public-api
 
+goship:
+  token: ${GOSHIP_TOKEN}
+  client-id: ${GOSHIP_CLIENT_ID}
+  client-secret: ${GOSHIP_CLIENT_SECRET}
+  access-token: ${GOSHIP_ACCESS_TOKEN}
+  base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
+
 vnpay:
   tmn-code: ${VNP_TMN_CODE:1DG2F9EA}
   hash-secret: ${VNP_HASH_SECRET:2MO9BQB0W0FK4D9N9NS2E1NM68SPOTIH}
