@@ -46,8 +46,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
           "/api/v1/events/customers/**",
           "/api/v1/eco-points/**",
           "/api/v1/products/**",
-              "/api/v1/orders/payment/payos-webhook"
-      );
+          "/api/v1/orders/payment/payos-webhook");
 
   public JwtAuthFilter(JwtUtil jwtUtil) {
     super(Config.class);
