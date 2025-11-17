@@ -28,6 +28,9 @@ public class UserAddress {
   @Column(name = "ward")
   private String ward;
 
+  @Column(name = "ward_code")
+  private Long wardCode;
+
   @Column(name = "district")
   private Long district;
 

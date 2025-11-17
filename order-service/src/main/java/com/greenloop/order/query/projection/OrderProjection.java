@@ -23,7 +23,6 @@ public class OrderProjection {
 
     private final OrderService orderService;
 
-    // Warehouse info for Order entity (Integer for DB)
     @Value("${goship.default-warehouse.name}")
     private String warehouseName;
 
@@ -37,10 +36,16 @@ public class OrderProjection {
     private String warehouseWardCode;
 
     @Value("${goship.default-warehouse.district-id}")
-    private Integer warehouseDistrictId;  // ← Integer
+    private Integer warehouseDistrictId;
 
     @Value("${goship.default-warehouse.city-id}")
-    private Integer warehouseCityId;  // ← Integer
+    private Integer warehouseCityId;
+
+    @Value("${goship.default-warehouse.district-name}")
+    private String warehouseDistrictName;
+
+    @Value("${goship.default-warehouse.city-name}")
+    private String warehouseCityName;
 
     @EventHandler
     public void on(OrderCreatedEvent event) {
@@ -72,6 +77,8 @@ public class OrderProjection {
                     .warehouseAddress(warehouseAddress)
                     .warehouseWardCode(warehouseWardCode)
                     .warehouseDistrictId(warehouseDistrictId)
+                    .warehouseDistrictName(warehouseDistrictName)
+                    .warehouseCityName(warehouseCityName)
                     .warehouseCityId(warehouseCityId)
                     .build();
 
@@ -95,7 +102,7 @@ public class OrderProjection {
         }
 
         orderService.createOrder(order);
-        log.info("✅ Order created: {}", event.getOrderCode());
+        log.info("Order created: {}", event.getOrderCode());
     }
 
     @EventHandler
@@ -104,22 +111,6 @@ public class OrderProjection {
         log.info("Order {} status updated to {}", event.getOrderId(), event.getOrderStatus());
     }
 
-    @EventHandler
-    public void on(ShipmentCreatedEvent event) {
-        orderService.updateShippingInfo(
-                event.getOrderId(),
-                event.getGoshipShipmentId(),
-                event.getGoshipTrackingCode(),
-                event.getCarrier(),
-                event.getShippingFee(),
-                event.getExpectedDeliveryTime()
-        );
-        log.info("Shipment created for order {}: {}", event.getOrderId(), event.getGoshipTrackingCode());
-    }
 
-    @EventHandler
-    public void on(ShippingStatusUpdatedEvent event) {
-        orderService.updateShippingStatus(event.getOrderId(), event.getShippingStatus());
-        log.info("Shipping status updated for order {}: {}", event.getOrderId(), event.getShippingStatus());
-    }
+
 }

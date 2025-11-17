@@ -20,43 +20,46 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @Slf4j
 public class EcoPointUserController {
-    private final EcoPointUserService ecoPointUserService;
+  private final EcoPointUserService ecoPointUserService;
 
-    @GetMapping("/my-eco-points")
-    @Operation(summary = "Get current user's eco point balance",
-            description = "Retrieve the eco point balance for the authenticated user.")
-    @Tag(name = "Eco Point User Management")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponseDTO<EcoPointUserResponse>> getMyEcoPoint() {
-        Long userId = Long.valueOf(
-                SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
-        log.info("Fetching eco point balance for user ID: {}", userId);
-        EcoPointUserResponse ecoPointUserResponse = ecoPointUserService.getEcoPointOfUser(userId);
-        return ResponseEntity.ok(
-                ApiResponseDTO.<EcoPointUserResponse>builder()
-                        .data(ecoPointUserResponse)
-                        .message("Fetched current user's eco point balance successfully")
-                        .statusCode(200)
-                        .success(true)
-                        .build()
-        );
-    }
+  @GetMapping("/my-eco-points")
+  @Operation(
+      summary = "Get current user's eco point balance",
+      description = "Retrieve the eco point balance for the authenticated user.")
+  @Tag(name = "Eco Point User Management")
+  @PreAuthorize("isAuthenticated()")
+  public ResponseEntity<ApiResponseDTO<EcoPointUserResponse>> getMyEcoPoint() {
+    Long userId =
+        Long.valueOf(
+            SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+    log.info("Fetching eco point balance for user ID: {}", userId);
+    EcoPointUserResponse ecoPointUserResponse = ecoPointUserService.getEcoPointOfUser(userId);
+    return ResponseEntity.ok(
+        ApiResponseDTO.<EcoPointUserResponse>builder()
+            .data(ecoPointUserResponse)
+            .message("Fetched current user's eco point balance successfully")
+            .statusCode(200)
+            .success(true)
+            .build());
+  }
 
-    @GetMapping("/{userId}")
-    @Operation(summary = "Get eco point balance by user ID",
-            description = "Retrieve the eco point balance for a specific user by their user ID.")
-    @Tag(name = "Eco Point User Management")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER') or hasRole('ROLE_STAFF') or hasRole('ROLE_STORE_MANAGER')")
-    public ResponseEntity<ApiResponseDTO<EcoPointUserResponse>> getEcoPointByUserId(@PathVariable Long userId) {
-        log.info("Fetching eco point balance for user ID: {}", userId);
-        EcoPointUserResponse ecoPointUserResponse = ecoPointUserService.getEcoPointOfUser(userId);
-        return ResponseEntity.ok(
-                ApiResponseDTO.<EcoPointUserResponse>builder()
-                        .data(ecoPointUserResponse)
-                        .message("Fetched eco point balance by user ID successfully")
-                        .statusCode(200)
-                        .success(true)
-                        .build()
-        );
-    }
+  @GetMapping("/{userId}")
+  @Operation(
+      summary = "Get eco point balance by user ID",
+      description = "Retrieve the eco point balance for a specific user by their user ID.")
+  @Tag(name = "Eco Point User Management")
+  @PreAuthorize(
+      "hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER') or hasRole('ROLE_STAFF') or hasRole('ROLE_STORE_MANAGER')")
+  public ResponseEntity<ApiResponseDTO<EcoPointUserResponse>> getEcoPointByUserId(
+      @PathVariable Long userId) {
+    log.info("Fetching eco point balance for user ID: {}", userId);
+    EcoPointUserResponse ecoPointUserResponse = ecoPointUserService.getEcoPointOfUser(userId);
+    return ResponseEntity.ok(
+        ApiResponseDTO.<EcoPointUserResponse>builder()
+            .data(ecoPointUserResponse)
+            .message("Fetched eco point balance by user ID successfully")
+            .statusCode(200)
+            .success(true)
+            .build());
+  }
 }

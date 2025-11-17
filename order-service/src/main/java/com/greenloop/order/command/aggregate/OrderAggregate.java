@@ -94,60 +94,8 @@ public class OrderAggregate {
         this.orderStatus = event.getOrderStatus();
     }
 
-    @CommandHandler
-    public void handle(CreateShipmentCommand command) {
-        // Validation: Chỉ tạo shipment khi order ở trạng thái SHIPPED
-        if (this.orderStatus != OrderStatus.SHIPPED) {
-            throw new IllegalStateException(
-                    "Cannot create shipment. Order must be in SHIPPED status. Current: " + this.orderStatus
-            );
-        }
-
-        // Event này sẽ trigger Saga để gọi GoShip API
-        AggregateLifecycle.apply(new ShipmentCreationRequestedEvent(
-                command.getOrderId()
-        ));
-    }
 
 
-    /**
-     * Handler cho UpdateShippingInfoCommand
-     * Command này được gọi sau khi GoShip API trả về thành công
-     */
-    @CommandHandler
-    public void handle(UpdateShippingInfoCommand command) {
-        AggregateLifecycle.apply(new ShipmentCreatedEvent(
-                command.getOrderId(),
-                command.getGoshipShipmentId(),
-                command.getGoshipTrackingCode(),
-                command.getCarrier(),
-                command.getShippingFee(),
-                command.getExpectedDeliveryTime()
-        ));
-    }
 
-    @EventSourcingHandler
-    public void on(ShipmentCreatedEvent event) {
-        this.goshipShipmentId = event.getGoshipShipmentId();
-        this.goshipTrackingCode = event.getGoshipTrackingCode();
-        this.carrier = event.getCarrier();
-        this.shippingFee = event.getShippingFee();
-        this.expectedDeliveryTime = event.getExpectedDeliveryTime();
-    }
 
-    /**
-     * Handler cho UpdateShippingStatusCommand (từ webhook)
-     */
-    @CommandHandler
-    public void handle(UpdateShippingStatusCommand command) {
-        AggregateLifecycle.apply(new ShippingStatusUpdatedEvent(
-                command.getOrderId(),
-                command.getShippingStatus()
-        ));
-    }
-
-    @EventSourcingHandler
-    public void on(ShippingStatusUpdatedEvent event) {
-        this.shippingStatus = event.getShippingStatus();
-    }
 }

@@ -27,20 +27,23 @@ public class AddressRequest {
   @Size(min = 5, max = 255, message = "Địa chỉ chi tiết phải từ 5 đến 255 ký tự")
   private String addressLine;
 
-  @NotBlank(message = "Phường/Xã không được để trống")
+  @NotBlank(message = "Tên phường/Xã không được để trống")
   private String ward; // Tên phường/xã
+
+  @NotNull(message = "Phường/Xã không được để trống")
+  private Long wardCode;
 
   @NotNull(message = "Quận/Huyện không được để trống")
   private Long district;
 
   @NotBlank(message = "Tên quận/huyện không được để trống")
-  private String districtName; // FE gửi kèm tên (mới thêm)
+  private String districtName;
 
   @NotNull(message = "Tỉnh/Thành phố không được để trống")
   private Long city;
 
   @NotBlank(message = "Tên tỉnh/thành phố không được để trống")
-  private String cityName; // FE gửi kèm tên (mới thêm)
+  private String cityName;
 
   @Size(max = 255, message = "Ghi chú giao hàng không được quá 255 ký tự")
   private String deliveryNote;

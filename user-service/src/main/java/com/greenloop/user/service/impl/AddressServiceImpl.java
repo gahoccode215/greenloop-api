@@ -171,6 +171,7 @@ public class AddressServiceImpl implements AddressService {
         .recipientPhone(request.getRecipientPhone())
         .addressLine(request.getAddressLine())
         .ward(request.getWard())
+        .wardCode(request.getWardCode())
         .district(request.getDistrict())
         .districtName(request.getDistrictName())
         .city(request.getCity())
@@ -186,6 +187,7 @@ public class AddressServiceImpl implements AddressService {
     address.setRecipientPhone(request.getRecipientPhone());
     address.setAddressLine(request.getAddressLine());
     address.setWard(request.getWard());
+    address.setWardCode(request.getWardCode());
     address.setDistrict(request.getDistrict());
     address.setDistrictName(request.getDistrictName());
     address.setCity(request.getCity());
@@ -223,6 +225,7 @@ public class AddressServiceImpl implements AddressService {
         .recipientPhone(address.getRecipientPhone())
         .addressLine(address.getAddressLine())
         .ward(address.getWard())
+        .wardCode(address.getWardCode())
         .district(address.getDistrict())
         .districtName(address.getDistrictName())
         .city(address.getCity())

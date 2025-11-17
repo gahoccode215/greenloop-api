@@ -17,6 +17,7 @@ public class AddressResponse {
   private String addressLine;
 
   private String ward; // "Phường Bến Nghé"
+  private Long wardCode;
 
   private Long district; // 700100
   private String districtName; // "Quận 1"

@@ -17,10 +17,10 @@ public class ShippingAddress {
     @Column(name = "receiver_name", length = 100)
     private String receiverName;
 
-    @Column(name = "receiver_phone", length = 20)
+    @Column(name = "receiver_phone")
     private String receiverPhone;
 
-    @Column(name = "receiver_address", length = 500)
+    @Column(name = "receiver_address")
     private String receiverAddress;
 
     @Column(name = "receiver_ward_code")
@@ -32,25 +32,30 @@ public class ShippingAddress {
     @Column(name = "receiver_city_id")
     private Integer receiverCityId;
 
-    @Column(name = "shipping_note", length = 500)
+    @Column(name = "shipping_note")
     private String note;
 
-    @Column(name = "warehouse_name", length = 100)
+    @Column(name = "warehouse_name")
     private String warehouseName;
 
-    @Column(name = "warehouse_phone", length = 20)
+    @Column(name = "warehouse_phone")
     private String warehousePhone;
 
-    @Column(name = "warehouse_address", length = 500)
+    @Column(name = "warehouse_address")
     private String warehouseAddress;
 
-    @Column(name = "warehouse_ward_code", length = 20)
+    @Column(name = "warehouse_ward_code")
     private String warehouseWardCode;
 
     @Column(name = "warehouse_district_id")
     private Integer warehouseDistrictId;
 
+    @Column(name = "warehouse_district_name")
+    private String warehouseDistrictName;
+
     @Column(name = "warehouse_city_id")
     private Integer warehouseCityId;
 
+    @Column(name = "warehouse_city_name")
+    private String warehouseCityName;
 }

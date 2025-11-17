@@ -1,9 +1,8 @@
 package com.greenloop.reward.dto.response;
 
 import com.greenloop.reward.enums.EcoPointStatus;
-import lombok.*;
-
 import java.util.List;
+import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -11,10 +10,10 @@ import java.util.List;
 @Setter
 @Builder
 public class EcoPointUserResponse {
-    private Long id;
-    private Long userId;
-    private Integer totalPoints;
-    private Integer lifetimePoints;
-    private EcoPointStatus status;
-    private List<EcoPointUserTransactionResponse> transactions;
+  private Long id;
+  private Long userId;
+  private Integer totalPoints;
+  private Integer lifetimePoints;
+  private EcoPointStatus status;
+  private List<EcoPointUserTransactionResponse> transactions;
 }

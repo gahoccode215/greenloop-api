@@ -60,13 +60,15 @@ goship:
   access-token: ${GOSHIP_ACCESS_TOKEN}
   base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
   default-warehouse:
-    city: "100000"
-    district: "100100"
-    ward: "100101"
-    ward-code: 100101
-    district-id: 100100
-    city-id: 100000
-    address: "39 Nguyễn Trãi"
+    city: "700000"
+    city-name: "Hồ Chí Minh"
+    district: "700100"
+    district-name: "Quận 1"
+    ward-name: "Phường Bến Nghé"
+    ward-code: 8955
+    district-id: 700100
+    city-id: 700000
+    address: "39 Bến Nghé"
     name: "GreenLoop Warehouse"
     phone: "0987654321"
 
