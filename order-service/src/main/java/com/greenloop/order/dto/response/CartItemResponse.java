@@ -16,4 +16,9 @@ public class CartItemResponse {
     private String productImage;
     private BigDecimal price;
     private LocalDateTime createdAt;
+
+    private Integer weight;
+    private Integer length;
+    private Integer width;
+    private Integer height;
 }

@@ -11,7 +11,4 @@ public enum PaymentMethod {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
-    }
 }
