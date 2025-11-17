@@ -6,30 +6,70 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CalculateRateRequest {
 
-    @JsonProperty("from_district_id")
-    private String fromDistrictId;
+    @JsonProperty("shipment")
+    private ShipmentInfo shipment;
 
-    @JsonProperty("to_district_id")
-    private String toDistrictId;
 
-    @JsonProperty("weight")
-    private Integer weight; // gram
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ShipmentInfo {
 
-    @JsonProperty("length")
-    private Integer length; // cm
+        @JsonProperty("address_from")
+        private AddressInfo addressFrom;
 
-    @JsonProperty("width")
-    private Integer width; // cm
+        @JsonProperty("address_to")
+        private AddressInfo addressTo;
 
-    @JsonProperty("height")
-    private Integer height; // cm
+        @JsonProperty("parcel")
+        private ParcelInfo parcel;
+    }
 
-    @JsonProperty("insurance_value")
-    private Integer insuranceValue; // Giá trị bảo hiểm (optional)
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AddressInfo {
+
+        @JsonProperty("district")
+        private String district;
+
+        @JsonProperty("city")
+        private String city;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ParcelInfo {
+
+        @JsonProperty("cod")
+        private Long cod;
+
+        @JsonProperty("amount")
+        private Long amount;
+
+        @JsonProperty("width")
+        private Integer width;
+
+        @JsonProperty("height")
+        private Integer height;
+
+        @JsonProperty("length")
+        private Integer length;
+
+        @JsonProperty("weight")
+        private Integer weight;
+    }
 }

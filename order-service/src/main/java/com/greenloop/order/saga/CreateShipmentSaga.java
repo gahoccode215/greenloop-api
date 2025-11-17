@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Optional;
 
+
 @Saga
 @Slf4j
 public class CreateShipmentSaga {
@@ -34,7 +35,7 @@ public class CreateShipmentSaga {
 
     /**
      * Saga bắt đầu khi nhận ShipmentCreationRequestedEvent
-     * Event này được trigger khi Order chuyển sang PROCESSING
+     * Event này được trigger khi Order chuyển sang SHIPPED
      */
     @StartSaga
     @SagaEventHandler(associationProperty = "orderId")
@@ -44,7 +45,7 @@ public class CreateShipmentSaga {
         log.info("[SAGA] Starting shipment creation for order: {}", orderId);
 
         try {
-            // 1. Lấy thông tin order
+            // 1. Lấy thông tin order từ database
             Optional<Order> orderOpt = orderService.findById(orderId);
 
             if (orderOpt.isEmpty()) {
@@ -55,7 +56,7 @@ public class CreateShipmentSaga {
 
             Order order = orderOpt.get();
 
-            // 2. Validate order data
+            // 2. Validate order data có đầy đủ để tạo shipment không
             if (!isValidForShipment(order)) {
                 log.error("[SAGA] Order {} is not valid for shipment creation", orderId);
                 handleShipmentCreationFailed(orderId, "Invalid order data for shipment");
@@ -65,6 +66,11 @@ public class CreateShipmentSaga {
             // 3. Gọi GoShip API tạo shipment
             log.info("[SAGA] Calling GoShip API to create shipment for order: {}", orderId);
             ShipmentResponse shipmentResponse = goShipService.createShipment(order);
+
+            log.info("[SAGA] GoShip returned shipment: ID={}, TrackingCode={}, Carrier={}",
+                    shipmentResponse.getId(),
+                    shipmentResponse.getTrackingCode(),
+                    shipmentResponse.getCarrier());
 
             // 4. Gửi command để update shipping info vào aggregate
             UpdateShippingInfoCommand updateCommand = UpdateShippingInfoCommand.builder()
@@ -104,6 +110,10 @@ public class CreateShipmentSaga {
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(ShipmentCreatedEvent event) {
         log.info("[SAGA] Shipment creation saga completed for order: {}", event.getOrderId());
+        log.info("[SAGA] Shipment details - ID: {}, TrackingCode: {}, Carrier: {}",
+                event.getGoshipShipmentId(),
+                event.getGoshipTrackingCode(),
+                event.getCarrier());
     }
 
     /**
@@ -111,26 +121,35 @@ public class CreateShipmentSaga {
      */
     private boolean isValidForShipment(Order order) {
         if (order.getShippingAddress() == null) {
-            log.error("Shipping address is null");
+            log.error("[SAGA] Shipping address is null");
             return false;
         }
 
+        // Validate receiver info
         if (order.getShippingAddress().getReceiverName() == null ||
                 order.getShippingAddress().getReceiverPhone() == null ||
                 order.getShippingAddress().getReceiverAddress() == null) {
-            log.error("Shipping address is incomplete");
+            log.error("[SAGA] Receiver info is incomplete - Name: {}, Phone: {}, Address: {}",
+                    order.getShippingAddress().getReceiverName(),
+                    order.getShippingAddress().getReceiverPhone(),
+                    order.getShippingAddress().getReceiverAddress());
             return false;
         }
 
-        if (order.getShippingAddress().getReceiverProvinceId() == null ||
+        // Validate receiver location
+        if (order.getShippingAddress().getReceiverCityId() == null ||
                 order.getShippingAddress().getReceiverDistrictId() == null ||
                 order.getShippingAddress().getReceiverWardCode() == null) {
-            log.error("Shipping address location is incomplete");
+            log.error("[SAGA] Receiver location is incomplete - Province: {}, District: {}, Ward: {}",
+                    order.getShippingAddress().getReceiverCityId(),
+                    order.getShippingAddress().getReceiverDistrictId(),
+                    order.getShippingAddress().getReceiverWardCode());
             return false;
         }
 
+        // Validate order items
         if (order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
-            log.error("Order has no items");
+            log.error("[SAGA] Order has no items");
             return false;
         }
 
@@ -139,20 +158,30 @@ public class CreateShipmentSaga {
 
     /**
      * Xử lý khi tạo shipment thất bại
-     * Có thể chuyển về CONFIRMED hoặc đánh dấu cần xử lý manual
+     * Order sẽ giữ nguyên trạng thái SHIPPED
+     * Staff cần xử lý manual (check lại địa chỉ hoặc retry)
      */
     private void handleShipmentCreationFailed(String orderId, String reason) {
-        log.error("[SAGA] Shipment creation failed for order {}: {}", orderId, reason);
+        log.error("[SAGA] ========================================");
+        log.error("[SAGA] SHIPMENT CREATION FAILED");
+        log.error("[SAGA] Order ID: {}", orderId);
+        log.error("[SAGA] Reason: {}", reason);
+        log.error("[SAGA] ========================================");
 
-        // Option 1: Chuyển về CONFIRMED để staff xử lý lại
-        UpdateOrderStatusCommand command = UpdateOrderStatusCommand.builder()
-                .orderId(orderId)
-                .orderStatus(OrderStatus.CONFIRMED)
-                .build();
+        // KHÔNG chuyển về CONFIRMED vì sẽ vi phạm transition rule
+        // Order giữ nguyên trạng thái SHIPPED
+        // Staff sẽ thấy order stuck ở SHIPPED và xử lý manual
 
-        commandGateway.sendAndWait(command);
+        log.warn("[SAGA] Order {} remains in SHIPPED status. Manual intervention required.", orderId);
+        log.warn("[SAGA] Staff should:");
+        log.warn("[SAGA]   1. Check shipping address completeness");
+        log.warn("[SAGA]   2. Verify GoShip API connection");
+        log.warn("[SAGA]   3. Retry by calling POST /api/v1/orders/{}/shipment", orderId);
 
         // TODO: Gửi notification cho staff về việc tạo shipment thất bại
-        log.info("[SAGA] Order {} reverted to CONFIRMED status for manual handling", orderId);
+        // notificationService.notifyStaff(orderId, "Shipment creation failed: " + reason);
+
+        // TODO: Lưu vào bảng failed_shipments để track và retry
+        // failedShipmentRepository.save(new FailedShipment(orderId, reason, LocalDateTime.now()));
     }
 }

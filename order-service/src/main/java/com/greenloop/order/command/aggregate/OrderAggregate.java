@@ -25,6 +25,7 @@ public class OrderAggregate {
     private Long customerId;
     private OrderStatus orderStatus;
     private BigDecimal totalPrice;
+    private BigDecimal shippingFee;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
@@ -33,7 +34,6 @@ public class OrderAggregate {
     private String goshipShipmentId;
     private String goshipTrackingCode;
     private String carrier;
-    private BigDecimal shippingFee;
     private LocalDateTime expectedDeliveryTime;
     private String shippingStatus;
 
@@ -52,6 +52,7 @@ public class OrderAggregate {
                 command.getCustomerId(),
                 command.getOrderStatus(),
                 command.getTotalPrice(),
+                command.getShippingFee(),
                 command.getOrderItems(),
                 command.getShippingAddress(),
                 command.getPaymentStatus(),
@@ -67,6 +68,7 @@ public class OrderAggregate {
         this.customerId = event.getCustomerId();
         this.orderStatus = event.getOrderStatus();
         this.totalPrice = event.getTotalPrice();
+        this.shippingFee = event.getShippingFee();
         this.paymentStatus = event.getPaymentStatus();
         this.paymentMethod = event.getPaymentMethod();
         this.paymentOrderCode = event.getPaymentOrderCode();
@@ -92,16 +94,12 @@ public class OrderAggregate {
         this.orderStatus = event.getOrderStatus();
     }
 
-    /**
-     * Handler cho CreateShipmentCommand
-     * Command này sẽ được gọi khi Order chuyển sang PROCESSING
-     */
     @CommandHandler
     public void handle(CreateShipmentCommand command) {
-        // Validation: Chỉ tạo shipment khi order ở trạng thái PROCESSING
-        if (this.orderStatus != OrderStatus.PROCESSING) {
+        // Validation: Chỉ tạo shipment khi order ở trạng thái SHIPPED
+        if (this.orderStatus != OrderStatus.SHIPPED) {
             throw new IllegalStateException(
-                    "Cannot create shipment. Order must be in PROCESSING status. Current: " + this.orderStatus
+                    "Cannot create shipment. Order must be in SHIPPED status. Current: " + this.orderStatus
             );
         }
 
@@ -110,6 +108,7 @@ public class OrderAggregate {
                 command.getOrderId()
         ));
     }
+
 
     /**
      * Handler cho UpdateShippingInfoCommand

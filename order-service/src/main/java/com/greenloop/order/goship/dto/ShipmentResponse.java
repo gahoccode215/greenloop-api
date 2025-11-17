@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class ShipmentResponse {
 
     @JsonProperty("id")
-    private String id; // Shipment ID từ GoShip
+    private String id;
 
     @JsonProperty("tracking_code")
     private String trackingCode;

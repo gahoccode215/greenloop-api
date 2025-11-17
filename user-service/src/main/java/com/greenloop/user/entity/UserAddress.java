@@ -17,22 +17,28 @@ public class UserAddress {
   private Long id;
 
   @Column(name = "recipient_name")
-  private String recipientName; // Tên người nhận
+  private String recipientName;
 
   @Column(name = "recipient_phone")
-  private String recipientPhone; // Số điện thoại người nhận
+  private String recipientPhone;
 
   @Column(name = "address_line")
-  private String addressLine; // Số nhà, tên đường
+  private String addressLine;
 
   @Column(name = "ward")
-  private String ward; // Phường/Xã
+  private String ward;
 
   @Column(name = "district")
-  private String district; // Quận/Huyện
+  private Long district;
+
+  @Column(name = "district_name")
+  private String districtName;
 
   @Column(name = "city")
-  private String city; // Thành phố
+  private Long city;
+
+  @Column(name = "city_name")
+  private String cityName;
 
   @Column(name = "is_default")
   private Boolean isDefault = false;

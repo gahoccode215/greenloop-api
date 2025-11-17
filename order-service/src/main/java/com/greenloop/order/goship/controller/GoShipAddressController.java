@@ -6,6 +6,7 @@ import com.greenloop.order.goship.dto.CityDTO;
 import com.greenloop.order.goship.dto.DistrictDTO;
 import com.greenloop.order.goship.dto.GoShipResponse;
 import com.greenloop.order.goship.dto.WardDTO;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,9 +17,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/orders/goship/addresses")
+@RequestMapping("/api/v1/goship/addresses")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "GoShip Address Controller", description = "GoShip Address Controller")
 public class GoShipAddressController {
 
     private final GoShipClient goShipClient;

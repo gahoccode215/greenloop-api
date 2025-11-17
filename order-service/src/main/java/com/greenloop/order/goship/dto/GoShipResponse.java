@@ -15,10 +15,10 @@ import lombok.NoArgsConstructor;
 public class GoShipResponse<T> {
 
     @JsonProperty("code")
-    private Integer code; // 200
+    private Integer code;
 
     @JsonProperty("status")
-    private String status; // "success"
+    private String status;
 
     @JsonProperty("message")
     private String message;

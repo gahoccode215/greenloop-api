@@ -1,6 +1,7 @@
 package com.greenloop.order.goship.service.impl;
 
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.ShippingAddress;
 import com.greenloop.order.goship.client.GoShipClient;
 import com.greenloop.order.goship.dto.*;
 import com.greenloop.order.goship.service.GoShipService;
@@ -19,34 +20,18 @@ public class GoShipServiceImpl implements GoShipService {
 
     private final GoShipClient goShipClient;
 
-    @Value("${goship.default-warehouse.city}")
-    private String defaultWarehouseCity;
-
-    @Value("${goship.default-warehouse.district}")
-    private String defaultWarehouseDistrict;
-
-    @Value("${goship.default-warehouse.ward}")
-    private String defaultWarehouseWard;
-
-    @Value("${goship.default-warehouse.address}")
-    private String defaultWarehouseAddress;
-
-    @Value("${goship.default-warehouse.name}")
-    private String defaultWarehouseName;
-
-    @Value("${goship.default-warehouse.phone}")
-    private String defaultWarehousePhone;
 
     @Override
     public List<RateResponse> calculateShippingRates(CalculateRateRequest request) {
         try {
-            log.info("Calculating shipping rates for request: {}", request);
+
             return goShipClient.calculateRates(request);
+
         } catch (Exception e) {
-            log.error("Error calculating shipping rates: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to calculate shipping rates: " + e.getMessage());
+            throw new RuntimeException("Không thể tính cước phí vận chuyển: " + e.getMessage());
         }
     }
+
 
     @Override
     public ShipmentResponse createShipment(Order order) {
@@ -81,47 +66,29 @@ public class GoShipServiceImpl implements GoShipService {
         }
     }
 
-    @Override
-    public void cancelShipment(String shipmentId) {
-        try {
-            log.info("Cancelling shipment: {}", shipmentId);
-            goShipClient.cancelShipment(shipmentId);
-            log.info("Successfully cancelled shipment: {}", shipmentId);
-        } catch (Exception e) {
-            log.error("Error cancelling shipment {}: {}", shipmentId, e.getMessage(), e);
-            throw new RuntimeException("Failed to cancel shipment: " + e.getMessage());
-        }
-    }
 
-    /**
-     * Build CreateShipmentRequest từ Order entity
-     */
+
     private CreateShipmentRequest buildShipmentRequest(Order order) {
-        // Address From (warehouse)
-        CreateShipmentRequest.AddressInfo addressFrom = CreateShipmentRequest.AddressInfo.builder()
-                .city(defaultWarehouseCity)
-                .district(defaultWarehouseDistrict)
-                .ward(defaultWarehouseWard)
-                .address(defaultWarehouseAddress)
-                .name(defaultWarehouseName)
-                .phone(defaultWarehousePhone)
-                .build();
+        ShippingAddress shippingAddr = order.getShippingAddress();
 
-        // Address To (customer)
+        // Build Address From (warehouse) - Ưu tiên từ Order
+        CreateShipmentRequest.AddressInfo addressFrom = buildWarehouseAddress(shippingAddr);
+
+        // Build Address To (customer)
         CreateShipmentRequest.AddressInfo addressTo = CreateShipmentRequest.AddressInfo.builder()
-                .city(String.valueOf(order.getShippingAddress().getReceiverProvinceId()))
-                .district(String.valueOf(order.getShippingAddress().getReceiverDistrictId()))
-                .ward(order.getShippingAddress().getReceiverWardCode())
-                .address(order.getShippingAddress().getReceiverAddress())
-                .name(order.getShippingAddress().getReceiverName())
-                .phone(order.getShippingAddress().getReceiverPhone())
+                .city(String.valueOf(shippingAddr.getReceiverCityId()))
+                .district(String.valueOf(shippingAddr.getReceiverDistrictId()))
+                .ward(shippingAddr.getReceiverWardCode())
+                .address(shippingAddr.getReceiverAddress())
+                .name(shippingAddr.getReceiverName())
+                .phone(shippingAddr.getReceiverPhone())
                 .build();
 
         // Parcel info - Tính toán từ order items
         CreateShipmentRequest.ParcelInfo parcel = calculateParcelInfo(order);
 
         // COD amount
-        BigDecimal codAmount = order.getPaymentMethod().name().equals("COD")
+        BigDecimal codAmount = "COD".equals(order.getPaymentMethod().name())
                 ? order.getTotalPrice()
                 : BigDecimal.ZERO;
 
@@ -131,7 +98,7 @@ public class GoShipServiceImpl implements GoShipService {
                 .addressTo(addressTo)
                 .parcel(parcel)
                 .codAmount(codAmount)
-                .note(order.getShippingAddress().getNote())
+                .note(shippingAddr.getNote())
                 .build();
 
         return CreateShipmentRequest.builder()
@@ -139,12 +106,29 @@ public class GoShipServiceImpl implements GoShipService {
                 .build();
     }
 
+
+    private CreateShipmentRequest.AddressInfo buildWarehouseAddress(ShippingAddress shippingAddr) {
+
+            return CreateShipmentRequest.AddressInfo.builder()
+                    .city(String.valueOf(shippingAddr.getWarehouseCityId()))
+                    .district(String.valueOf(shippingAddr.getWarehouseDistrictId()))
+                    .ward(shippingAddr.getWarehouseWardCode())
+                    .address(shippingAddr.getWarehouseAddress())
+                    .name(shippingAddr.getWarehouseName())
+                    .phone(shippingAddr.getWarehousePhone())
+                    .build();
+    }
+
+
+
     /**
      * Tính toán thông tin parcel từ order items
      * TODO: Lấy thông tin kích thước/trọng lượng thực tế từ Product service
      */
     private CreateShipmentRequest.ParcelInfo calculateParcelInfo(Order order) {
-        // Giá trị mặc định - nên lấy từ product service
+        // TODO: Call Product Service để lấy weight/dimensions thực tế
+        // Tạm thời dùng giá trị mặc định
+
         int totalWeight = order.getOrderItems().size() * 500; // 500g/item
 
         return CreateShipmentRequest.ParcelInfo.builder()
@@ -154,4 +138,6 @@ public class GoShipServiceImpl implements GoShipService {
                 .height(10) // cm
                 .build();
     }
+
+
 }

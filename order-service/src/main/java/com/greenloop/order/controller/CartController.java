@@ -2,9 +2,11 @@ package com.greenloop.order.controller;
 
 import com.greenloop.order.dto.request.AddToCartRequest;
 import com.greenloop.order.dto.request.CheckoutRequest;
+import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.CartResponse;
 import com.greenloop.order.dto.response.CheckoutResponse;
+import com.greenloop.order.dto.response.ShippingEstimateResponse;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -96,12 +98,10 @@ public class CartController {
     @Operation(summary = "Checkout and create order")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<CheckoutResponse>> checkout(
-            @Valid @RequestBody CheckoutRequest request,
-            HttpServletRequest httpRequest)  {
-        String clientIp = getClientIp(httpRequest);
+            @Valid @RequestBody CheckoutRequest request)  {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
-        CheckoutResponse response = orderService.checkout(userId, request, clientIp);
+        CheckoutResponse response = orderService.checkout(userId, request);
 
         return ResponseEntity.ok(ApiResponseDTO.success(
                 response.getMessage(),
@@ -110,12 +110,24 @@ public class CartController {
         ));
     }
 
-    private String getClientIp(HttpServletRequest request) {
-        String clientIp = request.getHeader("X-Forwarded-For");
-        if (clientIp == null || clientIp.isEmpty()) {
-            clientIp = request.getRemoteAddr();
-        }
-        return clientIp;
+    @PostMapping("/estimate-shipping")
+    @Operation(summary = "Ước tính phí vận chuyển",
+            description = "Tính phí vận chuyển dựa trên giỏ hàng và địa chỉ giao hàng")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponseDTO<ShippingEstimateResponse>> estimateShippingFee(
+            @Valid @RequestBody EstimateShippingFeeRequest request) {
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = Long.valueOf(auth.getName());
+
+        ShippingEstimateResponse response = cartService.estimateShippingFee(userId, request);
+
+        return ResponseEntity.ok(ApiResponseDTO.success(
+                "Ước tính phí vận chuyển thành công",
+                response,
+                HttpStatus.OK
+        ));
     }
+
 
 }

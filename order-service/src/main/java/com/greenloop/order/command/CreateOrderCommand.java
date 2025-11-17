@@ -1,7 +1,7 @@
 package com.greenloop.order.command;
 
+import com.greenloop.order.dto.request.CheckoutShippingAddressRequest;
 import com.greenloop.order.dto.request.OrderItemRequest;
-import com.greenloop.order.dto.request.ShippingAddressRequest;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
@@ -15,15 +15,18 @@ import java.util.List;
 @Data
 @Builder
 public class CreateOrderCommand {
+
     @TargetAggregateIdentifier
     private final String orderId;
+
     private final String orderCode;
     private final Long customerId;
     private final PaymentStatus paymentStatus;
     private final OrderStatus orderStatus;
     private final BigDecimal totalPrice;
+    private final BigDecimal shippingFee;  // ← ADDED
     private final List<OrderItemRequest> orderItems;
-    private final ShippingAddressRequest shippingAddress;
+    private final CheckoutShippingAddressRequest shippingAddress;
     private final PaymentMethod paymentMethod;
     private final Long paymentOrderCode;
 }

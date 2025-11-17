@@ -1,5 +1,7 @@
 package com.greenloop.order.goship.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.greenloop.order.goship.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -256,15 +258,24 @@ public class GoShipClient {
         }
     }
 
-    /**
-     * Tính phí vận chuyển
-     * POST /api/v2/rates
-     */
     public List<RateResponse> calculateRates(CalculateRateRequest request) {
         try {
             String url = baseUrl + "/rates";
 
-            log.info("Calculating rates: {}", url);
+            log.info("═══════════════════════════════════════════════════");
+            log.info("🚀 GoShip Calculate Rates");
+            log.info("═══════════════════════════════════════════════════");
+            log.info("📍 URL: {}", url);
+
+            // ✅ CRITICAL: Log actual JSON being sent
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                String requestJson = mapper.writeValueAsString(request);
+                log.info("📤 REQUEST JSON:\n{}", requestJson);
+            } catch (Exception e) {
+                log.warn("Cannot serialize request: {}", e.getMessage());
+            }
 
             HttpEntity<CalculateRateRequest> httpEntity = new HttpEntity<>(request);
 
@@ -277,18 +288,46 @@ public class GoShipClient {
 
             GoShipResponse<List<RateResponse>> body = response.getBody();
 
-            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
-                log.info("Successfully calculated rates: {} options available", body.getData().size());
-                return body.getData();
+            // ✅ Log response
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.enable(SerializationFeature.INDENT_OUTPUT);
+                String responseJson = mapper.writeValueAsString(body);
+                log.info("📥 RESPONSE JSON:\n{}", responseJson);
+            } catch (Exception e) {
+                log.warn("Cannot serialize response: {}", e.getMessage());
             }
 
-            throw new RuntimeException("Failed to calculate rates from GoShip");
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                List<RateResponse> rates = body.getData();
+
+                if (rates != null && !rates.isEmpty()) {
+                    log.info("✅ SUCCESS: Found {} shipping options", rates.size());
+                    rates.forEach(rate ->
+                            log.info("   💵 {}: {} - {}đ",
+                                    rate.getCarrierName(),
+                                    rate.getService(),
+                                    rate.getTotalFee())
+                    );
+                    log.info("═══════════════════════════════════════════════════");
+                    return rates;
+                } else {
+                    log.warn("⚠️  WARNING: Empty data array");
+                    log.warn("═══════════════════════════════════════════════════");
+                    return List.of();
+                }
+            }
+
+            log.error("❌ ERROR: Invalid response");
+            log.error("═══════════════════════════════════════════════════");
+            return List.of();
 
         } catch (Exception e) {
-            log.error("Error calculating rates: {}", e.getMessage(), e);
-            throw new RuntimeException("Error calculating rates: " + e.getMessage());
+            log.error("❌ EXCEPTION: {}", e.getMessage(), e);
+            throw new RuntimeException("Lỗi khi tính cước phí: " + e.getMessage());
         }
     }
+
 
     /**
      * Tạo shipment

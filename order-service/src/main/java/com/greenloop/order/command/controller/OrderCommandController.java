@@ -4,7 +4,6 @@ import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.command.CreateShipmentCommand;
 import com.greenloop.order.command.UpdateOrderStatusCommand;
 import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.request.CreateOrderRequest;
 import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.util.OrderCodeGenerator;
@@ -30,41 +29,10 @@ public class OrderCommandController {
 
     private final CommandGateway commandGateway;
 
-    @PostMapping
-    public ResponseEntity<ApiResponseDTO<Map<String, String>>> createOrder(
-            @Valid @RequestBody CreateOrderRequest request) {
 
-        String orderId = UUID.randomUUID().toString();
-        String orderCode = OrderCodeGenerator.generateOrderCode();
-
-        CreateOrderCommand command = CreateOrderCommand.builder()
-                .orderId(orderId)
-                .orderCode(orderCode)
-                .customerId(request.getCustomerId())
-                .totalPrice(request.getTotalPrice())
-                .orderStatus(OrderStatus.PENDING)
-                .orderItems(request.getOrderItems())
-                .shippingAddress(request.getShippingAddress())
-                .build();
-
-        commandGateway.sendAndWait(command);
-
-        Map<String, String> responseData = Map.of(
-                "orderId", orderId,
-                "orderCode", orderCode
-        );
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponseDTO.success(
-                        "Đơn hàng được tạo thành công",
-                        responseData,
-                        HttpStatus.CREATED
-                ));
-    }
 
     @PatchMapping("/{orderId}/status")
-    @Operation(summary = "Cập nhật trạng thái đơn hàng",
-            description = "Khi chuyển sang PROCESSING, sẽ tự động tạo shipment trên GoShip")
+    @Operation(summary = "Cập nhật trạng thái đơn hàng")
     public ResponseEntity<ApiResponseDTO<Object>> updateOrderStatus(
             @PathVariable String orderId,
             @Valid @RequestBody UpdateOrderStatusRequest request) {
@@ -79,15 +47,15 @@ public class OrderCommandController {
 
         commandGateway.sendAndWait(statusCommand);
 
-        // Nếu chuyển sang PROCESSING, trigger saga tạo shipment
-        if (request.getStatus() == OrderStatus.PROCESSING) {
-            log.info("Order {} moved to PROCESSING, triggering shipment creation", orderId);
+        // Nếu chuyển sang SHIPPED, trigger saga tạo shipment
+        if (request.getStatus() == OrderStatus.SHIPPED) {
+            log.info("Order {} moved to SHIPPED, triggering shipment creation", orderId);
 
             CreateShipmentCommand shipmentCommand = CreateShipmentCommand.builder()
                     .orderId(orderId)
                     .build();
 
-            commandGateway.send(shipmentCommand); // Send async để không block
+            commandGateway.send(shipmentCommand);  // Async
         }
 
         return ResponseEntity.ok(
@@ -98,6 +66,7 @@ public class OrderCommandController {
                 )
         );
     }
+
 
     @PostMapping("/{orderId}/shipment")
     @Operation(summary = "Tạo shipment cho đơn hàng",

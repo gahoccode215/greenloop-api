@@ -22,8 +22,4 @@ public interface GoShipService {
      */
     ShipmentResponse getShipment(String shipmentId);
 
-    /**
-     * Hủy shipment
-     */
-    void cancelShipment(String shipmentId);
 }

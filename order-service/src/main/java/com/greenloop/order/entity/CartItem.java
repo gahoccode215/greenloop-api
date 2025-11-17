@@ -42,6 +42,18 @@ public class CartItem {
     @Column(name = "price", precision = 10, scale = 2, nullable = false)
     private BigDecimal price;
 
+    @Column(name = "weight")
+    private int weight;
+
+    @Column(name = "length")
+    private int length;
+
+    @Column(name = "width")
+    private int width;
+
+    @Column(name = "height")
+    private int height;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

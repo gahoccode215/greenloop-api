@@ -7,6 +7,7 @@ import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/orders/mock")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Mock Payment Controller")
 public class MockPaymentController {
 
     private final OrderService orderService;

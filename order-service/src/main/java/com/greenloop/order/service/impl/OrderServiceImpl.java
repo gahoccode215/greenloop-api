@@ -5,12 +5,14 @@ import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.OrderDTO;
 import com.greenloop.order.dto.OrderItemDTO;
+import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.request.CheckoutRequest;
 import com.greenloop.order.dto.request.OrderItemRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.CheckoutResponse;
 import com.greenloop.order.dto.response.PayOSPaymentResponse;
+import com.greenloop.order.dto.response.ShippingEstimateResponse;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.entity.Order;
@@ -21,15 +23,20 @@ import com.greenloop.order.exception.CartNotFoundException;
 import com.greenloop.order.exception.EmptyCartException;
 import com.greenloop.order.exception.ProductNotAvailableException;
 import com.greenloop.order.exception.ProductNotFoundException;
+import com.greenloop.order.goship.dto.CalculateRateRequest;
+import com.greenloop.order.goship.dto.RateResponse;
+import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.OrderService;
 import com.greenloop.order.service.PayOSPaymentService;
+import com.greenloop.order.service.ShippingCalculationService;
 import com.greenloop.order.util.OrderCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +58,9 @@ public class OrderServiceImpl implements OrderService {
     private final CommandGateway commandGateway;
     private final CartService cartService;
     private final PayOSPaymentService payOSPaymentService;
+    private final ShippingCalculationService shippingCalculationService;
+
+
 
 
     @Override
@@ -107,9 +117,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public CheckoutResponse checkout(Long userId, CheckoutRequest request, String ipAddress) {
-        log.info("Starting checkout for customer {} with payment method {}", userId, request.getPaymentMethod());
+    public CheckoutResponse checkout(Long userId, CheckoutRequest request) {
+        log.info("Bắt đầu thanh toán cho khách hàng {} với phương thức {}", userId, request.getPaymentMethod());
 
+        // 1. Get cart
         Cart cart = cartRepository.findByCustomerId(userId)
                 .orElseThrow(() -> new CartNotFoundException(userId));
 
@@ -117,14 +128,51 @@ public class OrderServiceImpl implements OrderService {
             throw new EmptyCartException();
         }
 
+        // 2. Validate và map order items
         List<OrderItemRequest> orderItems = cart.getItems().stream()
                 .map(this::validateAndMapCartItem)
                 .collect(Collectors.toList());
 
-        BigDecimal totalPrice = orderItems.stream()
+        BigDecimal productTotal = orderItems.stream()
                 .map(OrderItemRequest::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        log.info("Tổng tiền sản phẩm: {}đ", productTotal);
+
+        // 3. Tính phí vận chuyển (delegate to ShippingCalculationService)
+        ShippingEstimateResponse shippingEstimate;
+
+        try {
+            shippingEstimate = shippingCalculationService.calculateShippingFee(
+                    cart.getItems(),
+                    productTotal,
+                    String.valueOf(request.getShippingAddress().getCityId()),
+                    String.valueOf(request.getShippingAddress().getCityId())
+            );
+
+            log.info("✅ Phí vận chuyển: {}đ - Đơn vị: {}",
+                    shippingEstimate.getShippingFee(),
+                    shippingEstimate.getSelectedCarrier());
+
+        } catch (Exception e) {
+
+            shippingEstimate = ShippingEstimateResponse.builder()
+                    .productTotal(productTotal)
+                    .shippingFee(BigDecimal.valueOf(30000))
+                    .totalPrice(productTotal.add(BigDecimal.valueOf(30000)))
+                    .selectedCarrier("Vận chuyển tiêu chuẩn")
+                    .estimatedDelivery("3-5 ngày")
+                    .availableOptions(List.of())
+                    .build();
+        }
+
+        // 4. Tính tổng tiền
+        BigDecimal totalPrice = shippingEstimate.getTotalPrice();
+
+        log.info("💰 Tổng đơn hàng: {}đ (Sản phẩm: {}đ + Vận chuyển: {}đ)",
+                totalPrice, productTotal, shippingEstimate.getShippingFee());
+
+        // 5. Tạo order
         String orderId = UUID.randomUUID().toString();
         String orderCode = OrderCodeGenerator.generateOrderCode();
 
@@ -133,39 +181,48 @@ public class OrderServiceImpl implements OrderService {
                 .orderCode(orderCode)
                 .customerId(userId)
                 .totalPrice(totalPrice)
+                .shippingFee(shippingEstimate.getShippingFee())
                 .orderStatus(OrderStatus.PENDING)
                 .paymentStatus(PaymentStatus.UNPAID)
                 .orderItems(orderItems)
                 .shippingAddress(request.getShippingAddress())
                 .paymentMethod(request.getPaymentMethod());
 
-
-
+        // 6. Build response
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
+                .productTotal(productTotal)
+                .shippingFee(shippingEstimate.getShippingFee())
+                .totalPrice(totalPrice)
+                .selectedCarrier(shippingEstimate.getSelectedCarrier())
+                .estimatedDelivery(shippingEstimate.getEstimatedDelivery())
                 .createdAt(LocalDateTime.now());
 
+        // 7. Handle payment method
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             responseBuilder.paymentUrl(null)
-                    .message("Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng.");
+                    .message("Đặt hàng thành công! Tổng thanh toán: " +
+                            totalPrice + "đ khi nhận hàng.");
         } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
             PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(orderId, totalPrice);
             command.paymentOrderCode(paymentResponse.getPaymentOrderCode());
-            log.info("Payment link created - OrderId: {}, PaymentOrderCode: {}",
+            log.info("Tạo link thanh toán - OrderId: {}, PaymentOrderCode: {}",
                     orderId, paymentResponse.getPaymentOrderCode());
             responseBuilder.paymentUrl(paymentResponse.getCheckoutUrl())
-                    .message("Vui lòng thanh toán để hoàn tất đơn hàng.");
+                    .message("Vui lòng thanh toán " + totalPrice + "đ để hoàn tất đơn hàng.");
         }
 
+        // 8. Send command
         commandGateway.sendAndWait(command.build());
 
-        // Clear cart
+        // 9. Clear cart
         cartService.clearCart(userId);
 
-        log.info("Checkout completed for order {}", orderCode);
+        log.info("✅ Hoàn tất thanh toán cho đơn hàng {}", orderCode);
         return responseBuilder.build();
     }
+
 
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
@@ -224,8 +281,6 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findById(orderId);
     }
 
-
-
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {
         ApiResponseDTO<ProductDTO> response = productClient.getProductById(cartItem.getProductId());
 
@@ -245,5 +300,7 @@ public class OrderServiceImpl implements OrderService {
                 .price(cartItem.getPrice())
                 .build();
     }
+
+
 
 }

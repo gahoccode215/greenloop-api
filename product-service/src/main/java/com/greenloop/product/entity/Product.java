@@ -58,17 +58,20 @@ public class Product extends BaseEntity {
     @Column(name = "type", length = 20, nullable = false)
     private ProductType type;
 
+    @Column(name = "weight")
+    private int weight;
+
+    @Column(name = "length")
+    private int length;
+
+    @Column(name = "width")
+    private int width;
+
+    @Column(name = "height")
+    private int height;
+
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ProductAsset> assets = new HashSet<>();
 
-    public void addAsset(ProductAsset asset) {
-        assets.add(asset);
-        asset.setProduct(this);
-    }
-
-    public void removeAsset(ProductAsset asset) {
-        assets.remove(asset);
-        asset.setProduct(null);
-    }
 }

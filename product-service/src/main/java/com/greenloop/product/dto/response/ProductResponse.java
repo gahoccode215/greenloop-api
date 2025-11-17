@@ -17,7 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductResponse {
-
     private Long id;
     private String code;
     private String name;
@@ -33,4 +32,8 @@ public class ProductResponse {
     private List<String> imageUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private int weight;
+    private int length;
+    private int width;
+    private int height;
 }
