@@ -2,7 +2,6 @@ package com.greenloop.order.query.controller;
 
 import com.greenloop.order.dto.OrderDTO;
 import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.goship.dto.ShipmentResponse;
 import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,7 +23,6 @@ import java.util.Optional;
 public class OrderQueryController {
 
     private final OrderService orderService;
-    private final GoShipService goShipService;
 
     @GetMapping("/{orderId}")
     @Operation(summary = "Lấy thông tin đơn hàng")
@@ -53,58 +51,4 @@ public class OrderQueryController {
         );
     }
 
-    @GetMapping("/{orderId}/tracking")
-    @Operation(summary = "Tracking đơn hàng qua GoShip",
-            description = "Lấy thông tin tracking realtime từ GoShip")
-    public ResponseEntity<ApiResponseDTO<ShipmentResponse>> trackOrder(
-            @PathVariable String orderId,
-            HttpServletRequest request) {
-
-        try {
-            Optional<OrderDTO> orderOpt = orderService.fetchOrder(orderId);
-
-            if (orderOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                        ApiResponseDTO.error(
-                                "Không tìm thấy đơn hàng",
-                                HttpStatus.NOT_FOUND,
-                                request.getRequestURI()
-                        )
-                );
-            }
-
-            OrderDTO order = orderOpt.get();
-
-            if (order.getGoshipShipmentId() == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                        ApiResponseDTO.error(
-                                "Đơn hàng chưa có thông tin vận chuyển",
-                                HttpStatus.BAD_REQUEST,
-                                request.getRequestURI()
-                        )
-                );
-            }
-
-            // Lấy thông tin tracking từ GoShip
-            ShipmentResponse shipment = goShipService.getShipment(order.getGoshipShipmentId());
-
-            return ResponseEntity.ok(
-                    ApiResponseDTO.success(
-                            "Lấy thông tin tracking thành công",
-                            shipment,
-                            HttpStatus.OK
-                    )
-            );
-
-        } catch (Exception e) {
-            log.error("Error tracking order {}: {}", orderId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ApiResponseDTO.error(
-                            "Lỗi lấy thông tin tracking: " + e.getMessage(),
-                            HttpStatus.INTERNAL_SERVER_ERROR,
-                            request.getRequestURI()
-                    )
-            );
-        }
-    }
 }

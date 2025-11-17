@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -22,10 +23,14 @@ public class OrderCreatedEvent {
     private Long customerId;
     private OrderStatus orderStatus;
     private BigDecimal totalPrice;
-    private BigDecimal shippingFee;  // ← ADDED
+    private BigDecimal shippingFee;
     private List<OrderItemRequest> orderItems;
     private CheckoutShippingAddressRequest shippingAddress;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
+
+    private String selectedRateId;
+    private String carrier;
+    private LocalDateTime expectedDeliveryTime;
 }

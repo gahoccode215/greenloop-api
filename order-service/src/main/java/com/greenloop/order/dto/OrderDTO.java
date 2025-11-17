@@ -22,7 +22,6 @@ public class OrderDTO {
     private OrderStatus orderStatus;
     private List<OrderItemDTO> orderItems;
 
-    // Shipping info
     private String goshipShipmentId;
     private String goshipTrackingCode;
     private String carrier;

@@ -20,8 +20,5 @@ public interface OrderService {
     void updatePaymentStatus(String orderId, PaymentStatus status);
     void updatePaymentTransactionId(String orderId, String transactionId);
 
-    void updateShippingInfo(String orderId, String shipmentId, String trackingCode,
-                            String carrier, BigDecimal shippingFee, LocalDateTime expectedDeliveryTime);
-    void updateShippingStatus(String orderId, String shippingStatus);
-    Optional<Order> findById(String orderId);
+
 }

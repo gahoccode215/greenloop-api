@@ -57,9 +57,7 @@ public class GoShipClient {
         }
     }
 
-    /**
-     * Lấy tất cả districts (auto loop qua tất cả pages)
-     */
+
     public List<DistrictDTO> getDistricts(String cityId) {
         List<DistrictDTO> allDistricts = new ArrayList<>();
         int currentPage = 1;
@@ -111,9 +109,7 @@ public class GoShipClient {
         }
     }
 
-    /**
-     * Lấy districts theo page cụ thể - Dùng parameter 'size' thay vì 'per_page'
-     */
+
     public GoShipResponse<List<DistrictDTO>> getDistrictsByPage(String cityId, int page, int size) {
         try {
             // Sử dụng 'size' thay vì 'per_page'
@@ -159,9 +155,6 @@ public class GoShipClient {
         }
     }
 
-    /**
-     * Lấy tất cả wards (auto loop qua tất cả pages)
-     */
     public List<WardDTO> getWards(String districtId) {
         List<WardDTO> allWards = new ArrayList<>();
         int currentPage = 1;
@@ -212,9 +205,6 @@ public class GoShipClient {
         }
     }
 
-    /**
-     * Lấy wards theo page cụ thể - Dùng parameter 'size'
-     */
     public GoShipResponse<List<WardDTO>> getWardsByPage(String districtId, int page, int size) {
         try {
             String url = baseUrl + "/districts/" + districtId + "/wards?page=" + page + "&size=" + size;
@@ -262,20 +252,6 @@ public class GoShipClient {
         try {
             String url = baseUrl + "/rates";
 
-            log.info("═══════════════════════════════════════════════════");
-            log.info("🚀 GoShip Calculate Rates");
-            log.info("═══════════════════════════════════════════════════");
-            log.info("📍 URL: {}", url);
-
-            // ✅ CRITICAL: Log actual JSON being sent
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                mapper.enable(SerializationFeature.INDENT_OUTPUT);
-                String requestJson = mapper.writeValueAsString(request);
-                log.info("📤 REQUEST JSON:\n{}", requestJson);
-            } catch (Exception e) {
-                log.warn("Cannot serialize request: {}", e.getMessage());
-            }
 
             HttpEntity<CalculateRateRequest> httpEntity = new HttpEntity<>(request);
 
@@ -288,140 +264,27 @@ public class GoShipClient {
 
             GoShipResponse<List<RateResponse>> body = response.getBody();
 
-            // ✅ Log response
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                mapper.enable(SerializationFeature.INDENT_OUTPUT);
-                String responseJson = mapper.writeValueAsString(body);
-                log.info("📥 RESPONSE JSON:\n{}", responseJson);
-            } catch (Exception e) {
-                log.warn("Cannot serialize response: {}", e.getMessage());
-            }
 
             if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
                 List<RateResponse> rates = body.getData();
 
                 if (rates != null && !rates.isEmpty()) {
-                    log.info("✅ SUCCESS: Found {} shipping options", rates.size());
-                    rates.forEach(rate ->
-                            log.info("   💵 {}: {} - {}đ",
-                                    rate.getCarrierName(),
-                                    rate.getService(),
-                                    rate.getTotalFee())
-                    );
-                    log.info("═══════════════════════════════════════════════════");
+
                     return rates;
                 } else {
-                    log.warn("⚠️  WARNING: Empty data array");
-                    log.warn("═══════════════════════════════════════════════════");
+
                     return List.of();
                 }
             }
 
-            log.error("❌ ERROR: Invalid response");
-            log.error("═══════════════════════════════════════════════════");
             return List.of();
 
         } catch (Exception e) {
-            log.error("❌ EXCEPTION: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi khi tính cước phí: " + e.getMessage());
         }
     }
 
 
-    /**
-     * Tạo shipment
-     * POST /api/v2/shipments
-     */
-    public ShipmentResponse createShipment(CreateShipmentRequest request) {
-        try {
-            String url = baseUrl + "/shipments";
 
-            log.info("Creating shipment: {}", url);
 
-            HttpEntity<CreateShipmentRequest> httpEntity = new HttpEntity<>(request);
-
-            ResponseEntity<GoShipResponse<ShipmentResponse>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    httpEntity,
-                    new ParameterizedTypeReference<GoShipResponse<ShipmentResponse>>() {}
-            );
-
-            GoShipResponse<ShipmentResponse> body = response.getBody();
-
-            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
-                log.info("Successfully created shipment: {}", body.getData().getTrackingCode());
-                return body.getData();
-            }
-
-            throw new RuntimeException("Failed to create shipment from GoShip");
-
-        } catch (Exception e) {
-            log.error("Error creating shipment: {}", e.getMessage(), e);
-            throw new RuntimeException("Error creating shipment: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Lấy thông tin shipment
-     * GET /api/v2/shipments/{id}
-     */
-    public ShipmentResponse getShipment(String shipmentId) {
-        try {
-            String url = baseUrl + "/shipments/" + shipmentId;
-
-            log.info("Getting shipment: {}", url);
-
-            ResponseEntity<GoShipResponse<ShipmentResponse>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<GoShipResponse<ShipmentResponse>>() {}
-            );
-
-            GoShipResponse<ShipmentResponse> body = response.getBody();
-
-            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
-                return body.getData();
-            }
-
-            throw new RuntimeException("Failed to get shipment from GoShip");
-
-        } catch (Exception e) {
-            log.error("Error getting shipment: {}", e.getMessage(), e);
-            throw new RuntimeException("Error getting shipment: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Hủy shipment
-     * DELETE /api/v2/shipments/{id}
-     */
-    public void cancelShipment(String shipmentId) {
-        try {
-            String url = baseUrl + "/shipments/" + shipmentId;
-
-            log.info("Cancelling shipment: {}", url);
-
-            ResponseEntity<GoShipResponse<Void>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.DELETE,
-                    null,
-                    new ParameterizedTypeReference<GoShipResponse<Void>>() {}
-            );
-
-            GoShipResponse<Void> body = response.getBody();
-
-            if (body == null || body.getCode() != 200) {
-                throw new RuntimeException("Failed to cancel shipment from GoShip");
-            }
-
-            log.info("Successfully cancelled shipment: {}", shipmentId);
-
-        } catch (Exception e) {
-            log.error("Error cancelling shipment: {}", e.getMessage(), e);
-            throw new RuntimeException("Error cancelling shipment: " + e.getMessage());
-        }
-    }
 }

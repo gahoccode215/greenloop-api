@@ -57,7 +57,10 @@ public class OrderAggregate {
                 command.getShippingAddress(),
                 command.getPaymentStatus(),
                 command.getPaymentMethod(),
-                command.getPaymentOrderCode()
+                command.getPaymentOrderCode(),
+                command.getSelectedRateId(),
+                command.getCarrier(),
+                command.getExpectedDeliveryTime()
         ));
     }
 
@@ -72,6 +75,8 @@ public class OrderAggregate {
         this.paymentStatus = event.getPaymentStatus();
         this.paymentMethod = event.getPaymentMethod();
         this.paymentOrderCode = event.getPaymentOrderCode();
+        this.carrier = event.getCarrier();
+        this.expectedDeliveryTime = event.getExpectedDeliveryTime();
     }
 
     @CommandHandler
