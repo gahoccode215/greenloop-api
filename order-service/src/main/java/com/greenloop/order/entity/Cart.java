@@ -25,7 +25,7 @@ public class Cart {
     @Column(name = "customer_id", nullable = false, unique = true)
     private Long customerId;
 
-    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<CartItem> items = new ArrayList<>();
 

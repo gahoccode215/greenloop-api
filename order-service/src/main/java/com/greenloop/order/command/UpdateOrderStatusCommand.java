@@ -11,5 +11,4 @@ public class UpdateOrderStatusCommand {
     @TargetAggregateIdentifier
     private String orderId;
     private OrderStatus orderStatus;
-    private Boolean isSystemUpdate;
 }

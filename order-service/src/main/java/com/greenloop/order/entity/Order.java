@@ -1,6 +1,8 @@
 package com.greenloop.order.entity;
 
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.PaymentMethod;
+import com.greenloop.order.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,6 +35,30 @@ public class Order {
 
     @Embedded
     private ShippingAddress shippingAddress;
+
+    @Column(name = "payment_status")
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+
+    @Column(name = "payment_transaction_id")
+    private String paymentTransactionId;
+
+    @Column(name = "payment_order_code")
+    private Long paymentOrderCode;
+
+    @Column(name = "payment_method")
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "goship_shipment_id", length = 50)
+    private String goshipShipmentId;
+
+    @Column(name = "goship_tracking_code", length = 50)
+    private String goshipTrackingCode;
+
+    @Column(name = "carrier", length = 20)
+    private String carrier;
+
 
     // GHN
     @Column(name = "ghn_order_code", length = 50)

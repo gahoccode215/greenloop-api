@@ -16,22 +16,24 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 public class RabbitMQConsumerImpl implements RabbitMQConsumer {
-    private final EcoPointUserService ecoPointUserService;
+  private final EcoPointUserService ecoPointUserService;
 
-    @Override
-    @RabbitListener(queues = {"${rabbitmq.eco-donation-queue}"})
-    @Retryable(
-            value = {BusinessException.class},
-            maxAttempts = 3,
-            backoff = @Backoff(delay = 8000))
-    public void consumeEcoPointTransactionMessage(EcoPointTransactionDTO ecoPointTransactionDTO) {
-        log.info("Consuming eco point transaction for userId: " + ecoPointTransactionDTO.getUserId());
-        try {
-            ecoPointUserService.updateEcoPointUserBalance(ecoPointTransactionDTO);
-        } catch (Exception e) {
-            log.error("Failed to process eco point transaction for userId: " + ecoPointTransactionDTO.getUserId(), e);
-            throw new BusinessException(ErrorCode.INVALID_ECO_POINT_TRANSACTION);
-        }
-
+  @Override
+  @RabbitListener(queues = {"${rabbitmq.eco-donation-queue}"})
+  @Retryable(
+      value = {BusinessException.class},
+      maxAttempts = 3,
+      backoff = @Backoff(delay = 8000))
+  public void consumeEcoPointTransactionMessage(EcoPointTransactionDTO ecoPointTransactionDTO) {
+    log.info("Consuming eco point transaction for userId: " + ecoPointTransactionDTO.getUserId());
+    try {
+      ecoPointUserService.updateEcoPointUserBalance(ecoPointTransactionDTO);
+    } catch (Exception e) {
+      log.error(
+          "Failed to process eco point transaction for userId: "
+              + ecoPointTransactionDTO.getUserId(),
+          e);
+      throw new BusinessException(ErrorCode.INVALID_ECO_POINT_TRANSACTION);
     }
+  }
 }
