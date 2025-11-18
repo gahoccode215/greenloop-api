@@ -5,10 +5,14 @@ import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.axonframework.config.EventProcessingConfigurer;
 import org.axonframework.eventhandling.PropagatingErrorHandler;
 import org.axonframework.eventhandling.TrackingEventProcessorConfiguration;
+import org.axonframework.messaging.MessageHandlerInterceptor;
+import org.axonframework.queryhandling.QueryMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,4 +44,5 @@ public class AxonConfig {
                         .andEventAvailabilityTimeout(20000, TimeUnit.MILLISECONDS)
         );
     }
+
 }

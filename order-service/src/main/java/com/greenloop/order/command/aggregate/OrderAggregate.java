@@ -7,6 +7,8 @@ import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.InvalidOrderPriceException;
 import com.greenloop.order.exception.InvalidOrderStatusException;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
@@ -17,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Aggregate
+@NoArgsConstructor
+@Slf4j
 public class OrderAggregate {
 
     @AggregateIdentifier
@@ -37,32 +41,37 @@ public class OrderAggregate {
     private LocalDateTime expectedDeliveryTime;
     private String shippingStatus;
 
-    public OrderAggregate() {
-    }
-
     @CommandHandler
     public OrderAggregate(CreateOrderCommand command) {
+        log.info("Creating order aggregate for: {}", command.getOrderCode());
+
+        // Validate
         if (command.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidOrderPriceException();
         }
 
-        AggregateLifecycle.apply(new OrderCreatedEvent(
-                command.getOrderId(),
-                command.getOrderCode(),
-                command.getCustomerId(),
-                command.getOrderStatus(),
-                command.getTotalPrice(),
-                command.getShippingFee(),
-                command.getOrderItems(),
-                command.getShippingAddress(),
-                command.getPaymentStatus(),
-                command.getPaymentMethod(),
-                command.getPaymentOrderCode()
-        ));
+        AggregateLifecycle.apply(OrderCreatedEvent.builder()
+                .orderId(command.getOrderId())
+                .orderCode(command.getOrderCode())
+                .customerId(command.getCustomerId())
+                .totalPrice(command.getTotalPrice())
+                .shippingFee(command.getShippingFee())
+                .orderStatus(command.getOrderStatus())
+                .paymentStatus(command.getPaymentStatus())
+                .paymentMethod(command.getPaymentMethod())
+                .paymentOrderCode(command.getPaymentOrderCode())
+                .orderItems(command.getOrderItems())
+                .shippingAddress(command.getShippingAddress())
+                .selectedRateId(command.getSelectedRateId())
+                .carrier(command.getCarrier())
+                .expectedDeliveryTime(command.getExpectedDeliveryTime())
+                .build());
     }
 
     @EventSourcingHandler
     public void on(OrderCreatedEvent event) {
+        log.info("Applying OrderCreatedEvent for: {}", event.getOrderCode());
+
         this.orderId = event.getOrderId();
         this.orderCode = event.getOrderCode();
         this.customerId = event.getCustomerId();
@@ -72,10 +81,14 @@ public class OrderAggregate {
         this.paymentStatus = event.getPaymentStatus();
         this.paymentMethod = event.getPaymentMethod();
         this.paymentOrderCode = event.getPaymentOrderCode();
+        this.carrier = event.getCarrier();
+        this.expectedDeliveryTime = event.getExpectedDeliveryTime();
     }
 
     @CommandHandler
     public void handle(UpdateOrderStatusCommand command) {
+        log.info("Updating order {} status to: {}", command.getOrderId(), command.getOrderStatus());
+
         if (!this.orderStatus.canTransitionTo(command.getOrderStatus())) {
             throw new InvalidOrderStatusException(
                     this.orderStatus.getDescription(),
@@ -91,11 +104,7 @@ public class OrderAggregate {
 
     @EventSourcingHandler
     public void on(OrderStatusUpdatedEvent event) {
+        log.info("Applying status update for order: {} to {}", event.getOrderId(), event.getOrderStatus());
         this.orderStatus = event.getOrderStatus();
     }
-
-
-
-
-
 }

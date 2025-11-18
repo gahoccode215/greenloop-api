@@ -35,36 +35,39 @@ public class ShippingCalculationService {
             String districtCode) {
 
         ParcelDimensionDTO parcel = calculateParcelDimensions(cartItems);
-
-
         CalculateRateRequest rateRequest = buildRateRequest(cityCode, districtCode, parcel, productTotal);
-
         List<RateResponse> rates = goShipService.calculateShippingRates(rateRequest);
 
         return processShippingRates(rates, productTotal);
     }
 
-
     public ParcelDimensionDTO calculateParcelDimensions(List<CartItem> cartItems) {
+        if (cartItems.isEmpty()) {
+            return ParcelDimensionDTO.builder()
+                    .weight(0).length(0).width(0).height(0)
+                    .build();
+        }
+
         int totalWeight = 0;
         int maxLength = 0;
         int maxWidth = 0;
-        int totalHeight = 0;
+        int maxHeight = 0;
 
         for (CartItem item : cartItems) {
             totalWeight += item.getWeight();
             maxLength = Math.max(maxLength, item.getLength());
             maxWidth = Math.max(maxWidth, item.getWidth());
-            totalHeight += item.getHeight();
+            maxHeight = Math.max(maxHeight, item.getHeight());
         }
 
-        int finalHeight = Math.min(totalHeight, 100);
+        log.debug("Parcel dimensions - Weight: {}g, L×W×H: {}×{}×{} cm",
+                totalWeight, maxLength, maxWidth, maxHeight);
 
         return ParcelDimensionDTO.builder()
                 .weight(totalWeight)
                 .length(maxLength)
                 .width(maxWidth)
-                .height(finalHeight)
+                .height(maxHeight)
                 .build();
     }
 
@@ -104,9 +107,6 @@ public class ShippingCalculationService {
                 .build();
     }
 
-    /**
-     * Xử lý kết quả từ GoShip API và trả về response
-     */
     private ShippingEstimateResponse processShippingRates(List<RateResponse> rates, BigDecimal productTotal) {
         BigDecimal shippingFee;
         String selectedCarrier;
@@ -114,35 +114,33 @@ public class ShippingCalculationService {
         List<ShippingEstimateResponse.ShippingOption> availableOptions;
 
         if (!rates.isEmpty()) {
-            // Chọn option rẻ nhất
             RateResponse cheapest = rates.stream()
-                    .min((r1, r2) -> r1.getTotalAmount().compareTo(r2.getTotalAmount()))
+                    .min((r1, r2) -> r1.getTotalFee().compareTo(r2.getTotalFee()))
                     .orElse(rates.get(0));
 
-            shippingFee = cheapest.getTotalAmount();
+            shippingFee = cheapest.getTotalFee();
             selectedCarrier = cheapest.getCarrierName();
             estimatedDelivery = cheapest.getExpected();
 
-            // Map tất cả options
             availableOptions = rates.stream()
                     .map(rate -> ShippingEstimateResponse.ShippingOption.builder()
                             .rateId(rate.getId())
                             .carrierName(rate.getCarrierName())
                             .carrierLogo(rate.getCarrierLogo())
                             .service(rate.getService())
-                            .fee(rate.getTotalAmount())
+                            .fee(rate.getTotalFee())
                             .estimatedDelivery(rate.getExpected())
                             .build())
                     .collect(Collectors.toList());
 
-            log.info("✅ Tìm thấy {} lựa chọn vận chuyển. Rẻ nhất: {} - {}đ",
-                    rates.size(), selectedCarrier, shippingFee);
+
 
         } else {
             shippingFee = BigDecimal.valueOf(30000);
             selectedCarrier = "Vận chuyển tiêu chuẩn";
             estimatedDelivery = "3-5 ngày";
             availableOptions = List.of();
+
         }
 
         BigDecimal totalPrice = productTotal.add(shippingFee);

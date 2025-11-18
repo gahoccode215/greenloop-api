@@ -19,4 +19,5 @@ public class CheckoutRequest {
     @NotNull(message = "Phương thức thanh toán không được để trống")
     private PaymentMethod paymentMethod;
 
+    private String selectedRateId;
 }

@@ -14,34 +14,17 @@ import java.util.List;
 @AllArgsConstructor
 public class ShippingEstimateResponse {
 
-    /**
-     * Tổng tiền sản phẩm
-     */
+
     private BigDecimal productTotal;
 
-    /**
-     * Phí vận chuyển (đã chọn option rẻ nhất)
-     */
     private BigDecimal shippingFee;
 
-    /**
-     * Tổng tiền = productTotal + shippingFee
-     */
     private BigDecimal totalPrice;
 
-    /**
-     * Đơn vị vận chuyển đã chọn
-     */
     private String selectedCarrier;
 
-    /**
-     * Thời gian giao hàng dự kiến
-     */
     private String estimatedDelivery;
 
-    /**
-     * Danh sách các lựa chọn vận chuyển (optional - để customer chọn)
-     */
     private List<ShippingOption> availableOptions;
 
     @Data

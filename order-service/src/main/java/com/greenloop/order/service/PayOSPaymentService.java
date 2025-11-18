@@ -27,7 +27,6 @@ public class PayOSPaymentService {
 
     public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount) {
         try {
-            // Tạo orderCode unique
             long orderCode = System.currentTimeMillis() / 1000;
 
             log.info("Creating PayOS payment link - OrderId: {}, OrderCode: {}", orderId, orderCode);
@@ -44,7 +43,6 @@ public class PayOSPaymentService {
 
             log.info("PayOS payment link created - OrderCode: {}, URL: {}", orderCode, data.getCheckoutUrl());
 
-            // Trả về cả URL và orderCode để OrderService lưu
             return PayOSPaymentResponse.builder()
                     .checkoutUrl(data.getCheckoutUrl())
                     .paymentOrderCode(orderCode)
