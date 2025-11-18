@@ -11,21 +11,6 @@ spring:
     jwt:
       secret: ${JWT_SECRET}
 
-  cloud:
-    gateway:
-      defaultFilters:
-        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
-      global-cors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedHeaders: "*"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - PATCH
-              - DELETE
 server:
   port: 8080
 

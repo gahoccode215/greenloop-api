@@ -6,6 +6,7 @@ import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderCreatedEvent {
@@ -21,14 +23,16 @@ public class OrderCreatedEvent {
     private String orderId;
     private String orderCode;
     private Long customerId;
-    private OrderStatus orderStatus;
+
     private BigDecimal totalPrice;
     private BigDecimal shippingFee;
-    private List<OrderItemRequest> orderItems;
-    private CheckoutShippingAddressRequest shippingAddress;
+    private OrderStatus orderStatus;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
+
+    private List<OrderItemRequest> orderItems;
+    private CheckoutShippingAddressRequest shippingAddress;
 
     private String selectedRateId;
     private String carrier;

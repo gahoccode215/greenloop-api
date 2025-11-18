@@ -4,5 +4,5 @@ import lombok.Value;
 
 @Value
 public class GetOrderQuery {
-    private final String orderId;
+    String orderId;
 }

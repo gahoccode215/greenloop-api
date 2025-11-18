@@ -6,40 +6,44 @@ import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.OrderDTO;
 import com.greenloop.order.dto.OrderItemDTO;
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.ShippingAddressDTO;
 import com.greenloop.order.dto.request.CheckoutRequest;
+import com.greenloop.order.dto.request.OrderFilterRequest;
 import com.greenloop.order.dto.request.OrderItemRequest;
-import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.response.CheckoutResponse;
-import com.greenloop.order.dto.response.PayOSPaymentResponse;
-import com.greenloop.order.dto.response.ShippingEstimateResponse;
+import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
-import com.greenloop.order.exception.CartNotFoundException;
-import com.greenloop.order.exception.EmptyCartException;
-import com.greenloop.order.exception.ProductNotAvailableException;
-import com.greenloop.order.exception.ProductNotFoundException;
+import com.greenloop.order.exception.*;
 import com.greenloop.order.goship.dto.RateResponse;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
+import com.greenloop.order.repository.specification.OrderSpecification;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.OrderService;
 import com.greenloop.order.service.PayOSPaymentService;
 import com.greenloop.order.service.ShippingCalculationService;
 import com.greenloop.order.util.OrderCodeGenerator;
+import com.greenloop.order.util.PageResponseUtil;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -73,39 +77,7 @@ public class OrderServiceImpl implements OrderService {
         });
     }
 
-    @Override
-    public Optional<OrderDTO> fetchOrder(String orderId) {
-        return orderRepository.findById(orderId)
-                .map(order -> {
-                    OrderDTO dto = OrderDTO.builder()
-                            .orderId(order.getOrderId())
-                            .orderCode(order.getOrderCode())
-                            .customerId(order.getCustomerId())
-                            .totalPrice(order.getTotalPrice())
-                            .orderStatus(order.getOrderStatus())
-                            .goshipShipmentId(order.getGoshipShipmentId())
-                            .goshipTrackingCode(order.getGoshipTrackingCode())
-                            .carrier(order.getCarrier())
-                            .shippingFee(order.getShippingFee())
-                            .expectedDeliveryTime(order.getExpectedDeliveryTime())
-                            .shippingStatus(order.getShippingStatus())
-                            .build();
 
-                    if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
-                        List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
-                                .map(item -> OrderItemDTO.builder()
-                                        .orderItemId(item.getOrderItemId())
-                                        .productId(item.getProductId())
-                                        .quantity(item.getQuantity())
-                                        .price(item.getPrice())
-                                        .build())
-                                .collect(Collectors.toList());
-                        dto.setOrderItems(itemDTOs);
-                    }
-
-                    return dto;
-                });
-    }
 
     @Override
     @Transactional
@@ -142,12 +114,11 @@ public class OrderServiceImpl implements OrderService {
             );
 
             if (estimate.getAvailableOptions().isEmpty()) {
-                log.warn("No shipping options available, using fallback");
                 selectedRate = RateResponse.builder()
                         .id("FALLBACK")
                         .carrierName("Vận chuyển tiêu chuẩn")
                         .service("Tiêu chuẩn")
-                        .totalFee(BigDecimal.valueOf(30000))  // ✅ FIXED
+                        .totalFee(BigDecimal.valueOf(30000))
                         .expected("3-5 ngày")
                         .build();
             } else {
@@ -166,7 +137,7 @@ public class OrderServiceImpl implements OrderService {
                             .carrierName(selected.getCarrierName())
                             .carrierLogo(selected.getCarrierLogo())
                             .service(selected.getService())
-                            .totalFee(selected.getFee())  // ✅ FIXED
+                            .totalFee(selected.getFee())
                             .expected(selected.getEstimatedDelivery())
                             .build();
                 } else {
@@ -177,7 +148,7 @@ public class OrderServiceImpl implements OrderService {
                             .carrierName(cheapest.getCarrierName())
                             .carrierLogo(cheapest.getCarrierLogo())
                             .service(cheapest.getService())
-                            .totalFee(cheapest.getFee())  // ✅ FIXED
+                            .totalFee(cheapest.getFee())
                             .expected(cheapest.getEstimatedDelivery())
                             .build();
                 }
@@ -188,16 +159,13 @@ public class OrderServiceImpl implements OrderService {
                     .id("FALLBACK")
                     .carrierName("Vận chuyển tiêu chuẩn")
                     .service("Tiêu chuẩn")
-                    .totalFee(BigDecimal.valueOf(30000))  // ✅ FIXED
+                    .totalFee(BigDecimal.valueOf(30000))
                     .expected("3-5 ngày")
                     .build();
         }
 
-        BigDecimal shippingFee = selectedRate.getTotalFee();  // ✅ FIXED
+        BigDecimal shippingFee = selectedRate.getTotalFee();
         BigDecimal totalPrice = productTotal.add(shippingFee);
-
-        log.info("💰 Order summary - Products: {}đ | Shipping: {}đ ({}) | Total: {}đ",
-                productTotal, shippingFee, selectedRate.getCarrierName(), totalPrice);
 
         // 4. Parse expected delivery time
         LocalDateTime expectedDeliveryTime;
@@ -252,8 +220,6 @@ public class OrderServiceImpl implements OrderService {
                     .message(String.format("Đặt hàng thành công! Tổng thanh toán: %,dđ khi nhận hàng.",
                             totalPrice.longValue()));
 
-            log.info("COD order created: {}", orderCode);
-
         } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
             PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(orderId, totalPrice);
             commandBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
@@ -262,9 +228,6 @@ public class OrderServiceImpl implements OrderService {
                     .paymentUrl(paymentResponse.getCheckoutUrl())
                     .message(String.format("Vui lòng thanh toán %,dđ để hoàn tất đơn hàng.",
                             totalPrice.longValue()));
-
-            log.info("PayOS order created - OrderId: {}, PaymentCode: {}",
-                    orderId, paymentResponse.getPaymentOrderCode());
         }
 
         // 9. Send command to create order
@@ -272,11 +235,9 @@ public class OrderServiceImpl implements OrderService {
 
         // 10. Clear cart after successful checkout
         cartService.clearCart(userId);
-        log.info("✅ Checkout completed for order: {}", orderCode);
 
         return responseBuilder.build();
     }
-
 
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
@@ -303,6 +264,117 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.save(order);
         });
     }
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(String orderId) {
+        log.info("Getting order by ID: {}", orderId);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        return mapToOrderResponse(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter) {
+        log.info("Getting orders - UserId: {}, Filter: {}", requestingUserId, filter);
+
+        // Build Specification
+        Specification<Order> spec = OrderSpecification.filterOrders(requestingUserId, filter);
+
+        // Build Pageable
+        Sort sort = Sort.by(
+                "DESC".equalsIgnoreCase(filter.getSortDirection())
+                        ? Sort.Direction.DESC
+                        : Sort.Direction.ASC,
+                filter.getSortBy()
+        );
+
+        Pageable pageable = PageRequest.of(
+                filter.getPage() != null ? filter.getPage() : 0,
+                filter.getSize() != null ? filter.getSize() : 10,
+                sort
+        );
+
+        // Query with Specification
+        Page<Order> orderPage = orderRepository.findAll(spec, pageable);
+
+        // Map to Response DTO
+        Page<OrderResponse> responsePage = orderPage.map(this::mapToOrderResponse);
+
+        return PageResponseUtil.toPageResponse(responsePage);
+    }
+
+
+    private OrderResponse mapToOrderResponse(Order order) {
+        OrderResponse response = OrderResponse.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .totalPrice(order.getTotalPrice())
+                .shippingFee(order.getShippingFee())
+                .orderStatus(order.getOrderStatus())
+                .paymentStatus(order.getPaymentStatus())
+                .paymentMethod(order.getPaymentMethod())
+                .paymentOrderCode(order.getPaymentOrderCode())
+                .paymentTransactionId(order.getPaymentTransactionId())
+                .carrier(order.getCarrier())
+                .expectedDeliveryTime(order.getExpectedDeliveryTime())
+                .shippingStatus(order.getShippingStatus())
+                .goshipShipmentId(order.getGoshipShipmentId())
+                .goshipTrackingCode(order.getGoshipTrackingCode())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .build();
+
+        // Map shipping address
+        if (order.getShippingAddress() != null) {
+            ShippingAddressDTO addressDTO = ShippingAddressDTO.builder()
+                    .receiverName(order.getShippingAddress().getReceiverName())
+                    .receiverPhone(order.getShippingAddress().getReceiverPhone())
+                    .receiverAddress(order.getShippingAddress().getReceiverAddress())
+                    .receiverWardName(order.getShippingAddress().getReceiverWardName())
+                    .receiverWardCode(order.getShippingAddress().getReceiverWardCode())
+                    .receiverDistrictName(order.getShippingAddress().getReceiverDistrictName())
+                    .receiverDistrictId(order.getShippingAddress().getReceiverDistrictId())
+                    .receiverCityName(order.getShippingAddress().getReceiverCityName())
+                    .receiverCityId(order.getShippingAddress().getReceiverCityId())
+                    .warehouseName(order.getShippingAddress().getWarehouseName())
+                    .warehousePhone(order.getShippingAddress().getWarehousePhone())
+                    .warehouseAddress(order.getShippingAddress().getWarehouseAddress())
+                    .warehouseWardName(order.getShippingAddress().getWarehouseWardName())
+                    .warehouseWardCode(order.getShippingAddress().getWarehouseWardCode())
+                    .warehouseDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .warehouseDistrictId(order.getShippingAddress().getWarehouseDistrictId())
+                    .warehouseCityName(order.getShippingAddress().getWarehouseCityName())
+                    .warehouseCityId(order.getShippingAddress().getWarehouseCityId())
+                    .note(order.getShippingAddress().getNote())
+                    .build();
+
+            response.setShippingAddress(addressDTO);
+        }
+
+        // Map order items
+        if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
+            List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
+                    .map(item -> OrderItemDTO.builder()
+                            .orderItemId(item.getOrderItemId())
+                            .productId(item.getProductId())
+                            .quantity(item.getQuantity())
+                            .price(item.getPrice())
+                            .build())
+                    .collect(Collectors.toList());
+
+            response.setOrderItems(itemDTOs);
+        }
+
+        return response;
+    }
+
 
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {
         ApiResponseDTO<ProductDTO> response = productClient.getProductById(cartItem.getProductId());
