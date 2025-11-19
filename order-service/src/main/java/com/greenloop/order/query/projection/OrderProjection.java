@@ -33,7 +33,10 @@ public class OrderProjection {
     private String warehouseAddress;
 
     @Value("${goship.default-warehouse.ward-code}")
-    private String warehouseWardCode;
+    private Long warehouseWardCode;
+
+    @Value("${goship.default-warehouse.ward-name}")
+    private String warehouseWardName;
 
     @Value("${goship.default-warehouse.district-id}")
     private Integer warehouseDistrictId;
@@ -59,6 +62,8 @@ public class OrderProjection {
                 .paymentStatus(event.getPaymentStatus())
                 .paymentMethod(event.getPaymentMethod())
                 .paymentOrderCode(event.getPaymentOrderCode())
+                .carrier(event.getCarrier())
+                .expectedDeliveryTime(event.getExpectedDeliveryTime())
                 .build();
 
         if (event.getShippingAddress() != null) {
@@ -68,14 +73,17 @@ public class OrderProjection {
                     .receiverPhone(event.getShippingAddress().getReceiverPhone())
                     .receiverAddress(event.getShippingAddress().getAddress())
                     .receiverWardCode(event.getShippingAddress().getWardCode())
+                    .receiverWardName(event.getShippingAddress().getWard())
+                    .receiverDistrictName(event.getShippingAddress().getDistrictName())
+                    .receiverCityName(event.getShippingAddress().getCityName())
                     .receiverDistrictId(event.getShippingAddress().getDistrictId())
                     .receiverCityId(event.getShippingAddress().getCityId())
                     .note(event.getShippingAddress().getNote())
-                    // Warehouse info (from config)
                     .warehouseName(warehouseName)
                     .warehousePhone(warehousePhone)
                     .warehouseAddress(warehouseAddress)
                     .warehouseWardCode(warehouseWardCode)
+                    .warehouseWardName(warehouseWardName)
                     .warehouseDistrictId(warehouseDistrictId)
                     .warehouseDistrictName(warehouseDistrictName)
                     .warehouseCityName(warehouseCityName)

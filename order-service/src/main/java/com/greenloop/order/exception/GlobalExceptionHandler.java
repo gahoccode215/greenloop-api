@@ -67,17 +67,20 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponseDTO<Object>> handleGenericException(
-            Exception ex, HttpServletRequest request) {
+    public ResponseEntity<ApiResponseDTO<Void>> handleGenericException(
+            Exception ex,
+            HttpServletRequest request) {
 
-        log.error("Unexpected error: ", ex);
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponseDTO.error(
-                        "Internal server error",
+                        "Internal server error: " + ex.getMessage(),
                         HttpStatus.INTERNAL_SERVER_ERROR,
-                        request.getRequestURI()));
+                        request.getRequestURI()
+                ));
     }
+
+
 
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ApiResponseDTO<Object>> handleFeignException(

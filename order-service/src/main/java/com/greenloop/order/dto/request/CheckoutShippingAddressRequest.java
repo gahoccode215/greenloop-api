@@ -13,8 +13,11 @@ public class CheckoutShippingAddressRequest {
     private String receiverName;
     private String receiverPhone;
     private String address;
-    private String wardCode;
+    private String ward;
+    private Long wardCode;
+    private String districtName;
     private Integer districtId;
+    private String cityName;
     private Integer cityId;
     private String note;
 }

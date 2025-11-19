@@ -5,10 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Response DTO cho checkout API
- * Trả về thông tin đơn hàng đã tạo bao gồm chi tiết phí vận chuyển
- */
+
 @Getter
 @Setter
 @Builder

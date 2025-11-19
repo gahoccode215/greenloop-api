@@ -24,10 +24,19 @@ public class ShippingAddress {
     private String receiverAddress;
 
     @Column(name = "receiver_ward_code")
-    private String receiverWardCode;
+    private Long receiverWardCode;
+
+    @Column(name = "receiver_ward_name")
+    private String receiverWardName;
+
+    @Column(name = "receiver_district_name")
+    private String receiverDistrictName;
 
     @Column(name = "receiver_district_id")
     private Integer receiverDistrictId;
+
+    @Column(name = "receiver_city_name")
+    private String receiverCityName;
 
     @Column(name = "receiver_city_id")
     private Integer receiverCityId;
@@ -45,7 +54,10 @@ public class ShippingAddress {
     private String warehouseAddress;
 
     @Column(name = "warehouse_ward_code")
-    private String warehouseWardCode;
+    private Long warehouseWardCode;
+
+    @Column(name = "warehouse_ward_name")
+    private String warehouseWardName;
 
     @Column(name = "warehouse_district_id")
     private Integer warehouseDistrictId;

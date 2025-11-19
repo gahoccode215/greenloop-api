@@ -5,6 +5,9 @@ import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,6 +21,7 @@ import java.util.List;
 @Table(name = "orders")
 @Entity
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class Order {
 
     @Id
@@ -60,10 +64,6 @@ public class Order {
     private String carrier;
 
 
-    // GHN
-    @Column(name = "ghn_order_code", length = 50)
-    private String ghnOrderCode;
-
     @Column(name = "shipping_fee")
     private BigDecimal shippingFee;
 
@@ -76,4 +76,12 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }
