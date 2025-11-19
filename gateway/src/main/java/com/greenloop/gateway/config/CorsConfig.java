@@ -18,7 +18,7 @@ public class CorsConfig {
 
         // Allow specific origins
         corsConfig.addAllowedOriginPattern("*");
-
+        corsConfig.setAllowedOrigins(List.of("https://green-loop-web-fe-g6pj.vercel.app", "*"));
         corsConfig.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
         ));

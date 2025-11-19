@@ -1,10 +1,11 @@
 package com.greenloop.product.controller;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
-import com.greenloop.product.dto.request.DonationItemCodeRequest;
+import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
 import com.greenloop.product.dto.response.ApiResponseDTO;
 import com.greenloop.product.dto.response.DonationDetailResponse;
 import com.greenloop.product.dto.response.DonationResponse;
+import com.greenloop.product.dto.response.UpdateDonationItemStatusResponse;
 import com.greenloop.product.service.DonationService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -89,19 +90,17 @@ public class DonationController {
     @Operation(summary = "Update donation item status",
             description = "Updates the status of donation items based on provided codes.")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
-    public ResponseEntity<ApiResponseDTO<Void>> updateStatusOfDonationItem(
-            @Valid @RequestBody DonationItemCodeRequest request) {
+    public ResponseEntity<ApiResponseDTO<UpdateDonationItemStatusResponse>> updateStatusOfDonationItem(
+            @Valid @RequestBody UpdateDonationItemStatusRequest request) {
 
-        donationService.updateDonationItemStatus(request);
-
+        UpdateDonationItemStatusResponse response = donationService.changeStatusDonationItems(request);
         return ResponseEntity.ok(
-                ApiResponseDTO.<Void>builder()
-                        .data(null)
-                        .message("Donation items checked in successfully")
+                ApiResponseDTO.<UpdateDonationItemStatusResponse>builder()
+                        .data(response)
+                        .message("Donation item statuses updated successfully")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
-                        .build()
-        );
+                        .build());
     }
 
 }

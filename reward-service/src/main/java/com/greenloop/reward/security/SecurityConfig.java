@@ -23,7 +23,9 @@ public class SecurityConfig {
     "/swagger-ui.html",
     "/actuator/health",
     "/api/v1/eco-points/**",
-    "/api/v1/eco-points/internal"
+    "/api/v1/eco-points/internal",
+    "/api/v1/vouchers/customer",
+    "/api/v1/vouchers/campaigns/customer"
   };
 
   @Bean

@@ -71,7 +71,7 @@ public class CategoryController {
         );
     }
 
-    @PostMapping("/{categoryId}")
+    @PutMapping("/{categoryId}")
     @Operation(summary = "Update category", description = "Updates the details of a product category.")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
     public ResponseEntity<ApiResponseDTO<Void>> updateCategory(@PathVariable Long categoryId,
