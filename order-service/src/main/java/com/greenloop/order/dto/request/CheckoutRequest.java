@@ -12,15 +12,11 @@ import lombok.*;
 @AllArgsConstructor
 public class CheckoutRequest {
 
-    @NotNull(message = "Customer ID không được để trống")
-    private Long customerId;
-
     @NotNull(message = "Thông tin giao hàng không được để trống")
     @Valid
-    private ShippingAddressRequest shippingAddress;
+    private CheckoutShippingAddressRequest shippingAddress;
 
     @NotNull(message = "Phương thức thanh toán không được để trống")
     private PaymentMethod paymentMethod;
 
-    private String note;
 }

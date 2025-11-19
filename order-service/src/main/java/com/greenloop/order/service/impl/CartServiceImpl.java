@@ -1,17 +1,24 @@
 package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.constant.ProductStatusConstant;
+import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.request.AddToCartRequest;
+import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.CartItemResponse;
 import com.greenloop.order.dto.response.CartResponse;
+import com.greenloop.order.dto.response.ShippingEstimateResponse;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.exception.*;
+import com.greenloop.order.goship.dto.CalculateRateRequest;
+import com.greenloop.order.goship.dto.RateResponse;
 import com.greenloop.order.repository.CartItemRepository;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.service.CartService;
+import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +36,26 @@ public class CartServiceImpl implements CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
+    private final ShippingCalculationService shippingCalculationService;
+
+    @Override
+    public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
+        log.info("Ước tính phí vận chuyển cho khách hàng: {}", customerId);
+
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CartNotFoundException(customerId));
+
+        if (cart.getItems().isEmpty()) {
+            throw new EmptyCartException();
+        }
+
+        return shippingCalculationService.calculateShippingFee(
+                cart.getItems(),
+                cart.getTotalAmount(),
+                request.getCityCode(),
+                request.getDistrictCode()
+        );
+    }
 
     @Override
     public CartResponse getCart(Long customerId) {
@@ -54,7 +81,7 @@ public class CartServiceImpl implements CartService {
 
         ProductDTO product = response.getData();
 
-        if (!"AVAILABLE".equals(product.getStatus())) {
+        if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
             throw new ProductNotAvailableException(product.getId());
         }
 
@@ -76,6 +103,10 @@ public class CartServiceImpl implements CartService {
                 .productName(product.getName())
                 .productImage(imageUrl)
                 .price(product.getPrice())
+                .weight(product.getWeight())
+                .length(product.getLength())
+                .width(product.getWidth())
+                .height( product.getHeight())
                 .build();
 
         cart.addItem(newItem);
@@ -150,6 +181,10 @@ public class CartServiceImpl implements CartService {
                 .productImage(item.getProductImage())
                 .price(item.getPrice())
                 .createdAt(item.getCreatedAt())
+                .weight(item.getWeight())
+                .length(item.getLength())
+                .width(item.getWidth())
+                .height(item.getHeight())
                 .build();
     }
 }

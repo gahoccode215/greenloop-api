@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderStatusUpdatedEvent {
-    private  String orderId;
+    private String orderId;
     private OrderStatus orderStatus;
 }

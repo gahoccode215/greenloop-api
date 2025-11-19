@@ -16,7 +16,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-
+      show-sql: false
 server:
   port: 8083
 
@@ -51,13 +51,41 @@ axon:
         mode: subscribing
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
+    context: ${AXON_CONTEXT:greenloop-local}
 
-ghn:
-  api:
-    #    base-url: https://online-gateway.ghn.vn/shiip/public-api
-    dev-url: https://dev-online-gateway.ghn.vn/shiip/public-api
-    token: ${GHN_API_KEY}
-    shop-id: ${GHN_SHOP_ID}
-    timeout: 30000
-    base-url: https://dev-online-gateway.ghn.vn/shiip/public-api
+goship:
+  token: ${GOSHIP_TOKEN}
+  client-id: ${GOSHIP_CLIENT_ID}
+  client-secret: ${GOSHIP_CLIENT_SECRET}
+  access-token: ${GOSHIP_ACCESS_TOKEN}
+  base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
+  default-warehouse:
+    city: "700000"
+    city-name: "Hồ Chí Minh"
+    district: "700100"
+    district-name: "Quận 1"
+    ward-name: "Phường Bến Nghé"
+    ward-code: 8955
+    district-id: 700100
+    city-id: 700000
+    address: "39 Bến Nghé"
+    name: "GreenLoop Warehouse"
+    phone: "0987654321"
+
+vnpay:
+  tmn-code: ${VNP_TMN_CODE:1DG2F9EA}
+  hash-secret: ${VNP_HASH_SECRET:2MO9BQB0W0FK4D9N9NS2E1NM68SPOTIH}
+  url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: ${VNP_RETURN_URL:http://localhost:5173/payments/success}
+  version: 2.1.0
+  command: pay
+  order-type: other
+  currency: VND
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID}
+  api-key: ${PAYOS_API_KEY}
+  checksum-key: ${PAYOS_CHECKSUM_KEY}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payments/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
 

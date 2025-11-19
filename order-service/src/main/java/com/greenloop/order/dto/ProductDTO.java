@@ -13,10 +13,15 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductDTO {
+
     private Long id;
     private String name;
     private String code;
     private BigDecimal price;
     private String status;
     private List<String> imageUrls;
+    private int weight;
+    private int length;
+    private int width;
+    private int height;
 }

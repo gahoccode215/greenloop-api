@@ -120,12 +120,17 @@ public class ProductServiceImpl implements ProductService {
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .donationItemId(product.getDonationItemId())
+                .conditionGrade(product.getConditionGrade())
                 .imageUrls(product.getAssets() != null
                         ? product.getAssets().stream()
                         .map(ProductAsset::getImageUrl)
                         .filter(url -> url != null && !url.isEmpty())
                         .collect(Collectors.toList())
                         : List.of())
+                .weight(product.getWeight())
+                .length(product.getLength())
+                .width(product.getWidth())
+                .height(product.getHeight())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
