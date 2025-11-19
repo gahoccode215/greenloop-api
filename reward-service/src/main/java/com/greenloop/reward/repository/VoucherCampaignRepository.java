@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface VoucherCampaignRepository extends JpaRepository<VoucherCampaign, Long>, JpaSpecificationExecutor<VoucherCampaign> {
-}
+public interface VoucherCampaignRepository
+    extends JpaRepository<VoucherCampaign, Long>, JpaSpecificationExecutor<VoucherCampaign> {}

@@ -37,7 +37,11 @@ public class GatewayConfig {
         .route(
             "product-service",
             r ->
-                r.path("/api/v1/products/**", "/api/v1/categories/**", "/api/v1/donations/**")
+                r.path(
+                        "/api/v1/products/**",
+                        "/api/v1/categories/**",
+                        "/api/v1/donations/**",
+                        "/api/v1/warehouses/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://product-service"))
         .route(
@@ -64,7 +68,7 @@ public class GatewayConfig {
         .route(
             "reward-service",
             r ->
-                r.path("/api/v1/eco-points/**")
+                r.path("/api/v1/eco-points/**", "/api/v1/vouchers/**", "/api/v1/eco-point-users/**")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://reward-service"))
         .route(
