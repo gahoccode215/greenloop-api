@@ -69,7 +69,6 @@ public class OrderSpecification {
                 }
             }
 
-            // FIX: Handle empty predicates list
             if (predicates.isEmpty()) {
                 return criteriaBuilder.conjunction();
             }

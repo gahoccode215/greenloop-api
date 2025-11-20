@@ -1,7 +1,5 @@
 package com.greenloop.order.dto.response;
 
-import com.greenloop.order.dto.OrderItemDTO;
-import com.greenloop.order.dto.ShippingAddressDTO;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
@@ -37,8 +35,8 @@ public class OrderResponse {
     private String goshipShipmentId;
     private String goshipTrackingCode;
 
-    private ShippingAddressDTO shippingAddress;
-    private List<OrderItemDTO> orderItems;
+    private ShippingAddressResponse shippingAddress;
+    private List<OrderItemResponse> orderItems;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

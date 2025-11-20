@@ -97,16 +97,31 @@ public class CartServiceImpl implements CartService {
                 ? product.getImageUrls().get(0)
                 : null;
 
+        int weight = (product.getWeight() > 0)
+                ? product.getWeight() : 200;  // Default 200g
+
+        int length = (product.getLength() > 0)
+                ? product.getLength() : 20;   // Default 20cm
+
+        int width = (product.getWidth() > 0)
+                ? product.getWidth() : 15;    // Default 15cm
+
+        int height = (product.getHeight() > 0)
+                ? product.getHeight() : 5;    // Default 5cm
+
+        log.info("Product {} dimensions - Weight: {}g, Size: {}x{}x{} cm (L×W×H)",
+                product.getId(), weight, length, width, height);
+
         CartItem newItem = CartItem.builder()
                 .cart(cart)
                 .productId(product.getId())
                 .productName(product.getName())
                 .productImage(imageUrl)
                 .price(product.getPrice())
-                .weight(product.getWeight())
-                .length(product.getLength())
-                .width(product.getWidth())
-                .height( product.getHeight())
+                .weight(weight)
+                .length(length)
+                .width(width)
+                .height(height)
                 .build();
 
         cart.addItem(newItem);
@@ -116,6 +131,7 @@ public class CartServiceImpl implements CartService {
         log.info("Product {} added to cart successfully for customer {}", request.getProductId(), customerId);
         return mapToCartResponse(cart);
     }
+
 
     @Override
     @Transactional

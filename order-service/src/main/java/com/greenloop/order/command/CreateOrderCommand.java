@@ -19,19 +19,25 @@ public class CreateOrderCommand {
 
     @TargetAggregateIdentifier
     private final String orderId;
-
     private final String orderCode;
     private final Long customerId;
+
     private final PaymentStatus paymentStatus;
     private final OrderStatus orderStatus;
     private final BigDecimal totalPrice;
     private final BigDecimal shippingFee;
-    private final List<OrderItemRequest> orderItems;
-    private final CheckoutShippingAddressRequest shippingAddress;
     private final PaymentMethod paymentMethod;
     private final Long paymentOrderCode;
+
+    private final List<OrderItemRequest> orderItems;
+    private final CheckoutShippingAddressRequest shippingAddress;
 
     private final String selectedRateId;
     private final String carrier;
     private final LocalDateTime expectedDeliveryTime;
+
+    private final String parcelWeight;  // gram
+    private final String parcelWidth;   // cm
+    private final String parcelHeight;  // cm
+    private final String parcelLength;  // cm
 }

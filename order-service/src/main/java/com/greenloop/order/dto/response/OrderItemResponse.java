@@ -1,4 +1,4 @@
-package com.greenloop.order.dto;
+package com.greenloop.order.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemDTO {
+public class OrderItemResponse {
     private Long orderItemId;
     private Long productId;
     private Integer quantity;

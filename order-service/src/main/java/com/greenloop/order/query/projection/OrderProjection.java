@@ -4,6 +4,7 @@ import com.greenloop.order.command.event.*;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ShippingAddress;
+import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 public class OrderProjection {
 
     private final OrderService orderService;
+    private final OrderRepository orderRepository;
 
     @Value("${goship.default-warehouse.name}")
     private String warehouseName;
@@ -61,14 +63,18 @@ public class OrderProjection {
                 .orderStatus(event.getOrderStatus())
                 .paymentStatus(event.getPaymentStatus())
                 .paymentMethod(event.getPaymentMethod())
+                .selectedRateId(event.getSelectedRateId())
                 .paymentOrderCode(event.getPaymentOrderCode())
                 .carrier(event.getCarrier())
                 .expectedDeliveryTime(event.getExpectedDeliveryTime())
+                .parcelWeight(event.getParcelWeight())
+                .parcelWidth(event.getParcelWidth())
+                .parcelHeight(event.getParcelHeight())
+                .parcelLength(event.getParcelLength())
                 .build();
 
         if (event.getShippingAddress() != null) {
             ShippingAddress shippingAddress = ShippingAddress.builder()
-                    // Receiver info
                     .receiverName(event.getShippingAddress().getReceiverName())
                     .receiverPhone(event.getShippingAddress().getReceiverPhone())
                     .receiverAddress(event.getShippingAddress().getAddress())
@@ -91,10 +97,6 @@ public class OrderProjection {
                     .build();
 
             order.setShippingAddress(shippingAddress);
-
-            log.debug("Shipping address set - Receiver: {}, Warehouse: {}",
-                    shippingAddress.getReceiverName(),
-                    shippingAddress.getWarehouseName());
         }
 
         if (event.getOrderItems() != null && !event.getOrderItems().isEmpty()) {
@@ -115,10 +117,19 @@ public class OrderProjection {
 
     @EventHandler
     public void on(OrderStatusUpdatedEvent event) {
-        orderService.updateOrderStatus(event.getOrderId(), event.getOrderStatus());
-        log.info("Order {} status updated to {}", event.getOrderId(), event.getOrderStatus());
+        orderRepository.findById(event.getOrderId()).ifPresent(order -> {
+            order.setOrderStatus(event.getNewStatus());
+
+            if (event.getGoshipShipmentId() != null) {
+                order.setGoshipShipmentId(event.getGoshipShipmentId());
+                order.setGoshipTrackingCode(event.getGoshipTrackingCode());
+                order.setCarrier(event.getCarrier());
+            }
+
+            orderRepository.save(order);
+            log.info("Order {} status updated from {} to {}",
+                    event.getOrderId(), event.getOldStatus(), event.getNewStatus());
+        });
     }
-
-
 
 }
