@@ -14,6 +14,7 @@ public class VoucherResponse {
     private Long voucherId;
     private Long campaignId;
     private String code;
+    private String name;
     private String description;
     private VoucherStatus voucherStatus;
     private VoucherType voucherType;

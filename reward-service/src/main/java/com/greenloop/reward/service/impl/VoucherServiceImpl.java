@@ -332,6 +332,7 @@ public class VoucherServiceImpl implements VoucherService {
                         VoucherResponse.builder()
                                 .voucherId(voucher.getId())
                                 .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
+                                .name(voucher.getName())
                                 .code(voucher.getCode())
                                 .description(voucher.getDescription())
                                 .voucherStatus(voucher.getStatus())
@@ -418,6 +419,7 @@ public class VoucherServiceImpl implements VoucherService {
                                 .voucherId(voucher.getId())
                                 .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
                                 .code(voucher.getCode())
+                                .name(voucher.getName())
                                 .description(voucher.getDescription())
                                 .voucherStatus(voucher.getStatus())
                                 .voucherType(voucher.getType())
@@ -448,8 +450,18 @@ public class VoucherServiceImpl implements VoucherService {
 
         EcoPointUser ecoPointUser =
                 ecoPointUserRepository
-                        .findByUserId(userId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.ECO_POINT_USER_NOT_FOUND));
+                        .findByUserId(userId).orElse(null);
+
+        if (ecoPointUser == null) {
+            ecoPointUser =
+                    EcoPointUser.builder()
+                            .userId(userId)
+                            .totalPoints(0)
+                            .lifetimePoints(0)
+                            .status(EcoPointStatus.ACTIVE)
+                            .build();
+            ecoPointUser = ecoPointUserRepository.saveAndFlush(ecoPointUser);
+        }
 
         validateCanRedeem(voucher, ecoPointUser);
 
@@ -460,6 +472,7 @@ public class VoucherServiceImpl implements VoucherService {
                         .ecoPointUser(ecoPointUser)
                         .userId(userId)
                         .points(-voucher.getPointToRedeem())
+                        .type(EcoPointType.SPEND)
                         .sourceType(SourceType.VOUCHER_EXCHANGE)
                         .sourceId(voucherId)
                         .description("Redeemed voucher: " + voucher.getCode())
