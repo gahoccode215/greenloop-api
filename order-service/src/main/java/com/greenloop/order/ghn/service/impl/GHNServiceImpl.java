@@ -3,6 +3,7 @@ package com.greenloop.order.ghn.service.impl;
 import com.greenloop.order.ghn.client.GHNClient;
 import com.greenloop.order.ghn.dto.GHNDistrictDTO;
 import com.greenloop.order.ghn.dto.GHNProvinceDTO;
+import com.greenloop.order.ghn.dto.GHNWardDTO;
 import com.greenloop.order.ghn.service.GHNService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,5 +28,11 @@ public class GHNServiceImpl implements GHNService {
     public List<GHNDistrictDTO> getDistrictsByProvinceId(Integer provinceId) {
         log.info("Fetching districts for province ID: {}", provinceId);
         return ghnClient.getDistricts(provinceId);
+    }
+
+    @Override
+    public List<GHNWardDTO> getWardsByDistrictId(Integer districtId) {
+        log.info("Fetching wards for district ID: {}", districtId);
+        return ghnClient.getWards(districtId);
     }
 }

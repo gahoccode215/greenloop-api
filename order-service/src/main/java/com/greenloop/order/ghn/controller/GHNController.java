@@ -3,6 +3,7 @@ package com.greenloop.order.ghn.controller;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.ghn.dto.GHNDistrictDTO;
 import com.greenloop.order.ghn.dto.GHNProvinceDTO;
+import com.greenloop.order.ghn.dto.GHNWardDTO;
 import com.greenloop.order.ghn.service.GHNService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,20 @@ public class GHNController {
                 ApiResponseDTO.success(
                         "Lấy danh sách quận/huyện thành công",
                         districts,
+                        HttpStatus.OK
+                )
+        );
+    }
+
+    @GetMapping("/districts/{districtId}/wards")
+    public ResponseEntity<ApiResponseDTO<List<GHNWardDTO>>> getWards(
+            @PathVariable Integer districtId) {
+        log.info("Getting wards for district ID: {}", districtId);
+        List<GHNWardDTO> wards = ghnService.getWardsByDistrictId(districtId);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Lấy danh sách phường/xã thành công",
+                        wards,
                         HttpStatus.OK
                 )
         );
