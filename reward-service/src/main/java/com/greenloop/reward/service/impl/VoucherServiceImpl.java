@@ -66,6 +66,7 @@ public class VoucherServiceImpl implements VoucherService {
                                                 .quantity(voucherRequest.getQuantity())
                                                 .pointToRedeem(voucherRequest.getPointToRedeem())
                                                 .expiryDate(voucherRequest.getExpiryDate())
+                                                .status(VoucherStatus.ACTIVE)
                                                 .minOrderValue(voucherRequest.getMinOrderValue())
                                                 .maxDiscount(voucherRequest.getMaxDiscount())
                                                 .build();
