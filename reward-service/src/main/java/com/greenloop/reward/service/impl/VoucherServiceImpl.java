@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -568,7 +569,7 @@ public class VoucherServiceImpl implements VoucherService {
     private String generateVoucherCode() {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
-        String secondPart = String.format("%06d", now.getSecond());
-        return "VCR_" + datePart + secondPart;
+        int randomPart = new Random().nextInt(9000) + 1000;
+        return "VCR_" + datePart + randomPart;
     }
 }
