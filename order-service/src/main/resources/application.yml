@@ -86,3 +86,4 @@ ghn:
   client-id: 2510341
   token-api: a2a104a0-8c23-11f0-bdaf-ae7fa045a771
   shop-id: 197409
+  base-url: https://dev-online-gateway.ghn.vn

@@ -1,0 +1,38 @@
+package com.greenloop.order.ghn.controller;
+
+import com.greenloop.order.dto.response.ApiResponseDTO;
+import com.greenloop.order.ghn.dto.GHNProvinceDTO;
+import com.greenloop.order.ghn.service.GHNService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/ghn/addresses")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "GHN Address Controller", description = "GHN Address Controller")
+public class GHNController {
+
+    private final GHNService ghnService;
+
+    @GetMapping("/provinces")
+    public ResponseEntity<ApiResponseDTO<List<GHNProvinceDTO>>> getProvinces() {
+        log.info("Getting provinces list from GHN");
+        List<GHNProvinceDTO> provinces = ghnService.getAllProvinces();
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Lấy danh sách tỉnh/thành phố thành công",
+                        provinces,
+                        HttpStatus.OK
+                )
+        );
+    }
+}
