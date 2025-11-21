@@ -1,6 +1,7 @@
 package com.greenloop.product.dto.response;
 
 import com.greenloop.product.enums.ConditionGrade;
+import com.greenloop.product.enums.EventMappingStatus;
 import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;
 import lombok.AllArgsConstructor;
@@ -36,4 +37,5 @@ public class ProductResponse {
     private int length;
     private int width;
     private int height;
+    private EventMappingStatus eventMappingStatus;
 }

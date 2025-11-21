@@ -17,7 +17,12 @@ public enum ErrorCode {
     EVENT_OR_STAFF_NOT_VALID("PROD_007", "Event or staff is not valid", HttpStatus.BAD_REQUEST),
     DONATION_NOT_FOUND("PROD_008", "Donation not found", HttpStatus.NOT_FOUND),
     ACCESS_DENIED("PROD_009", "Access denied", HttpStatus.FORBIDDEN),
-    DONATION_ITEM_STATUS_UPDATE_FAILED("PROD_010", "Failed to update donation item status", HttpStatus.INTERNAL_SERVER_ERROR);
+    DONATION_ITEM_STATUS_UPDATE_FAILED("PROD_010", "Failed to update donation item status", HttpStatus.INTERNAL_SERVER_ERROR),
+    DONATION_ITEM_NOT_FOUND("PROD_011", "Donation item not found", HttpStatus.NOT_FOUND),
+    PRODUCT_ASSET_NOT_FOUND("PROD_012", "Product asset not found", HttpStatus.NOT_FOUND),
+    EVENT_NOT_FOUND("PROD_013", "Event not found", HttpStatus.NOT_FOUND),
+    EVENT_PRODUCT_TIME_CONFLICT("PROD_014", "Event product display time conflict", HttpStatus.CONFLICT),
+    EVENT_PRODUCT_MAPPING_NOT_FOUND("PROD_015", "Event product mapping not found", HttpStatus.NOT_FOUND);
 
 
     private final String code;
