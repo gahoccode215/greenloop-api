@@ -13,6 +13,9 @@ import com.greenloop.reward.exception.BusinessException;
 import com.greenloop.reward.repository.VoucherCampaignRepository;
 import com.greenloop.reward.repository.VoucherRepository;
 import com.greenloop.reward.service.VoucherService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,33 +25,34 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
 @Slf4j
 @RequiredArgsConstructor
 @Service
 public class VoucherServiceImpl implements VoucherService {
 
-    private final VoucherCampaignRepository voucherCampaignRepository;
-    private final VoucherRepository voucherRepository;
+  private final VoucherCampaignRepository voucherCampaignRepository;
+  private final VoucherRepository voucherRepository;
 
-    @Override
-    public Long createVoucherCampaign(CreateVoucherCampaignRequest request) {
-        Long userId = getCurrentUserId();
-        validateTimeFrame(request);
-        log.info("Creating voucher campaign for user ID: {}", userId);
-        VoucherCampaign voucherCampaign = VoucherCampaign.builder()
-                .name(request.getCampaignName())
-                .description(request.getDescription())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .build();
+  @Override
+  public Long createVoucherCampaign(CreateVoucherCampaignRequest request) {
+    Long userId = getCurrentUserId();
+    validateTimeFrame(request);
+    log.info("Creating voucher campaign for user ID: {}", userId);
+    VoucherCampaign voucherCampaign =
+        VoucherCampaign.builder()
+            .name(request.getCampaignName())
+            .description(request.getDescription())
+            .startDate(request.getStartDate())
+            .endDate(request.getEndDate())
+            .build();
 
-        if (request.getVouchers() != null && !request.getVouchers().isEmpty()) {
-            request.getVouchers().forEach(voucherRequest -> {
-                Voucher voucher = Voucher.builder()
+    if (request.getVouchers() != null && !request.getVouchers().isEmpty()) {
+      request
+          .getVouchers()
+          .forEach(
+              voucherRequest -> {
+                Voucher voucher =
+                    Voucher.builder()
                         .code(generateVoucherCode())
                         .name(voucherRequest.getName())
                         .description(voucherRequest.getDescription())
@@ -61,360 +65,369 @@ public class VoucherServiceImpl implements VoucherService {
                         .maxDiscount(voucherRequest.getMaxDiscount())
                         .build();
                 voucherCampaign.addVoucher(voucher);
-            });
-        }
-        VoucherCampaign newCampaign = voucherCampaignRepository.save(voucherCampaign);
-        log.info("Voucher campaign created with ID: {}", voucherCampaign.getId());
-        return newCampaign.getId();
+              });
+    }
+    VoucherCampaign newCampaign = voucherCampaignRepository.save(voucherCampaign);
+    log.info("Voucher campaign created with ID: {}", voucherCampaign.getId());
+    return newCampaign.getId();
+  }
+
+  @Override
+  public Long createVoucher(CreateVoucherRequest request) {
+    Long currentUserId = getCurrentUserId();
+    log.info("Creating voucher for user ID: {}", currentUserId);
+    if (request.getCampaignId() == null) {
+      throw new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_ID_REQUIRED);
     }
 
-    @Override
-    public Long createVoucher(CreateVoucherRequest request) {
-        Long currentUserId = getCurrentUserId();
-        log.info("Creating voucher for user ID: {}", currentUserId);
-        if (request.getCampaignId() == null) {
-            throw new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_ID_REQUIRED);
-        }
+    VoucherCampaign voucherCampaign =
+        voucherCampaignRepository
+            .findById(request.getCampaignId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_NOT_FOUND));
+    Voucher voucher =
+        Voucher.builder()
+            .code(generateVoucherCode())
+            .name(request.getName())
+            .description(request.getDescription())
+            .type(request.getVoucherType())
+            .value(request.getValue())
+            .quantity(request.getQuantity())
+            .pointToRedeem(request.getPointToRedeem())
+            .expiryDate(request.getExpiryDate())
+            .minOrderValue(request.getMinOrderValue())
+            .maxDiscount(request.getMaxDiscount())
+            .campaign(voucherCampaign)
+            .build();
+    voucher = voucherRepository.save(voucher);
+    log.info("Voucher created with code: {}", voucher.getCode());
+    return voucher.getId();
+  }
 
-        VoucherCampaign voucherCampaign = voucherCampaignRepository.findById(request.getCampaignId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_NOT_FOUND));
-        Voucher voucher = Voucher.builder()
-                .code(generateVoucherCode())
-                .name(request.getName())
-                .description(request.getDescription())
-                .type(request.getVoucherType())
-                .value(request.getValue())
-                .quantity(request.getQuantity())
-                .pointToRedeem(request.getPointToRedeem())
-                .expiryDate(request.getExpiryDate())
-                .minOrderValue(request.getMinOrderValue())
-                .maxDiscount(request.getMaxDiscount())
-                .campaign(voucherCampaign)
-                .build();
-        voucher = voucherRepository.save(voucher);
-        log.info("Voucher created with code: {}", voucher.getCode());
-        return voucher.getId();
-    }
+  @Override
+  public void updateVoucherCampaign(CreateVoucherCampaignRequest request, Long campaignId) {
+    VoucherCampaign voucherCampaign =
+        voucherCampaignRepository
+            .findById(campaignId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_NOT_FOUND));
+    validateTimeFrame(request);
+    voucherCampaign.setName(request.getCampaignName());
+    voucherCampaign.setDescription(request.getDescription());
+    voucherCampaign.setStartDate(request.getStartDate());
+    voucherCampaign.setEndDate(request.getEndDate());
+    voucherCampaignRepository.save(voucherCampaign);
+    log.info("Voucher campaign with ID: {} updated successfully", campaignId);
+  }
 
-    @Override
-    public void updateVoucherCampaign(CreateVoucherCampaignRequest request, Long campaignId) {
-        VoucherCampaign voucherCampaign = voucherCampaignRepository.findById(campaignId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_NOT_FOUND));
-        validateTimeFrame(request);
-        voucherCampaign.setName(request.getCampaignName());
-        voucherCampaign.setDescription(request.getDescription());
-        voucherCampaign.setStartDate(request.getStartDate());
-        voucherCampaign.setEndDate(request.getEndDate());
-        voucherCampaignRepository.save(voucherCampaign);
-        log.info("Voucher campaign with ID: {} updated successfully", campaignId);
-    }
+  @Override
+  public void updateVoucher(CreateVoucherRequest request, Long voucherId) {
 
-    @Override
-    public void updateVoucher(CreateVoucherRequest request, Long voucherId) {
+    Voucher voucher =
+        voucherRepository
+            .findById(voucherId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
+    voucher.setName(request.getName());
+    voucher.setDescription(request.getDescription());
+    voucher.setType(request.getVoucherType());
+    voucher.setValue(request.getValue());
+    voucher.setMinOrderValue(request.getMinOrderValue());
+    voucher.setMaxDiscount(request.getMaxDiscount());
+    voucher.setExpiryDate(request.getExpiryDate());
+    voucher.setQuantity(request.getQuantity());
+    voucher.setPointToRedeem(request.getPointToRedeem());
 
-        Voucher voucher = voucherRepository.findById(voucherId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
-        voucher.setName(request.getName());
-        voucher.setDescription(request.getDescription());
-        voucher.setType(request.getVoucherType());
-        voucher.setValue(request.getValue());
-        voucher.setMinOrderValue(request.getMinOrderValue());
-        voucher.setMaxDiscount(request.getMaxDiscount());
-        voucher.setExpiryDate(request.getExpiryDate());
-        voucher.setQuantity(request.getQuantity());
-        voucher.setPointToRedeem(request.getPointToRedeem());
+    voucher.updatedBy(getCurrentUserId());
+    voucherRepository.save(voucher);
+    log.info("Voucher with ID: {} updated successfully", voucherId);
+  }
 
-        voucher.updatedBy(getCurrentUserId());
-        voucherRepository.save(voucher);
-        log.info("Voucher with ID: {} updated successfully", voucherId);
-    }
+  @Override
+  public void changeVoucherStatus(Long voucherId, VoucherStatus status) {
+    Voucher voucher =
+        voucherRepository
+            .findById(voucherId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
+    voucher.setStatus(status);
+    voucher.updatedBy(getCurrentUserId());
+    voucherRepository.save(voucher);
+    log.info("Voucher with ID: {} status changed to {}", voucherId, status);
+  }
 
-    @Override
-    public void changeVoucherStatus(Long voucherId, VoucherStatus status) {
-        Voucher voucher = voucherRepository.findById(voucherId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
-        voucher.setStatus(status);
-        voucher.updatedBy(getCurrentUserId());
-        voucherRepository.save(voucher);
-        log.info("Voucher with ID: {} status changed to {}", voucherId, status);
-    }
+  @Override
+  public void toggleVoucherStatus(Long voucherId) {
+    Voucher voucher =
+        voucherRepository
+            .findById(voucherId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
+    voucher.setActive(!voucher.isActive());
+    voucher.updatedBy(getCurrentUserId());
+    voucherRepository.save(voucher);
+    log.info("Voucher with ID: {} status toggled successfully", voucherId);
+  }
 
-    @Override
-    public void toggleVoucherStatus(Long voucherId) {
-        Voucher voucher = voucherRepository.findById(voucherId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
-        voucher.setActive(!voucher.isActive());
-        voucher.updatedBy(getCurrentUserId());
-        voucherRepository.save(voucher);
-        log.info("Voucher with ID: {} status toggled successfully", voucherId);
-    }
+  @Override
+  public Page<VoucherCampaignResponse> getVoucherCampaignsForCustomer(
+      String name, LocalDateTime from, LocalDateTime to, int page, int size) {
 
-    @Override
-    public Page<VoucherCampaignResponse> getVoucherCampaignsForCustomer(
-            String name,
-            LocalDateTime from,
-            LocalDateTime to,
-            int page,
-            int size) {
+    Pageable pageable = PageRequest.of(page, size);
 
-        Pageable pageable = PageRequest.of(page, size);
+    Specification<VoucherCampaign> spec =
+        (root, query, cb) -> {
+          var predicates = cb.conjunction();
 
-        Specification<VoucherCampaign> spec = (root, query, cb) -> {
-            var predicates = cb.conjunction();
+          if (name != null && !name.isEmpty()) {
+            String searchPattern = "%" + name.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+          }
 
-            if (name != null && !name.isEmpty()) {
-                String searchPattern = "%" + name.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-            }
+          if (from != null) {
+            predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
+          }
 
-            if (from != null) {
-                predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
-            }
+          if (to != null) {
+            predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
+          }
 
-            if (to != null) {
-                predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
-            }
+          predicates =
+              cb.and(
+                  predicates,
+                  cb.isTrue(root.get("isActive")),
+                  cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now()));
 
-            predicates = cb.and(
-                    predicates,
-                    cb.isTrue(root.get("isActive")),
-                    cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now())
-            );
-
-            return predicates;
+          return predicates;
         };
 
-        Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
+    Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
 
-        return campaigns.map(campaign ->
-                VoucherCampaignResponse.builder()
-                        .campaignId(campaign.getId())
-                        .campaignName(campaign.getName())
-                        .campaignDescription(campaign.getDescription())
-                        .startDate(campaign.getStartDate())
-                        .endDate(campaign.getEndDate())
-                        .isActive(campaign.isActive())
-                        .build()
-        );
-    }
+    return campaigns.map(
+        campaign ->
+            VoucherCampaignResponse.builder()
+                .campaignId(campaign.getId())
+                .campaignName(campaign.getName())
+                .campaignDescription(campaign.getDescription())
+                .startDate(campaign.getStartDate())
+                .endDate(campaign.getEndDate())
+                .isActive(campaign.isActive())
+                .build());
+  }
 
-    @Override
-    public Page<VoucherCampaignResponse> getVoucherCampaignsForAdmin(
-            String name,
-            LocalDateTime from,
-            LocalDateTime to,
-            int page,
-            int size) {
+  @Override
+  public Page<VoucherCampaignResponse> getVoucherCampaignsForAdmin(
+      String name, LocalDateTime from, LocalDateTime to, int page, int size) {
 
-        Pageable pageable = PageRequest.of(page, size);
+    Pageable pageable = PageRequest.of(page, size);
 
-        Specification<VoucherCampaign> spec = (root, query, cb) -> {
-            var predicates = cb.conjunction();
+    Specification<VoucherCampaign> spec =
+        (root, query, cb) -> {
+          var predicates = cb.conjunction();
 
-            if (name != null && !name.isEmpty()) {
-                String searchPattern = "%" + name.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-            }
+          if (name != null && !name.isEmpty()) {
+            String searchPattern = "%" + name.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+          }
 
-            if (from != null) {
-                predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
-            }
+          if (from != null) {
+            predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
+          }
 
-            if (to != null) {
-                predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
-            }
+          if (to != null) {
+            predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
+          }
 
-            predicates = cb.and(predicates, cb.isTrue(root.get("isActive")));
+          predicates = cb.and(predicates, cb.isTrue(root.get("isActive")));
 
-            return predicates;
+          return predicates;
         };
 
-        Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
+    Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
 
-        return campaigns.map(campaign ->
-                VoucherCampaignResponse.builder()
-                        .campaignId(campaign.getId())
-                        .campaignName(campaign.getName())
-                        .campaignDescription(campaign.getDescription())
-                        .startDate(campaign.getStartDate())
-                        .endDate(campaign.getEndDate())
-                        .isActive(campaign.isActive())
-                        .build()
-        );
-    }
+    return campaigns.map(
+        campaign ->
+            VoucherCampaignResponse.builder()
+                .campaignId(campaign.getId())
+                .campaignName(campaign.getName())
+                .campaignDescription(campaign.getDescription())
+                .startDate(campaign.getStartDate())
+                .endDate(campaign.getEndDate())
+                .isActive(campaign.isActive())
+                .build());
+  }
 
+  @Override
+  public Page<VoucherResponse> getVouchersForAdmin(
+      Long campaignId,
+      String code,
+      String name,
+      VoucherType voucherType,
+      VoucherStatus status,
+      BigDecimal minOrderValue,
+      BigDecimal maxDiscount,
+      Boolean active,
+      int page,
+      int size) {
 
-    @Override
-    public Page<VoucherResponse> getVouchersForAdmin(
-            Long campaignId,
-            String code,
-            String name,
-            VoucherType voucherType,
-            VoucherStatus status,
-            BigDecimal minOrderValue,
-            BigDecimal maxDiscount,
-            Boolean active,
-            int page,
-            int size) {
+    Pageable pageable = PageRequest.of(page, size);
 
-        Pageable pageable = PageRequest.of(page, size);
+    Specification<Voucher> spec =
+        (root, query, cb) -> {
+          var predicates = cb.conjunction();
 
-        Specification<Voucher> spec = (root, query, cb) -> {
-            var predicates = cb.conjunction();
+          if (campaignId != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
+          }
 
-            if (campaignId != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
-            }
+          if (code != null && !code.isEmpty()) {
+            String searchPattern = "%" + code.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
+          }
 
-            if (code != null && !code.isEmpty()) {
-                String searchPattern = "%" + code.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
-            }
+          if (name != null && !name.isEmpty()) {
+            String searchPattern = "%" + name.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+          }
 
-            if (name != null && !name.isEmpty()) {
-                String searchPattern = "%" + name.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-            }
+          if (voucherType != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
+          }
 
-            if (voucherType != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
-            }
+          if (status != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("status"), status));
+          }
 
-            if (status != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("status"), status));
-            }
+          if (minOrderValue != null) {
+            predicates =
+                cb.and(
+                    predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
+          }
 
-            if (minOrderValue != null) {
-                predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
-            }
+          if (maxDiscount != null) {
+            predicates =
+                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
+          }
 
-            if (maxDiscount != null) {
-                predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
-            }
+          if (active != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("isActive"), active));
+          }
 
-            if (active != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("isActive"), active));
-            }
-
-            return predicates;
+          return predicates;
         };
 
-        Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
+    Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
 
-        return vouchers.map(voucher ->
-                VoucherResponse.builder()
-                        .voucherId(voucher.getId())
-                        .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
-                        .code(voucher.getCode())
-                        .description(voucher.getDescription())
-                        .voucherStatus(voucher.getStatus())
-                        .voucherType(voucher.getType())
-                        .value(voucher.getValue())
-                        .minOrderValue(voucher.getMinOrderValue())
-                        .maxDiscount(voucher.getMaxDiscount())
-                        .expiryDate(voucher.getExpiryDate())
-                        .quantity(voucher.getQuantity())
-                        .pointToRedeem(voucher.getPointToRedeem())
-                        .active(voucher.isActive())
-                        .build()
-        );
-    }
+    return vouchers.map(
+        voucher ->
+            VoucherResponse.builder()
+                .voucherId(voucher.getId())
+                .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
+                .code(voucher.getCode())
+                .description(voucher.getDescription())
+                .voucherStatus(voucher.getStatus())
+                .voucherType(voucher.getType())
+                .value(voucher.getValue())
+                .minOrderValue(voucher.getMinOrderValue())
+                .maxDiscount(voucher.getMaxDiscount())
+                .expiryDate(voucher.getExpiryDate())
+                .quantity(voucher.getQuantity())
+                .pointToRedeem(voucher.getPointToRedeem())
+                .active(voucher.isActive())
+                .build());
+  }
 
+  @Override
+  public Page<VoucherResponse> getVouchersForCustomer(
+      Long campaignId,
+      String code,
+      String name,
+      VoucherType voucherType,
+      VoucherStatus status,
+      BigDecimal minOrderValue,
+      BigDecimal maxDiscount,
+      int page,
+      int size) {
 
-    @Override
-    public Page<VoucherResponse> getVouchersForCustomer(
-            Long campaignId,
-            String code,
-            String name,
-            VoucherType voucherType,
-            VoucherStatus status,
-            BigDecimal minOrderValue,
-            BigDecimal maxDiscount,
-            int page,
-            int size) {
+    Pageable pageable = PageRequest.of(page, size);
 
-        Pageable pageable = PageRequest.of(page, size);
+    Specification<Voucher> spec =
+        (root, query, cb) -> {
+          var predicates = cb.conjunction();
 
-        Specification<Voucher> spec = (root, query, cb) -> {
-            var predicates = cb.conjunction();
+          if (campaignId != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
+          }
 
-            if (campaignId != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
-            }
+          if (code != null && !code.isEmpty()) {
+            String searchPattern = "%" + code.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
+          }
 
-            if (code != null && !code.isEmpty()) {
-                String searchPattern = "%" + code.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
-            }
+          if (name != null && !name.isEmpty()) {
+            String searchPattern = "%" + name.toLowerCase() + "%";
+            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+          }
 
-            if (name != null && !name.isEmpty()) {
-                String searchPattern = "%" + name.toLowerCase() + "%";
-                predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-            }
+          if (voucherType != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
+          }
 
-            if (voucherType != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
-            }
+          if (status != null) {
+            predicates = cb.and(predicates, cb.equal(root.get("status"), status));
+          }
 
-            if (status != null) {
-                predicates = cb.and(predicates, cb.equal(root.get("status"), status));
-            }
+          if (minOrderValue != null) {
+            predicates =
+                cb.and(
+                    predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
+          }
 
-            if (minOrderValue != null) {
-                predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
-            }
+          if (maxDiscount != null) {
+            predicates =
+                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
+          }
 
-            if (maxDiscount != null) {
-                predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
-            }
+          predicates =
+              cb.and(
+                  predicates,
+                  cb.isTrue(root.get("isActive")),
+                  cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now()));
 
-            predicates = cb.and(
-                    predicates,
-                    cb.isTrue(root.get("isActive")),
-                    cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now())
-            );
-
-            return predicates;
+          return predicates;
         };
 
-        Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
+    Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
 
-        return vouchers.map(voucher ->
-                VoucherResponse.builder()
-                        .voucherId(voucher.getId())
-                        .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
-                        .code(voucher.getCode())
-                        .description(voucher.getDescription())
-                        .voucherStatus(voucher.getStatus())
-                        .voucherType(voucher.getType())
-                        .value(voucher.getValue())
-                        .minOrderValue(voucher.getMinOrderValue())
-                        .maxDiscount(voucher.getMaxDiscount())
-                        .expiryDate(voucher.getExpiryDate())
-                        .quantity(voucher.getQuantity())
-                        .pointToRedeem(voucher.getPointToRedeem())
-                        .active(voucher.isActive())
-                        .build()
-        );
+    return vouchers.map(
+        voucher ->
+            VoucherResponse.builder()
+                .voucherId(voucher.getId())
+                .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
+                .code(voucher.getCode())
+                .description(voucher.getDescription())
+                .voucherStatus(voucher.getStatus())
+                .voucherType(voucher.getType())
+                .value(voucher.getValue())
+                .minOrderValue(voucher.getMinOrderValue())
+                .maxDiscount(voucher.getMaxDiscount())
+                .expiryDate(voucher.getExpiryDate())
+                .quantity(voucher.getQuantity())
+                .pointToRedeem(voucher.getPointToRedeem())
+                .active(voucher.isActive())
+                .build());
+  }
+
+  private void validateTimeFrame(CreateVoucherCampaignRequest request) {
+    if (request.getEndDate().isBefore(request.getStartDate())) {
+      throw new BusinessException(ErrorCode.INVALID_TIME_FRAME);
     }
+  }
 
+  private Long getCurrentUserId() {
+    return Long.valueOf(
+        SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
+  }
 
-    private void validateTimeFrame(CreateVoucherCampaignRequest request) {
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new BusinessException(ErrorCode.INVALID_TIME_FRAME);
-        }
-
-    }
-
-    private Long getCurrentUserId() {
-        return Long.valueOf(
-                SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());
-    }
-
-    private String generateVoucherCode() {
-        LocalDateTime now = LocalDateTime.now();
-        String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
-        String secondPart = String.format("%06d", now.getSecond());
-        return "VCR_" + datePart + secondPart;
-    }
+  private String generateVoucherCode() {
+    LocalDateTime now = LocalDateTime.now();
+    String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
+    String secondPart = String.format("%06d", now.getSecond());
+    return "VCR_" + datePart + secondPart;
+  }
 }

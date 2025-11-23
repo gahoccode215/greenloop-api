@@ -1,14 +1,13 @@
 package com.greenloop.user.dto.event;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -16,20 +15,20 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderCheckedOutEvent implements Serializable {
 
-    private Long orderId;
-    private Long customerId;
-    private BigDecimal totalAmount;
-    private LocalDateTime checkedOutAt;
-    private List<ProductStatusChange> productStatusChanges;
-    private Integer totalEcoPoints;
+  private Long orderId;
+  private Long customerId;
+  private BigDecimal totalAmount;
+  private LocalDateTime checkedOutAt;
+  private List<ProductStatusChange> productStatusChanges;
+  private Integer totalEcoPoints;
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ProductStatusChange implements Serializable {
-        private Long productId;
-        private String newStatus;
-        private Integer ecoPointValue;
-    }
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class ProductStatusChange implements Serializable {
+    private Long productId;
+    private String newStatus;
+    private Integer ecoPointValue;
+  }
 }
