@@ -2,12 +2,14 @@ package com.greenloop.reward.service;
 
 import com.greenloop.reward.dto.request.CreateVoucherCampaignRequest;
 import com.greenloop.reward.dto.request.CreateVoucherRequest;
+import com.greenloop.reward.dto.response.UserVoucherResponse;
 import com.greenloop.reward.dto.response.VoucherCampaignResponse;
 import com.greenloop.reward.dto.response.VoucherResponse;
 import com.greenloop.reward.enums.VoucherStatus;
 import com.greenloop.reward.enums.VoucherType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 
 public interface VoucherService {
@@ -51,4 +53,8 @@ public interface VoucherService {
       BigDecimal maxDiscount,
       int page,
       int size);
+
+  Long redeemVoucher(Long voucherId);
+
+  List<UserVoucherResponse> myVouchers();
 }

@@ -1,6 +1,5 @@
 package com.greenloop.reward.entity;
 
-import com.greenloop.reward.enums.VoucherSource;
 import com.greenloop.reward.enums.VoucherUserStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -31,15 +30,11 @@ public class VoucherUser extends BaseEntity {
   private LocalDateTime redeemedAt;
 
   @Column(name = "quantity", nullable = false)
-  private Long quantity;
+  private Integer quantity;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 15)
   private VoucherUserStatus status = VoucherUserStatus.AVAILABLE;
-
-  @Enumerated(EnumType.STRING)
-  @Column(name = "source", nullable = false, length = 20)
-  private VoucherSource source;
 
   @OneToMany(mappedBy = "voucherUser", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default

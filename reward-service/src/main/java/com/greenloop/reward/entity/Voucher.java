@@ -56,9 +56,14 @@ public class Voucher extends BaseEntity implements Serializable {
   private Integer quantity;
 
   @Column(name = "point_to_redeem", nullable = false)
-  private Long pointToRedeem;
+  private Integer pointToRedeem;
 
   @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default
   private List<VoucherUser> voucherUsers = new ArrayList<>();
+
+  public Integer getAvailableQuantity() {
+    int usedQuantity = voucherUsers.stream().mapToInt(vu -> vu.getQuantity().intValue()).sum();
+    return this.quantity - usedQuantity;
+  }
 }

@@ -2,9 +2,9 @@ package com.greenloop.product.service.impl;
 
 import com.greenloop.product.dto.event.EcoPointTransactionDTO;
 import com.greenloop.product.dto.request.DonationCreateRequest;
-import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
+import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
 import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Donation;
@@ -81,7 +81,7 @@ public class DonationServiceImpl implements DonationService {
                     .name(itemReq.getName())
                     .description(itemReq.getDescription())
                     .conditionGrade(itemReq.getConditionGrade())
-                    .status(DonationItemStatus.AT_STORE)
+                    .status(DonationItemStatus.AT_EVENT)
                     .ecoPointValue(itemReq.getEcoPointValue())
                     .category(category)
                     .donation(donation)
@@ -210,22 +210,36 @@ public class DonationServiceImpl implements DonationService {
 
     @Override
     @Transactional
-    public void updateDonationItemStatus(DonationItemCodeRequest donationItemCodeRequest) {
-        Long currentUserId = getCurrentUserId();
-        log.info("Update Donation Item Status to IN_WAREHOUSE by User ID: {}", currentUserId);
-        try {
-            List<DonationItem> items = donationItemRepository.findAllByCodeIn(donationItemCodeRequest.getCodes());
-            for (DonationItem item : items) {
-                item.setStatus(donationItemCodeRequest.getStatus());
-                item.setUpdatedBy(currentUserId);
-            }
-            donationItemRepository.saveAll(items);
-            log.info("Updated {} Donation Items to status {}", items.size(), donationItemCodeRequest.getStatus());
-        } catch (Exception e) {
-            log.error("Error updating donation item statuses: {}", e.getMessage(), e);
-            throw new BusinessException(ErrorCode.DONATION_ITEM_STATUS_UPDATE_FAILED);
-        }
+    public UpdateDonationItemStatusResponse changeStatusDonationItems(UpdateDonationItemStatusRequest request) {
 
+        List<String> codes = request.getDonationItemCodes();
+        DonationItemStatus newStatus = request.getDonationItemStatus();
+
+        log.info("Updating donation items status. Codes: {}, New status: {}", codes, newStatus);
+
+        List<DonationItem> items = donationItemRepository.findAllByCodeIn(codes);
+
+        Set<String> foundCodes = items.stream()
+                .map(DonationItem::getCode)
+                .collect(Collectors.toSet());
+
+        List<String> notFoundCodes = codes.stream()
+                .filter(code -> !foundCodes.contains(code))
+                .toList();
+
+        items.forEach(item -> item.setStatus(newStatus));
+        donationItemRepository.saveAll(items);
+
+        List<String> updatedCodes = items.stream()
+                .map(DonationItem::getCode)
+                .toList();
+
+        log.info("Updated {} items. Not found: {}", updatedCodes.size(), notFoundCodes);
+
+        return UpdateDonationItemStatusResponse.builder()
+                .updatedCodes(updatedCodes)
+                .notFoundCodes(notFoundCodes)
+                .build();
     }
 
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
