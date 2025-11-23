@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,6 +105,21 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
 
         return mapProductToProductResponse(product);
+    }
+    @Override
+    @Transactional
+    public void updateProductStatus(Long productId, String newStatus) {
+        log.info("Updating product {} to status: {}", productId, newStatus);
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        "Không tìm thấy sản phẩm với ID: " + productId));
+
+        ProductStatus status = ProductStatus.valueOf(newStatus);
+        product.setStatus(status);
+        productRepository.save(product);
+
+        log.info("Successfully updated product {} to status: {}", productId, newStatus);
     }
 
     private ProductResponse mapProductToProductResponse(Product product) {

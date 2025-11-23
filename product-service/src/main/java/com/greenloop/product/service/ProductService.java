@@ -15,4 +15,5 @@ public interface ProductService {
     );
 
     ProductResponse getProductDetail(Long id);
+    void updateProductStatus(Long productId, String newStatus);
 }

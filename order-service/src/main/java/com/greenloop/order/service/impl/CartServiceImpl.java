@@ -4,6 +4,7 @@ import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.request.AddToCartRequest;
 import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
@@ -21,10 +22,12 @@ import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,10 +40,10 @@ public class CartServiceImpl implements CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
     private final ShippingCalculationService shippingCalculationService;
+    private final StreamBridge streamBridge;
 
     @Override
     public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
-        log.info("Ước tính phí vận chuyển cho khách hàng: {}", customerId);
 
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
@@ -158,7 +161,34 @@ public class CartServiceImpl implements CartService {
     public void clearCart(Long customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
+        if (!cart.getItems().isEmpty()) {
+            log.info("Publishing OrderCheckedOutEvent for customer: {}", customerId);
 
+            List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = cart.getItems().stream()
+                    .map(item -> OrderCheckedOutEvent.ProductStatusChange.builder()
+                            .productId(item.getProductId())
+                            .newStatus(ProductStatusConstant.SOLD)  // Đổi status về SOLD
+                            .build())
+                    .collect(Collectors.toList());
+
+            // Build event
+            OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
+                    .orderId(null)  // Nếu chưa có orderId, có thể để null hoặc truyền vào
+                    .customerId(customerId)
+                    .totalAmount(cart.getTotalAmount())
+                    .checkedOutAt(LocalDateTime.now())
+                    .productStatusChanges(productStatusChanges)
+                    .build();
+
+            // Publish event qua RabbitMQ
+            boolean sent = streamBridge.send("orderCheckedOut-out-0", event);
+
+            if (sent) {
+                log.info("OrderCheckedOutEvent published successfully for customer: {}", customerId);
+            } else {
+                log.error("Failed to publish OrderCheckedOutEvent for customer: {}", customerId);
+            }
+        }
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);

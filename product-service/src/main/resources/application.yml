@@ -4,12 +4,19 @@ server:
 spring:
   application:
     name: product-service
-
   cloud:
+    function:
+      definition: orderCheckedOutConsumer
     stream:
       bindings:
         ecoPointDonation-out-0:
           destination: ecopoint-donation
+        orderCheckedOutConsumer-in-0:
+          destination: order-checked-out
+          group: ${spring.application.name}
+
+
+
 
 
   datasource:

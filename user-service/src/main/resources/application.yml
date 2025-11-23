@@ -74,7 +74,7 @@ eureka:
 
 app:
   oauth2:
-    frontend-redirect-url: http://localhost:5173/auth/callback
+    frontend-redirect-url: ${GOOGLE_REDIRECT:http://localhost:5173/auth/callback}
   otp:
     length: 6
     expiry-in-minutes: 5

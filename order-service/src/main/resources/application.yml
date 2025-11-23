@@ -17,6 +17,16 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
       show-sql: false
+  cloud:
+    stream:
+      bindings:
+        orderCheckedOut-out-0:
+          destination: order-checked-out
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 server:
   port: 8083
 
