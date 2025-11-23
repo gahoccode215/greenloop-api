@@ -1,5 +1,8 @@
 package com.greenloop.product.controller;
 
+import com.greenloop.product.dto.request.AssignProductEventRequest;
+import com.greenloop.product.dto.request.CreateProductRequest;
+import com.greenloop.product.dto.request.UpdateProductRequest;
 import com.greenloop.product.dto.response.ApiResponseDTO;
 import com.greenloop.product.dto.response.PageResponseDTO;
 import com.greenloop.product.dto.response.ProductResponse;
@@ -7,14 +10,20 @@ import com.greenloop.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -92,4 +101,150 @@ public class ProductController {
                 )
         );
     }
+
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create new product", description = "Create product with images upload")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<Long>> createProduct(
+            @Valid @ModelAttribute CreateProductRequest request,
+            @RequestPart(required = false) List<MultipartFile> files) {
+
+        log.info("Request to create product: {}", request);
+
+        Long id = productService.createProduct(request, files);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Tạo sản phẩm thành công", id, HttpStatus.CREATED)
+        );
+    }
+
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update product", description = "Update general info of product")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<Long>> updateProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateProductRequest request) {
+
+        log.info("Update product id = {}, request = {}", id, request);
+
+        Long result = productService.updateProduct(id, request);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật sản phẩm thành công", result, HttpStatus.OK)
+        );
+    }
+
+
+    @PatchMapping("/{id}/toggle-status")
+    @Operation(summary = "Toggle product status", description = "Switch product status between AVAILABLE / UNAVAILABLE")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> toggleStatusProduct(
+            @PathVariable Long id) {
+
+        log.info("Toggling status for product id: {}", id);
+
+        productService.toggleStatusProduct(id);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật trạng thái sản phẩm thành công", null, HttpStatus.OK)
+        );
+    }
+
+
+    @PutMapping(value = "/assets/{productAssetId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Update a product image", description = "Replace a specific product image")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<Long>> updateProductImage(
+            @PathVariable Long productAssetId,
+            @RequestPart MultipartFile file) {
+
+        log.info("Updating image for asset id: {}", productAssetId);
+
+        Long id = productService.updateProductImages(productAssetId, file);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật ảnh thành công", id, HttpStatus.OK)
+        );
+    }
+
+
+    @DeleteMapping("/assets/{productAssetId}")
+    @Operation(summary = "Deactivate product asset", description = "Disable an image of a product")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> deactivateProductAsset(
+            @PathVariable Long productAssetId) {
+
+        log.info("Deactivating product asset: {}", productAssetId);
+
+        productService.deActiveProductAsset(productAssetId);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Xoá ảnh sản phẩm thành công", null, HttpStatus.OK)
+        );
+    }
+
+
+    @PostMapping(value = "/{productId}/assets", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Add product images", description = "Upload more images for a product")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> addProductImages(
+            @PathVariable Long productId,
+            @RequestPart List<MultipartFile> files) {
+
+        log.info("Adding images to product id: {}, files: {}", productId, files.size());
+
+        productService.addProductImages(productId, files);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Thêm ảnh sản phẩm thành công", null, HttpStatus.CREATED)
+        );
+    }
+
+
+    @PostMapping("/assign-to-event")
+    @Operation(summary = "Assign products to event", description = "Bind product list to a specific event with display time")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> assignProductsToEvent(
+            @Valid @RequestBody AssignProductEventRequest request) {
+
+        log.info("Assign products to event: {}", request);
+
+        productService.assignProductsToEvent(request);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Gán sản phẩm vào sự kiện thành công", null, HttpStatus.OK)
+        );
+    }
+
+
+    @DeleteMapping("/remove-from-event")
+    @Operation(summary = "Remove product-event mapping", description = "Deactivate product from event")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> removeProductFromEvent(
+            @RequestBody List<Long> mappingIds) {
+
+        log.info("Removing product-event mappings: {}", mappingIds);
+
+        productService.removeProductFromEvent(mappingIds);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Xoá sản phẩm khỏi sự kiện thành công", null, HttpStatus.OK)
+        );
+    }
+
+
+    @GetMapping("/assignable-to-event/{eventId}")
+    @Operation(summary = "Get products assignable to event", description = "Retrieve products that can be assigned to a specific event")
+    public ResponseEntity<ApiResponseDTO<List<ProductResponse>>> getProductAssignableToEvent(
+            @PathVariable Long eventId) {
+        log.info("Getting products assignable to event id: {}", eventId);
+        List<ProductResponse> products = productService.getProductAssignableToEvent(eventId);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy sản phẩm có thể gán vào sự kiện thành công", products, HttpStatus.OK)
+        );
+    }
+
+
 }
