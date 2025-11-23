@@ -14,7 +14,7 @@ public interface EventProductMappingRepository extends JpaRepository<EventProduc
 
     @Query("""
                 SELECT m FROM EventProductMapping m
-                WHERE m.productId.id = :productId
+                WHERE m.product.id = :productId
                   AND m.eventId <> :eventId
                   AND m.displayFrom <= :displayTo
                   AND m.displayTo >= :displayFrom

@@ -25,7 +25,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -303,7 +302,7 @@ public class ProductServiceImpl implements ProductService {
         for (Long productId : request.getProductIds()) {
             EventProductMapping mapping = EventProductMapping.builder()
                     .eventId(request.getEventId())
-                    .productId(
+                    .product(
                             productRepository.findById(productId)
                                     .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND))
                     )
@@ -332,7 +331,7 @@ public class ProductServiceImpl implements ProductService {
                 eventProductMappingRepository.findByEventId(eventId);
         List<ProductResponse> productResponses = new ArrayList<>();
         for (EventProductMapping mapping : assignedMappings) {
-            Product product = mapping.getProductId();
+            Product product = mapping.getProduct();
             productResponses.add(mapProductToProductResponse(product));
         }
         return productResponses;

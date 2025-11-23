@@ -21,7 +21,7 @@ public class EventProductMapping extends BaseEntity implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
-    private Product productId;
+    private Product product;
 
     @Column(name = "display_from")
     private LocalDateTime displayFrom;

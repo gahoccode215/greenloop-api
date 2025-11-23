@@ -79,28 +79,13 @@ public class VoucherServiceImpl implements VoucherService {
         return newCampaign.getId();
     }
 
-    VoucherCampaign voucherCampaign =
-        voucherCampaignRepository
-            .findById(request.getCampaignId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_NOT_FOUND));
-    Voucher voucher =
-        Voucher.builder()
-            .code(generateVoucherCode())
-            .name(request.getName())
-            .description(request.getDescription())
-            .type(request.getVoucherType())
-            .value(request.getValue())
-            .quantity(request.getQuantity())
-            .pointToRedeem(request.getPointToRedeem())
-            .expiryDate(request.getExpiryDate())
-            .minOrderValue(request.getMinOrderValue())
-            .maxDiscount(request.getMaxDiscount())
-            .campaign(voucherCampaign)
-            .build();
-    voucher = voucherRepository.save(voucher);
-    log.info("Voucher created with code: {}", voucher.getCode());
-    return voucher.getId();
-  }
+    @Override
+    public Long createVoucher(CreateVoucherRequest request) {
+        Long currentUserId = getCurrentUserId();
+        log.info("Creating voucher for user ID: {}", currentUserId);
+        if (request.getCampaignId() == null) {
+            throw new BusinessException(ErrorCode.VOUCHER_CAMPAIGN_ID_REQUIRED);
+        }
 
         VoucherCampaign voucherCampaign =
                 voucherCampaignRepository
@@ -141,36 +126,27 @@ public class VoucherServiceImpl implements VoucherService {
         log.info("Voucher campaign with ID: {} updated successfully", campaignId);
     }
 
-    Voucher voucher =
-        voucherRepository
-            .findById(voucherId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
-    voucher.setName(request.getName());
-    voucher.setDescription(request.getDescription());
-    voucher.setType(request.getVoucherType());
-    voucher.setValue(request.getValue());
-    voucher.setMinOrderValue(request.getMinOrderValue());
-    voucher.setMaxDiscount(request.getMaxDiscount());
-    voucher.setExpiryDate(request.getExpiryDate());
-    voucher.setQuantity(request.getQuantity());
-    voucher.setPointToRedeem(request.getPointToRedeem());
+    @Override
+    public void updateVoucher(CreateVoucherRequest request, Long voucherId) {
 
-    voucher.updatedBy(getCurrentUserId());
-    voucherRepository.save(voucher);
-    log.info("Voucher with ID: {} updated successfully", voucherId);
-  }
+        Voucher voucher =
+                voucherRepository
+                        .findById(voucherId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
+        voucher.setName(request.getName());
+        voucher.setDescription(request.getDescription());
+        voucher.setType(request.getVoucherType());
+        voucher.setValue(request.getValue());
+        voucher.setMinOrderValue(request.getMinOrderValue());
+        voucher.setMaxDiscount(request.getMaxDiscount());
+        voucher.setExpiryDate(request.getExpiryDate());
+        voucher.setQuantity(request.getQuantity());
+        voucher.setPointToRedeem(request.getPointToRedeem());
 
-  @Override
-  public void changeVoucherStatus(Long voucherId, VoucherStatus status) {
-    Voucher voucher =
-        voucherRepository
-            .findById(voucherId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.VOUCHER_NOT_FOUND));
-    voucher.setStatus(status);
-    voucher.updatedBy(getCurrentUserId());
-    voucherRepository.save(voucher);
-    log.info("Voucher with ID: {} status changed to {}", voucherId, status);
-  }
+        voucher.updatedBy(getCurrentUserId());
+        voucherRepository.save(voucher);
+        log.info("Voucher with ID: {} updated successfully", voucherId);
+    }
 
     @Override
     public void changeVoucherStatus(Long voucherId, VoucherStatus status) {
@@ -200,33 +176,35 @@ public class VoucherServiceImpl implements VoucherService {
     public Page<VoucherCampaignResponse> getVoucherCampaignsForCustomer(
             String name, LocalDateTime from, LocalDateTime to, int page, int size) {
 
-    Specification<VoucherCampaign> spec =
-        (root, query, cb) -> {
-          var predicates = cb.conjunction();
+        Pageable pageable = PageRequest.of(page, size);
 
-          if (name != null && !name.isEmpty()) {
-            String searchPattern = "%" + name.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-          }
+        Specification<VoucherCampaign> spec =
+                (root, query, cb) -> {
+                    var predicates = cb.conjunction();
 
-          if (from != null) {
-            predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
-          }
+                    if (name != null && !name.isEmpty()) {
+                        String searchPattern = "%" + name.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+                    }
 
-          if (to != null) {
-            predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
-          }
+                    if (from != null) {
+                        predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
+                    }
 
-          predicates =
-              cb.and(
-                  predicates,
-                  cb.isTrue(root.get("isActive")),
-                  cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now()));
+                    if (to != null) {
+                        predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
+                    }
 
-          return predicates;
-        };
+                    predicates =
+                            cb.and(
+                                    predicates,
+                                    cb.isTrue(root.get("isActive")),
+                                    cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now()));
 
-    Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
+                    return predicates;
+                };
+
+        Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
 
         return campaigns.map(
                 campaign ->
@@ -247,31 +225,31 @@ public class VoucherServiceImpl implements VoucherService {
     public Page<VoucherCampaignResponse> getVoucherCampaignsForAdmin(
             String name, LocalDateTime from, LocalDateTime to, int page, int size) {
 
-    Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size);
 
-    Specification<VoucherCampaign> spec =
-        (root, query, cb) -> {
-          var predicates = cb.conjunction();
+        Specification<VoucherCampaign> spec =
+                (root, query, cb) -> {
+                    var predicates = cb.conjunction();
 
-          if (name != null && !name.isEmpty()) {
-            String searchPattern = "%" + name.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-          }
+                    if (name != null && !name.isEmpty()) {
+                        String searchPattern = "%" + name.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+                    }
 
-          if (from != null) {
-            predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
-          }
+                    if (from != null) {
+                        predicates = cb.and(predicates, cb.greaterThanOrEqualTo(root.get("startDate"), from));
+                    }
 
-          if (to != null) {
-            predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
-          }
+                    if (to != null) {
+                        predicates = cb.and(predicates, cb.lessThanOrEqualTo(root.get("endDate"), to));
+                    }
 
-          predicates = cb.and(predicates, cb.isTrue(root.get("isActive")));
+                    predicates = cb.and(predicates, cb.isTrue(root.get("isActive")));
 
-          return predicates;
-        };
+                    return predicates;
+                };
 
-    Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
+        Page<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec, pageable);
 
         return campaigns.map(
                 campaign ->
@@ -301,51 +279,53 @@ public class VoucherServiceImpl implements VoucherService {
             int page,
             int size) {
 
-    Specification<Voucher> spec =
-        (root, query, cb) -> {
-          var predicates = cb.conjunction();
+        Pageable pageable = PageRequest.of(page, size);
 
-          if (campaignId != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
-          }
+        Specification<Voucher> spec =
+                (root, query, cb) -> {
+                    var predicates = cb.conjunction();
 
-          if (code != null && !code.isEmpty()) {
-            String searchPattern = "%" + code.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
-          }
+                    if (campaignId != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
+                    }
 
-          if (name != null && !name.isEmpty()) {
-            String searchPattern = "%" + name.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-          }
+                    if (code != null && !code.isEmpty()) {
+                        String searchPattern = "%" + code.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
+                    }
 
-          if (voucherType != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
-          }
+                    if (name != null && !name.isEmpty()) {
+                        String searchPattern = "%" + name.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+                    }
 
-          if (status != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("status"), status));
-          }
+                    if (voucherType != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
+                    }
 
-          if (minOrderValue != null) {
-            predicates =
-                cb.and(
-                    predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
-          }
+                    if (status != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("status"), status));
+                    }
 
-          if (maxDiscount != null) {
-            predicates =
-                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
-          }
+                    if (minOrderValue != null) {
+                        predicates =
+                                cb.and(
+                                        predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
+                    }
 
-          if (active != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("isActive"), active));
-          }
+                    if (maxDiscount != null) {
+                        predicates =
+                                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
+                    }
 
-          return predicates;
-        };
+                    if (active != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("isActive"), active));
+                    }
 
-    Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
+                    return predicates;
+                };
+
+        Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
 
         return vouchers.map(
                 voucher ->
@@ -383,78 +363,79 @@ public class VoucherServiceImpl implements VoucherService {
             int page,
             int size) {
 
-    Specification<Voucher> spec =
-        (root, query, cb) -> {
-          var predicates = cb.conjunction();
+        Pageable pageable = PageRequest.of(page, size);
 
-          if (campaignId != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
-          }
+        Specification<Voucher> spec =
+                (root, query, cb) -> {
+                    var predicates = cb.conjunction();
 
-          if (code != null && !code.isEmpty()) {
-            String searchPattern = "%" + code.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
-          }
+                    if (campaignId != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("campaign").get("id"), campaignId));
+                    }
 
-          if (name != null && !name.isEmpty()) {
-            String searchPattern = "%" + name.toLowerCase() + "%";
-            predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
-          }
+                    if (code != null && !code.isEmpty()) {
+                        String searchPattern = "%" + code.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("code")), searchPattern));
+                    }
 
-          if (voucherType != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
-          }
+                    if (name != null && !name.isEmpty()) {
+                        String searchPattern = "%" + name.toLowerCase() + "%";
+                        predicates = cb.and(predicates, cb.like(cb.lower(root.get("name")), searchPattern));
+                    }
 
-          if (status != null) {
-            predicates = cb.and(predicates, cb.equal(root.get("status"), status));
-          }
+                    if (voucherType != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("type"), voucherType));
+                    }
 
-          if (minOrderValue != null) {
-            predicates =
-                cb.and(
-                    predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
-          }
+                    if (status != null) {
+                        predicates = cb.and(predicates, cb.equal(root.get("status"), status));
+                    }
 
-          if (maxDiscount != null) {
-            predicates =
-                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
-          }
+                    if (minOrderValue != null) {
+                        predicates =
+                                cb.and(
+                                        predicates, cb.greaterThanOrEqualTo(root.get("minOrderValue"), minOrderValue));
+                    }
 
-          predicates =
-              cb.and(
-                  predicates,
-                  cb.isTrue(root.get("isActive")),
-                  cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now()));
+                    if (maxDiscount != null) {
+                        predicates =
+                                cb.and(predicates, cb.lessThanOrEqualTo(root.get("maxDiscount"), maxDiscount));
+                    }
 
-          return predicates;
-        };
+                    predicates =
+                            cb.and(
+                                    predicates,
+                                    cb.isTrue(root.get("isActive")),
+                                    cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now()));
 
-    Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
+                    return predicates;
+                };
 
-    return vouchers.map(
-        voucher ->
-            VoucherResponse.builder()
-                .voucherId(voucher.getId())
-                .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
-                .code(voucher.getCode())
-                .description(voucher.getDescription())
-                .voucherStatus(voucher.getStatus())
-                .voucherType(voucher.getType())
-                .value(voucher.getValue())
-                .minOrderValue(voucher.getMinOrderValue())
-                .maxDiscount(voucher.getMaxDiscount())
-                .expiryDate(voucher.getExpiryDate())
-                .quantity(voucher.getQuantity())
-                .pointToRedeem(voucher.getPointToRedeem())
-                .active(voucher.isActive())
-                .build());
-  }
+        Page<Voucher> vouchers = voucherRepository.findAll(spec, pageable);
 
-  private void validateTimeFrame(CreateVoucherCampaignRequest request) {
-    if (request.getEndDate().isBefore(request.getStartDate())) {
-      throw new BusinessException(ErrorCode.INVALID_TIME_FRAME);
+        return vouchers.map(
+                voucher ->
+                        VoucherResponse.builder()
+                                .voucherId(voucher.getId())
+                                .campaignId(voucher.getCampaign() != null ? voucher.getCampaign().getId() : null)
+                                .code(voucher.getCode())
+                                .name(voucher.getName())
+                                .description(voucher.getDescription())
+                                .voucherStatus(voucher.getStatus())
+                                .voucherType(voucher.getType())
+                                .value(voucher.getValue())
+                                .minOrderValue(voucher.getMinOrderValue())
+                                .maxDiscount(voucher.getMaxDiscount())
+                                .expiryDate(voucher.getExpiryDate())
+                                .quantity(voucher.getQuantity())
+                                .pointToRedeem(voucher.getPointToRedeem())
+                                .availableQuantity(voucher.getAvailableQuantity())
+                                .createdAt(voucher.getCreatedAt())
+                                .updatedAt(voucher.getUpdatedAt())
+                                .updateBy(voucher.getUpdatedBy())
+                                .active(voucher.isActive())
+                                .build());
     }
-  }
 
     @Override
     @Transactional
