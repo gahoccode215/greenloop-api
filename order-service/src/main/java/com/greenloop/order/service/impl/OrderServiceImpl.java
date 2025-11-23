@@ -337,6 +337,8 @@ public class OrderServiceImpl implements OrderService {
                             .productId(item.getProductId())
                             .quantity(item.getQuantity())
                             .price(item.getPrice())
+                            .productName(item.getProductName())
+                            .productImage(item.getProductImage())
                             .build())
                     .collect(Collectors.toList());
 
@@ -364,6 +366,8 @@ public class OrderServiceImpl implements OrderService {
                 .productId(cartItem.getProductId())
                 .quantity(1)
                 .price(cartItem.getPrice())
+                .productName(cartItem.getProductName())
+                .productImage(cartItem.getProductImage())
                 .build();
     }
 }

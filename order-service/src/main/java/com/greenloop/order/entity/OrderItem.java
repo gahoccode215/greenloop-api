@@ -26,5 +26,10 @@ public class OrderItem {
     private int quantity;
     private BigDecimal price;
 
+    @Column(name = "product_name")
+    private String productName;
+
+    @Column(name = "product_image")
+    private String productImage;
 
 }

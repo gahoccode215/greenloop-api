@@ -32,163 +32,125 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AdminCustomerServiceImpl implements AdminCustomerService {
 
-  private final UserRepository userRepository;
+    private final UserRepository userRepository;
 
-  @Override
-  //  @Cacheable(value = "customers_list", key = "#pageable.pageNumber + '-' + #search + '-' +
-  // #status")
-  public PageResponseDTO<CustomerResponse> getCustomers(
-      String search, String status, Pageable pageable) {
+    @Override
+    public PageResponseDTO<CustomerResponse> getCustomers(String search, String status, Pageable pageable) {
+        Specification<User> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            Join<Object, Object> roleJoin = root.join("roles");
+            predicates.add(roleJoin.get("name").in(RoleConstants.CUSTOMER));
+            query.distinct(true);
 
-    log.info("Getting customers - search: {}, status: {}", search, status);
+            if (search != null && !search.isEmpty()) {
+                String searchPattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("email")), searchPattern),
+                        cb.like(cb.lower(root.get("fullName")), searchPattern),
+                        cb.like(cb.lower(root.get("phone")), searchPattern)));
+            }
 
-    Specification<User> spec =
-        (root, query, cb) -> {
-          List<Predicate> predicates = new ArrayList<>();
+            if (status != null && !status.isEmpty()) {
+                predicates.add(cb.equal(root.get("isActive"), Boolean.valueOf(status)));
+            }
 
-          Join<Object, Object> roleJoin = root.join("roles");
-          predicates.add(roleJoin.get("name").in(RoleConstants.CUSTOMER));
-
-          query.distinct(true);
-
-          if (search != null && !search.isEmpty()) {
-            String searchPattern = "%" + search.toLowerCase() + "%";
-            predicates.add(
-                cb.or(
-                    cb.like(cb.lower(root.get("email")), searchPattern),
-                    cb.like(cb.lower(root.get("fullName")), searchPattern),
-                    cb.like(cb.lower(root.get("phone")), searchPattern)));
-          }
-
-          if (status != null && !status.isEmpty()) {
-            predicates.add(cb.equal(root.get("isActive"), Boolean.valueOf(status)));
-          }
-
-          return cb.and(predicates.toArray(new Predicate[0]));
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-    Page<User> page = userRepository.findAll(spec, pageable);
-
-    Page<CustomerResponse> customerPage = page.map(this::mapUserToCustomerResponse);
-
-    PageResponseDTO<CustomerResponse> response = PageResponseUtil.toPageResponse(customerPage);
-
-    log.info(
-        "Retrieved {} customers out of {} total",
-        response.getContent().size(),
-        response.getTotalElements());
-
-    return response;
-  }
-
-  @Override
-  //  @Cacheable(value = "customer_detail", key = "#id")
-  public CustomerResponse getCustomerDetail(Long id) {
-    log.info("Getting customer detail for id: {}", id);
-
-    User user =
-        userRepository
-            .findById(id)
-            .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
-
-    List<String> userRoles = user.getRoles().stream().map(Role::getName).toList();
-
-    if (!userRoles.contains(RoleConstants.CUSTOMER)) {
-      throw new CustomerNotFoundException("Người dùng không phải khách hàng");
+        Page<User> page = userRepository.findAll(spec, pageable);
+        Page<CustomerResponse> customerPage = page.map(this::mapUserToCustomerResponse);
+        return PageResponseUtil.toPageResponse(customerPage);
     }
 
-    return mapUserToCustomerResponse(user);
-  }
+    @Override
+    public CustomerResponse getCustomerDetail(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
 
-  @Override
-  @Transactional
-  //  @CacheEvict(
-  //      value = {"customer_detail", "customers_list"},
-  //      allEntries = true)
-  public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
-    log.info("Changing customer status for id: {} to: {}", id, isActive);
+        List<String> userRoles = user.getRoles().stream().map(Role::getName).toList();
 
-    User customer =
-        userRepository
-            .findById(id)
-            .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+        if (!userRoles.contains(RoleConstants.CUSTOMER)) {
+            throw new CustomerNotFoundException("Người dùng không phải khách hàng");
+        }
 
-    List<String> userRoles = customer.getRoles().stream().map(Role::getName).toList();
-
-    if (!userRoles.contains(RoleConstants.CUSTOMER)) {
-      throw new CustomerNotFoundException("Người dùng không phải khách hàng");
+        return mapUserToCustomerResponse(user);
     }
 
-    if (customer.isActive() == isActive) {
-      log.info("Customer status is already {}, no change needed", isActive);
-      return mapUserToCustomerResponse(customer);
+    @Override
+    @Transactional
+    public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
+        User customer = userRepository.findById(id)
+                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+
+        List<String> userRoles = customer.getRoles().stream().map(Role::getName).toList();
+
+        if (!userRoles.contains(RoleConstants.CUSTOMER)) {
+            throw new CustomerNotFoundException("Người dùng không phải khách hàng");
+        }
+
+        if (customer.isActive() == isActive) {
+            return mapUserToCustomerResponse(customer);
+        }
+
+        customer.setActive(isActive);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserId = auth.getPrincipal().toString();
+        customer.setUpdatedBy(Long.parseLong(currentUserId));
+
+        User updatedCustomer = userRepository.save(customer);
+        return mapUserToCustomerResponse(updatedCustomer);
     }
 
-    customer.setActive(isActive);
+    @Override
+    @Transactional
+    public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request) {
+        User customer = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
 
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String currentUserId = auth.getPrincipal().toString();
-    customer.setUpdatedBy(Long.parseLong(currentUserId));
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            customer.setFullName(request.getFullName());
+        }
 
-    User updatedCustomer = userRepository.save(customer);
+        if (request.getEmail() != null && !request.getEmail().equals(customer.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new EmailAlreadyExistsException();
+            }
+            customer.setEmail(request.getEmail());
+        }
 
-    log.info(
-        "Customer status changed successfully for id: {}. New status: {}",
-        id,
-        isActive ? "ACTIVE" : "INACTIVE");
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(customer.getPhone())) {
+            if (userRepository.existsByPhone(request.getPhoneNumber())) {
+                throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
+            }
+            customer.setPhone(request.getPhoneNumber());
+        }
 
-    return mapUserToCustomerResponse(updatedCustomer);
-  }
+        if (request.getDateOfBirth() != null) {
+            customer.setDateOfBirth(request.getDateOfBirth());
+        }
 
-  @Override
-  @Transactional
-  public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request) {
-    User customer = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        if (request.getGender() != null) {
+            customer.setGender(request.getGender());
+        }
 
-    if (request.getFullName() != null && !request.getFullName().isBlank()) {
-      customer.setFullName(request.getFullName());
+        User savedCustomer = userRepository.save(customer);
+        return mapUserToCustomerResponse(savedCustomer);
     }
 
-    if (request.getEmail() != null && !request.getEmail().equals(customer.getEmail())) {
-      if (userRepository.existsByEmail(request.getEmail())) {
-        throw new EmailAlreadyExistsException();
-      }
-      customer.setEmail(request.getEmail());
+    private CustomerResponse mapUserToCustomerResponse(User user) {
+        return CustomerResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phoneNumber(user.getPhone())
+                .dateOfBirth(user.getDateOfBirth())
+                .gender(user.getGender())
+                .avatarUrl(user.getAvatarUrl())
+                .isActive(user.isActive())
+                .isEmailVerified(user.getIsEmailVerified())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
-
-    if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(customer.getPhone())) {
-      if (userRepository.existsByPhone(request.getPhoneNumber())) {
-        throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
-      }
-      customer.setPhone(request.getPhoneNumber());
-    }
-
-    if (request.getDateOfBirth() != null) {
-      customer.setDateOfBirth(request.getDateOfBirth());
-    }
-
-    if (request.getGender() != null) {
-      customer.setGender(request.getGender());
-    }
-
-    User savedCustomer = userRepository.save(customer);
-
-    return mapUserToCustomerResponse(savedCustomer);
-  }
-
-  private CustomerResponse mapUserToCustomerResponse(User user) {
-    return CustomerResponse.builder()
-        .id(user.getId())
-        .email(user.getEmail())
-        .fullName(user.getFullName())
-        .phoneNumber(user.getPhone())
-        .dateOfBirth(user.getDateOfBirth())
-        .gender(user.getGender())
-        .avatarUrl(user.getAvatarUrl())
-        .isActive(user.isActive())
-        .isEmailVerified(user.getIsEmailVerified())
-        .createdAt(user.getCreatedAt())
-        .updatedAt(user.getUpdatedAt())
-        .build();
-  }
 }

@@ -26,4 +26,7 @@ public class OrderItemRequest {
     @NotNull(message = "Giá sản phẩm không được để trống")
     @DecimalMin(value = "0.0", inclusive = false, message = "Giá phải lớn hơn 0")
     private BigDecimal price;
+
+    private String productName;
+    private String productImage;
 }
