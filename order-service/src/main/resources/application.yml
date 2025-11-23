@@ -82,8 +82,4 @@ payos:
   cancel-url-web: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
   cancel-url-mobile: ${PAYOS_CANCEL_URL_MOBILE:greenloop://payment-failed}
 
-ghn:
-  client-id: 2510341
-  token-api: a2a104a0-8c23-11f0-bdaf-ae7fa045a771
-  shop-id: 197409
-  base-url: https://dev-online-gateway.ghn.vn
+
