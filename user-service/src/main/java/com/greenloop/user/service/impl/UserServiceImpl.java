@@ -38,7 +38,6 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  //  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
     log.info("Retrieving profile for user: {}", userId);
     User user =
@@ -48,7 +47,6 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  //  @CacheEvict(value = "user_profile", key = "#userId")
   public UserProfileResponse updateProfile(
       Long userId, UpdateProfileRequest request, MultipartFile avatar) {
     log.info("Updating profile for user: {}", userId);
@@ -90,6 +88,7 @@ public class UserServiceImpl implements UserService {
         .gender(user.getGender() != null ? user.getGender().name() : null)
         .phoneNumber(user.getPhone())
         .avatarUrl(user.getAvatarUrl())
+            .ecoPoints(user.getEcoPoints())
         .roles(roleNames)
         .isActive(user.isActive())
         .isEmailVerified(user.getIsEmailVerified())
@@ -101,14 +100,11 @@ public class UserServiceImpl implements UserService {
 
   private void handleAvatarUpload(User user, MultipartFile file) {
     try {
-      // Xóa ảnh cũ nếu có
       if (user.getMediaKey() != null) {
         cloudinaryService.deleteImage(user.getMediaKey());
       }
-      // Upload ảnh mới
       Map<String, String> uploadResult =
           cloudinaryService.uploadImage(file.getBytes(), "GreenLoop/Users/Avatars");
-      // Cập nhật URL và media key
       user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
       user.setMediaKey(uploadResult.get("public_id"));
     } catch (Exception e) {

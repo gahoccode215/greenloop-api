@@ -23,7 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "User Controller", description = "User API")
+@Tag(name = "User Management", description = "User API")
 public class UserController {
 
   private final UserService userService;
@@ -34,11 +34,7 @@ public class UserController {
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
-
-    log.info("Getting profile for user: {}", userId);
-
     UserProfileResponse response = userService.getMyProfile(userId);
-
     return ResponseEntity.ok(
         ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
   }
@@ -52,26 +48,8 @@ public class UserController {
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
-
-    log.info("Updating profile for user: {}", userId);
-
     UserProfileResponse response = userService.updateProfile(userId, request, avatar);
-
     return ResponseEntity.ok(
         ApiResponseDTO.success("Cập nhật thông tin cá nhân thành công", response, HttpStatus.OK));
-  }
-
-  @Hidden
-  @GetMapping("/{id}/info")
-  public ResponseEntity<UserProfileResponse> getUserInfoById(
-      @PathVariable("id") Long id,
-      @RequestHeader(value = "API_SECRET_HEADER", required = false) String apiSecret) {
-
-    if (!"greenloopsecret".equals(apiSecret)) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-    }
-
-    UserProfileResponse response = userService.getMyProfile(id);
-    return ResponseEntity.ok(response);
   }
 }

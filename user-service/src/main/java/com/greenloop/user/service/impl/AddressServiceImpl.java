@@ -39,7 +39,6 @@ public class AddressServiceImpl implements AddressService {
     UserAddress address = buildAddressEntity(request, user, shouldSetDefault);
     UserAddress savedAddress = addressRepository.save(address);
 
-    log.info("Address created successfully with id: {} for user: {}", savedAddress.getId(), userId);
 
     return mapToResponse(savedAddress);
   }
@@ -47,14 +46,12 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional
   public AddressResponse updateAddress(Long userId, Long addressId, AddressRequest request) {
-    log.info("Updating address {} for user: {}", addressId, userId);
 
     UserAddress address = findAddressByIdAndUserId(addressId, userId);
     updateAddressFields(address, request);
     handleDefaultAddressChange(address, request.getIsDefault(), userId);
 
     UserAddress updatedAddress = addressRepository.save(address);
-    log.info("Address updated successfully: {}", addressId);
 
     return mapToResponse(updatedAddress);
   }
@@ -62,13 +59,11 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional
   public void deleteAddress(Long userId, Long addressId) {
-    log.info("Deleting address {} for user: {}", addressId, userId);
 
     UserAddress address = findAddressByIdAndUserId(addressId, userId);
     boolean wasDefault = address.getIsDefault();
 
     addressRepository.delete(address);
-    log.info("Address deleted successfully: {}", addressId);
 
     if (wasDefault) {
       reassignDefaultAddress(userId);
@@ -78,11 +73,9 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional(readOnly = true)
   public List<AddressResponse> getAllAddresses(Long userId) {
-    log.info("Getting all addresses for user: {}", userId);
 
     List<UserAddress> addresses = addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
 
-    log.debug("Found {} addresses for user: {}", addresses.size(), userId);
 
     return addresses.stream().map(this::mapToResponse).collect(Collectors.toList());
   }
@@ -90,7 +83,6 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional(readOnly = true)
   public AddressResponse getAddressById(Long userId, Long addressId) {
-    log.info("Getting address {} for user: {}", addressId, userId);
 
     UserAddress address = findAddressByIdAndUserId(addressId, userId);
     return mapToResponse(address);
@@ -145,12 +137,6 @@ public class AddressServiceImpl implements AddressService {
     long addressCount = addressRepository.countByUserId(userId);
     boolean isFirstAddress = addressCount == 0;
     boolean explicitlyRequested = Boolean.TRUE.equals(requestedDefault);
-
-    log.debug(
-        "Determining default status - First address: {}, Requested: {}",
-        isFirstAddress,
-        explicitlyRequested);
-
     return isFirstAddress || explicitlyRequested;
   }
 
@@ -161,7 +147,6 @@ public class AddressServiceImpl implements AddressService {
             address -> {
               address.setIsDefault(false);
               addressRepository.save(address);
-              log.debug("Unset default flag for address: {}", address.getId());
             });
   }
 
