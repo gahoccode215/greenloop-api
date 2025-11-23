@@ -24,4 +24,5 @@ public class ProductDTO {
     private int length;
     private int width;
     private int height;
+    private Integer ecoPointValue;
 }

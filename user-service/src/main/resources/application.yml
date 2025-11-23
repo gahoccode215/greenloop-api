@@ -11,7 +11,9 @@ spring:
           destination: user-registration
         passwordReset-out-0:
           destination: password-reset
-
+        orderCheckedOutConsumer-in-0:
+          destination: order-checked-out
+          group: ${spring.application.name}
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}

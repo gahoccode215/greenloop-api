@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -161,38 +162,49 @@ public class CartServiceImpl implements CartService {
     public void clearCart(Long customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
+
         if (!cart.getItems().isEmpty()) {
             log.info("Publishing OrderCheckedOutEvent for customer: {}", customerId);
 
-            List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = cart.getItems().stream()
-                    .map(item -> OrderCheckedOutEvent.ProductStatusChange.builder()
-                            .productId(item.getProductId())
-                            .newStatus(ProductStatusConstant.SOLD)  // Đổi status về SOLD
-                            .build())
-                    .collect(Collectors.toList());
+            int totalEcoPoints = 0;
 
-            // Build event
+            List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
+
+            for (CartItem item : cart.getItems()) {
+                ApiResponseDTO<ProductDTO> response = productClient.getProductById(item.getProductId());
+
+                if (response.isSuccess() && response.getData() != null) {
+                    ProductDTO product = response.getData();
+                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
+                    totalEcoPoints += ecoPoint;
+
+                    productStatusChanges.add(
+                            OrderCheckedOutEvent.ProductStatusChange.builder()
+                                    .productId(item.getProductId())
+                                    .newStatus(ProductStatusConstant.SOLD)
+                                    .ecoPointValue(ecoPoint)
+                                    .build()
+                    );
+                }
+            }
+
             OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
-                    .orderId(null)  // Nếu chưa có orderId, có thể để null hoặc truyền vào
+                    .orderId(null)
                     .customerId(customerId)
                     .totalAmount(cart.getTotalAmount())
                     .checkedOutAt(LocalDateTime.now())
                     .productStatusChanges(productStatusChanges)
+                    .totalEcoPoints(totalEcoPoints)
                     .build();
 
-            // Publish event qua RabbitMQ
-            boolean sent = streamBridge.send("orderCheckedOut-out-0", event);
-
-            if (sent) {
-                log.info("OrderCheckedOutEvent published successfully for customer: {}", customerId);
-            } else {
-                log.error("Failed to publish OrderCheckedOutEvent for customer: {}", customerId);
-            }
+            streamBridge.send("orderCheckedOut-out-0", event);
         }
+
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);
     }
+
 
     private Cart createNewCart(Long customerId) {
         Cart cart = Cart.builder()

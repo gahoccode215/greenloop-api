@@ -1,4 +1,4 @@
-package com.greenloop.order.dto.event;
+package com.greenloop.user.dto.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

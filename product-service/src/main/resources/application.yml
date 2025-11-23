@@ -1,6 +1,5 @@
 server:
   port: 8082
-
 spring:
   application:
     name: product-service
@@ -14,11 +13,6 @@ spring:
         orderCheckedOutConsumer-in-0:
           destination: order-checked-out
           group: ${spring.application.name}
-
-
-
-
-
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_product_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -30,12 +24,10 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-
   cloudinary:
     cloudName: ${CLOUDINARY_NAME}
     apiKey: ${CLOUDINARY_API_KEY}
     apiSecret: ${CLOUDINARY_API_SECRET}
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -44,7 +36,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -57,24 +48,19 @@ spring:
           max-wait: 1000ms
       timeout: 2000ms
       database: 1
-
   servlet:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
-
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
-
 rabbitmq:
   exchangeName: greenloop.exchange
   eco-donation-queue: ecoDonationQueue
   eco-donation-routing-key: ecoDonationQueueRoutingKey
-
-
 eureka:
   client:
     service-url:
@@ -89,7 +75,6 @@ springdoc:
   api-docs:
     enabled: true
     path: /v3/api-docs
-
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
@@ -100,7 +85,5 @@ springdoc:
         url: http://${GATEWAY_HOST:localhost}:8080/product-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${PRODUCT_HOST:localhost}:${server.port}/v3/api-docs
-
-
 greenloop:
   defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

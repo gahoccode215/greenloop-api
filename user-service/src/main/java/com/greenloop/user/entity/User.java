@@ -41,6 +41,10 @@ public class User extends BaseEntity implements UserDetails {
   @Column(name = "avatar_url")
   private String avatarUrl;
 
+    @Column(name = "eco_points")
+    @Builder.Default
+    private Integer ecoPoints = 0;
+
   @Column(name = "is_active")
   @Builder.Default
   private boolean isActive = true;
