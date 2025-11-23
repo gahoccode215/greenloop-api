@@ -285,6 +285,54 @@ public class GoShipClient {
     }
 
 
+    /**
+     * Tạo vận đơn mới
+     */
+    public CreateShipmentResponse createShipment(CreateShipmentRequest request) {
+        String url = baseUrl + "/shipments";
 
+        try {
+            log.info("Creating shipment for order: {}", request.getShipment().getOrderId());
+
+            HttpEntity<CreateShipmentRequest> entity = new HttpEntity<>(request);
+
+            ResponseEntity<CreateShipmentResponse> response = restTemplate.postForEntity(
+                    url, entity, CreateShipmentResponse.class);
+
+            CreateShipmentResponse body = response.getBody();
+
+            if (body != null && body.getCode() == 200 && "success".equals(body.getStatus())) {
+                log.info("Shipment created successfully - ID: {}, Tracking: {}",
+                        body.getId(), body.getTrackingNumber());
+                return body;
+            }
+
+            throw new RuntimeException("Failed to create shipment: " +
+                    (body != null ? body.getMessage() : "Unknown error"));
+
+        } catch (Exception e) {
+            log.error("Error creating shipment: {}", e.getMessage(), e);
+            throw new RuntimeException("Không thể tạo vận đơn: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hủy vận đơn
+     */
+    public void cancelShipment(String shipmentId) {
+        String url = baseUrl + "/shipments/" + shipmentId;
+
+        try {
+            log.info("Cancelling shipment: {}", shipmentId);
+
+            restTemplate.exchange(url, HttpMethod.DELETE, null, Void.class);
+
+            log.info("Shipment cancelled successfully: {}", shipmentId);
+
+        } catch (Exception e) {
+            log.error("Error cancelling shipment {}: {}", shipmentId, e.getMessage(), e);
+            throw new RuntimeException("Không thể hủy vận đơn: " + e.getMessage());
+        }
+    }
 
 }

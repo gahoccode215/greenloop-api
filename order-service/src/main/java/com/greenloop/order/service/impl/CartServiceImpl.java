@@ -4,6 +4,7 @@ import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.request.AddToCartRequest;
 import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
@@ -21,10 +22,13 @@ import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,10 +41,10 @@ public class CartServiceImpl implements CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
     private final ShippingCalculationService shippingCalculationService;
+    private final StreamBridge streamBridge;
 
     @Override
     public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
-        log.info("Ước tính phí vận chuyển cho khách hàng: {}", customerId);
 
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
@@ -97,16 +101,31 @@ public class CartServiceImpl implements CartService {
                 ? product.getImageUrls().get(0)
                 : null;
 
+        int weight = (product.getWeight() > 0)
+                ? product.getWeight() : 200;  // Default 200g
+
+        int length = (product.getLength() > 0)
+                ? product.getLength() : 20;   // Default 20cm
+
+        int width = (product.getWidth() > 0)
+                ? product.getWidth() : 15;    // Default 15cm
+
+        int height = (product.getHeight() > 0)
+                ? product.getHeight() : 5;    // Default 5cm
+
+        log.info("Product {} dimensions - Weight: {}g, Size: {}x{}x{} cm (L×W×H)",
+                product.getId(), weight, length, width, height);
+
         CartItem newItem = CartItem.builder()
                 .cart(cart)
                 .productId(product.getId())
                 .productName(product.getName())
                 .productImage(imageUrl)
                 .price(product.getPrice())
-                .weight(product.getWeight())
-                .length(product.getLength())
-                .width(product.getWidth())
-                .height( product.getHeight())
+                .weight(weight)
+                .length(length)
+                .width(width)
+                .height(height)
                 .build();
 
         cart.addItem(newItem);
@@ -116,6 +135,7 @@ public class CartServiceImpl implements CartService {
         log.info("Product {} added to cart successfully for customer {}", request.getProductId(), customerId);
         return mapToCartResponse(cart);
     }
+
 
     @Override
     @Transactional
@@ -143,10 +163,48 @@ public class CartServiceImpl implements CartService {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
 
+        if (!cart.getItems().isEmpty()) {
+            log.info("Publishing OrderCheckedOutEvent for customer: {}", customerId);
+
+            int totalEcoPoints = 0;
+
+            List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
+
+            for (CartItem item : cart.getItems()) {
+                ApiResponseDTO<ProductDTO> response = productClient.getProductById(item.getProductId());
+
+                if (response.isSuccess() && response.getData() != null) {
+                    ProductDTO product = response.getData();
+                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
+                    totalEcoPoints += ecoPoint;
+
+                    productStatusChanges.add(
+                            OrderCheckedOutEvent.ProductStatusChange.builder()
+                                    .productId(item.getProductId())
+                                    .newStatus(ProductStatusConstant.SOLD)
+                                    .ecoPointValue(ecoPoint)
+                                    .build()
+                    );
+                }
+            }
+
+            OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
+                    .orderId(null)
+                    .customerId(customerId)
+                    .totalAmount(cart.getTotalAmount())
+                    .checkedOutAt(LocalDateTime.now())
+                    .productStatusChanges(productStatusChanges)
+                    .totalEcoPoints(totalEcoPoints)
+                    .build();
+
+            streamBridge.send("orderCheckedOut-out-0", event);
+        }
+
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);
     }
+
 
     private Cart createNewCart(Long customerId) {
         Cart cart = Cart.builder()

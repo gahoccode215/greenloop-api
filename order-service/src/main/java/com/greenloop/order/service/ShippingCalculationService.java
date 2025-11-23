@@ -113,35 +113,25 @@ public class ShippingCalculationService {
         String estimatedDelivery;
         List<ShippingEstimateResponse.ShippingOption> availableOptions;
 
-        if (!rates.isEmpty()) {
-            RateResponse cheapest = rates.stream()
-                    .min((r1, r2) -> r1.getTotalFee().compareTo(r2.getTotalFee()))
-                    .orElse(rates.get(0));
+        RateResponse cheapest = rates.stream()
+                .min((r1, r2) -> r1.getTotalFee().compareTo(r2.getTotalFee()))
+                .orElse(rates.get(0));
 
-            shippingFee = cheapest.getTotalFee();
-            selectedCarrier = cheapest.getCarrierName();
-            estimatedDelivery = cheapest.getExpected();
+        shippingFee = cheapest.getTotalFee();
+        selectedCarrier = cheapest.getCarrierName();
+        estimatedDelivery = cheapest.getExpected();
 
-            availableOptions = rates.stream()
-                    .map(rate -> ShippingEstimateResponse.ShippingOption.builder()
-                            .rateId(rate.getId())
-                            .carrierName(rate.getCarrierName())
-                            .carrierLogo(rate.getCarrierLogo())
-                            .service(rate.getService())
-                            .fee(rate.getTotalFee())
-                            .estimatedDelivery(rate.getExpected())
-                            .build())
-                    .collect(Collectors.toList());
+        availableOptions = rates.stream()
+                .map(rate -> ShippingEstimateResponse.ShippingOption.builder()
+                        .rateId(rate.getId())
+                        .carrierName(rate.getCarrierName())
+                        .carrierLogo(rate.getCarrierLogo())
+                        .service(rate.getService())
+                        .fee(rate.getTotalFee())
+                        .estimatedDelivery(rate.getExpected())
+                        .build())
+                .collect(Collectors.toList());
 
-
-
-        } else {
-            shippingFee = BigDecimal.valueOf(30000);
-            selectedCarrier = "Vận chuyển tiêu chuẩn";
-            estimatedDelivery = "3-5 ngày";
-            availableOptions = List.of();
-
-        }
 
         BigDecimal totalPrice = productTotal.add(shippingFee);
 

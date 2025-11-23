@@ -3,10 +3,10 @@ package com.greenloop.order.service.impl;
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.constant.ProductStatusConstant;
-import com.greenloop.order.dto.OrderDTO;
-import com.greenloop.order.dto.OrderItemDTO;
+import com.greenloop.order.dto.ParcelDimensionDTO;
+import com.greenloop.order.dto.response.OrderItemResponse;
 import com.greenloop.order.dto.ProductDTO;
-import com.greenloop.order.dto.ShippingAddressDTO;
+import com.greenloop.order.dto.response.ShippingAddressResponse;
 import com.greenloop.order.dto.request.CheckoutRequest;
 import com.greenloop.order.dto.request.OrderFilterRequest;
 import com.greenloop.order.dto.request.OrderItemRequest;
@@ -28,7 +28,6 @@ import com.greenloop.order.service.PayOSPaymentService;
 import com.greenloop.order.service.ShippingCalculationService;
 import com.greenloop.order.util.OrderCodeGenerator;
 import com.greenloop.order.util.PageResponseUtil;
-import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
@@ -42,7 +41,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -77,14 +75,15 @@ public class OrderServiceImpl implements OrderService {
         });
     }
 
-
-
     @Override
     @Transactional
     public CheckoutResponse checkout(Long userId, CheckoutRequest request) {
         log.info("Checkout for user: {} with payment method: {}", userId, request.getPaymentMethod());
 
-        // 1. Get and validate cart
+        if (request.getSelectedRateId() == null || request.getSelectedRateId().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng chọn đơn vị vận chuyển");
+        }
+
         Cart cart = cartRepository.findByCustomerId(userId)
                 .orElseThrow(() -> new CartNotFoundException(userId));
 
@@ -92,7 +91,6 @@ public class OrderServiceImpl implements OrderService {
             throw new EmptyCartException();
         }
 
-        // 2. Validate products and build order items
         List<OrderItemRequest> orderItems = cart.getItems().stream()
                 .map(this::validateAndMapCartItem)
                 .collect(Collectors.toList());
@@ -103,71 +101,34 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("Product total: {}đ", productTotal);
 
-        // 3. Get selected shipping rate
-        RateResponse selectedRate;
-        try {
-            ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
-                    cart.getItems(),
-                    productTotal,
-                    String.valueOf(request.getShippingAddress().getCityId()),
-                    String.valueOf(request.getShippingAddress().getDistrictId())
-            );
+        ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
+                cart.getItems(),
+                productTotal,
+                String.valueOf(request.getShippingAddress().getCityId()),
+                String.valueOf(request.getShippingAddress().getDistrictId())
+        );
 
-            if (estimate.getAvailableOptions().isEmpty()) {
-                selectedRate = RateResponse.builder()
-                        .id("FALLBACK")
-                        .carrierName("Vận chuyển tiêu chuẩn")
-                        .service("Tiêu chuẩn")
-                        .totalFee(BigDecimal.valueOf(30000))
-                        .expected("3-5 ngày")
-                        .build();
-            } else {
-                // Find selected rate by rateId or use cheapest
-                if (request.getSelectedRateId() != null && !request.getSelectedRateId().isBlank()) {
-                    ShippingEstimateResponse.ShippingOption selected = estimate.getAvailableOptions().stream()
-                            .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
-                            .findFirst()
-                            .orElseGet(() -> {
-                                log.warn("Selected rate {} not found, using cheapest", request.getSelectedRateId());
-                                return estimate.getAvailableOptions().get(0);
-                            });
-
-                    selectedRate = RateResponse.builder()
-                            .id(selected.getRateId())
-                            .carrierName(selected.getCarrierName())
-                            .carrierLogo(selected.getCarrierLogo())
-                            .service(selected.getService())
-                            .totalFee(selected.getFee())
-                            .expected(selected.getEstimatedDelivery())
-                            .build();
-                } else {
-                    log.info("No rate selected, using cheapest option");
-                    ShippingEstimateResponse.ShippingOption cheapest = estimate.getAvailableOptions().get(0);
-                    selectedRate = RateResponse.builder()
-                            .id(cheapest.getRateId())
-                            .carrierName(cheapest.getCarrierName())
-                            .carrierLogo(cheapest.getCarrierLogo())
-                            .service(cheapest.getService())
-                            .totalFee(cheapest.getFee())
-                            .expected(cheapest.getEstimatedDelivery())
-                            .build();
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error calculating shipping fee: {}", e.getMessage(), e);
-            selectedRate = RateResponse.builder()
-                    .id("FALLBACK")
-                    .carrierName("Vận chuyển tiêu chuẩn")
-                    .service("Tiêu chuẩn")
-                    .totalFee(BigDecimal.valueOf(30000))
-                    .expected("3-5 ngày")
-                    .build();
+        if (estimate.getAvailableOptions().isEmpty()) {
+            throw new ShippingRateNotFoundException("Không tìm thấy đơn vị vận chuyển phù hợp");
         }
+
+        ShippingEstimateResponse.ShippingOption selectedOption = estimate.getAvailableOptions().stream()
+                .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
+                .findFirst()
+                .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
+
+        RateResponse selectedRate = RateResponse.builder()
+                .id(selectedOption.getRateId())
+                .carrierName(selectedOption.getCarrierName())
+                .carrierLogo(selectedOption.getCarrierLogo())
+                .service(selectedOption.getService())
+                .totalFee(selectedOption.getFee())
+                .expected(selectedOption.getEstimatedDelivery())
+                .build();
 
         BigDecimal shippingFee = selectedRate.getTotalFee();
         BigDecimal totalPrice = productTotal.add(shippingFee);
 
-        // 4. Parse expected delivery time
         LocalDateTime expectedDeliveryTime;
         try {
             String numberStr = selectedRate.getExpected().replaceAll("[^0-9]", "");
@@ -178,15 +139,14 @@ public class OrderServiceImpl implements OrderService {
                 expectedDeliveryTime = LocalDateTime.now().plusDays(3);
             }
         } catch (Exception e) {
-            log.warn("Failed to parse expected delivery: {}", selectedRate.getExpected());
             expectedDeliveryTime = LocalDateTime.now().plusDays(3);
         }
 
-        // 5. Generate order identifiers
+        ParcelDimensionDTO parcelDimensions = shippingCalculationService.calculateParcelDimensions(cart.getItems());
+
         String orderId = UUID.randomUUID().toString();
         String orderCode = OrderCodeGenerator.generateOrderCode();
 
-        // 6. Build create order command
         CreateOrderCommand.CreateOrderCommandBuilder commandBuilder = CreateOrderCommand.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -200,9 +160,12 @@ public class OrderServiceImpl implements OrderService {
                 .paymentMethod(request.getPaymentMethod())
                 .selectedRateId(request.getSelectedRateId())
                 .carrier(selectedRate.getCarrierName())
-                .expectedDeliveryTime(expectedDeliveryTime);
+                .expectedDeliveryTime(expectedDeliveryTime)
+                .parcelWeight(String.valueOf(parcelDimensions.getWeight()))
+                .parcelWidth(String.valueOf(parcelDimensions.getWidth()))
+                .parcelHeight(String.valueOf(parcelDimensions.getHeight()))
+                .parcelLength(String.valueOf(parcelDimensions.getLength()));
 
-        // 7. Build checkout response
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -213,7 +176,6 @@ public class OrderServiceImpl implements OrderService {
                 .estimatedDelivery(selectedRate.getExpected())
                 .createdAt(LocalDateTime.now());
 
-        // 8. Handle payment method
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             responseBuilder
                     .paymentUrl(null)
@@ -221,7 +183,10 @@ public class OrderServiceImpl implements OrderService {
                             totalPrice.longValue()));
 
         } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
-            PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(orderId, totalPrice);
+            String platform = request.getPlatform() != null ? request.getPlatform() : "web";
+            PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
+                    orderId, totalPrice, platform);
+
             commandBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
 
             responseBuilder
@@ -230,14 +195,15 @@ public class OrderServiceImpl implements OrderService {
                             totalPrice.longValue()));
         }
 
-        // 9. Send command to create order
         commandGateway.sendAndWait(commandBuilder.build());
 
-        // 10. Clear cart after successful checkout
         cartService.clearCart(userId);
 
         return responseBuilder.build();
     }
+
+
+
 
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
@@ -265,7 +231,12 @@ public class OrderServiceImpl implements OrderService {
         });
     }
 
-
+    @Override
+    @Transactional(readOnly = true)
+    public Order getOrderEntityById(String orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -333,7 +304,7 @@ public class OrderServiceImpl implements OrderService {
 
         // Map shipping address
         if (order.getShippingAddress() != null) {
-            ShippingAddressDTO addressDTO = ShippingAddressDTO.builder()
+            ShippingAddressResponse addressDTO = ShippingAddressResponse.builder()
                     .receiverName(order.getShippingAddress().getReceiverName())
                     .receiverPhone(order.getShippingAddress().getReceiverPhone())
                     .receiverAddress(order.getShippingAddress().getReceiverAddress())
@@ -360,8 +331,8 @@ public class OrderServiceImpl implements OrderService {
 
         // Map order items
         if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
-            List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
-                    .map(item -> OrderItemDTO.builder()
+            List<OrderItemResponse> itemDTOs = order.getOrderItems().stream()
+                    .map(item -> OrderItemResponse.builder()
                             .orderItemId(item.getOrderItemId())
                             .productId(item.getProductId())
                             .quantity(item.getQuantity())

@@ -39,4 +39,5 @@ public interface ProductService {
     void removeProductFromEvent(List<Long> eventProductMappingId);
 
     List<ProductResponse> getProductAssignableToEvent(Long eventId);
+    void updateProductStatus(Long productId, String newStatus);
 }

@@ -17,6 +17,16 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
       show-sql: false
+  cloud:
+    stream:
+      bindings:
+        orderCheckedOut-out-0:
+          destination: order-checked-out
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 server:
   port: 8083
 
@@ -51,7 +61,7 @@ axon:
         mode: subscribing
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
-    context: ${AXON_CONTEXT:greenloop}
+    context: ${AXON_CONTEXT:greenloop-local}
 
 goship:
   token: ${GOSHIP_TOKEN}
@@ -77,7 +87,9 @@ payos:
   client-id: ${PAYOS_CLIENT_ID}
   api-key: ${PAYOS_API_KEY}
   checksum-key: ${PAYOS_CHECKSUM_KEY}
-  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/payments/success}
-  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
+  return-url-mobile: ${PAYOS_RETURN_URL_MOBILE:greenloop://payment-success}
+  return-url-web: ${PAYOS_RETURN_URL:http://localhost:5173/payments/success}
+  cancel-url-web: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
+  cancel-url-mobile: ${PAYOS_CANCEL_URL_MOBILE:greenloop://payment-failed}
 
 

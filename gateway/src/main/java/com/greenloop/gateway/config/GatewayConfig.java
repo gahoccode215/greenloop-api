@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class GatewayConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+  private final JwtAuthFilter jwtAuthFilter;
 
   @Bean
   public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {

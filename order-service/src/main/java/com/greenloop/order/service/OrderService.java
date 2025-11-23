@@ -1,6 +1,5 @@
 package com.greenloop.order.service;
 
-import com.greenloop.order.dto.OrderDTO;
 import com.greenloop.order.dto.request.CheckoutRequest;
 import com.greenloop.order.dto.request.OrderFilterRequest;
 import com.greenloop.order.dto.response.CheckoutResponse;
@@ -10,9 +9,7 @@ import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentStatus;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
+
 
 public interface OrderService {
     void createOrder(Order order);
@@ -21,7 +18,7 @@ public interface OrderService {
     String findOrderIdByPaymentOrderCode(Long paymentOrderCode);
     void updatePaymentStatus(String orderId, PaymentStatus status);
     void updatePaymentTransactionId(String orderId, String transactionId);
-
+    Order getOrderEntityById(String orderId);
     OrderResponse getOrderById(String orderId);
     PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter);
 

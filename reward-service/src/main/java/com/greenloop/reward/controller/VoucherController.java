@@ -10,6 +10,8 @@ import com.greenloop.reward.service.VoucherService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,15 +21,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 @RestController
 @RequestMapping("/api/v1/vouchers")
 @RequiredArgsConstructor
 @Slf4j
 public class VoucherController {
-    private final VoucherService voucherService;
+  private final VoucherService voucherService;
 
     @PostMapping("/campaigns")
     @Operation(

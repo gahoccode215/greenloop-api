@@ -25,6 +25,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -128,6 +129,21 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
 
         return mapProductToProductResponse(product);
+    }
+    @Override
+    @Transactional
+    public void updateProductStatus(Long productId, String newStatus) {
+        log.info("Updating product {} to status: {}", productId, newStatus);
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(
+                        "Không tìm thấy sản phẩm với ID: " + productId));
+
+        ProductStatus status = ProductStatus.valueOf(newStatus);
+        product.setStatus(status);
+        productRepository.save(product);
+
+        log.info("Successfully updated product {} to status: {}", productId, newStatus);
     }
 
     @Override

@@ -1,6 +1,5 @@
 package com.greenloop.order.service;
 
-
 import com.greenloop.order.dto.response.PayOSPaymentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,17 +18,29 @@ public class PayOSPaymentService {
 
     private final PayOS payOS;
 
-    @Value("${payos.return-url}")
-    private String returnUrl;
+    @Value("${payos.return-url-mobile}")
+    private String returnUrlMobile;
 
-    @Value("${payos.cancel-url}")
-    private String cancelUrl;
+    @Value("${payos.return-url-web}")
+    private String returnUrlWeb;
 
-    public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount) {
+    @Value("${payos.cancel-url-web}")
+    private String cancelUrlWeb;
+
+    @Value("${payos.cancel-url-mobile}")
+    private String cancelUrlMobile;
+
+    public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount, String platform) {
         try {
             long orderCode = System.currentTimeMillis() / 1000;
 
-            log.info("Creating PayOS payment link - OrderId: {}, OrderCode: {}", orderId, orderCode);
+            log.info("Creating PayOS payment link - OrderId: {}, OrderCode: {}, Platform: {}",
+                    orderId, orderCode, platform);
+
+            String returnUrl = getReturnUrl(platform);
+            String cancelUrl = getCancelUrl(platform);
+
+            log.info("Using returnUrl: {}, cancelUrl: {}", returnUrl, cancelUrl);
 
             CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
@@ -53,5 +64,18 @@ public class PayOSPaymentService {
             throw new RuntimeException("Không thể tạo link thanh toán: " + e.getMessage());
         }
     }
-}
 
+    private String getReturnUrl(String platform) {
+        if ("mobile".equalsIgnoreCase(platform)) {
+            return returnUrlMobile;
+        }
+        return returnUrlWeb;
+    }
+
+    private String getCancelUrl(String platform) {
+        if ("mobile".equalsIgnoreCase(platform)) {
+            return cancelUrlMobile;
+        }
+        return cancelUrlWeb;
+    }
+}

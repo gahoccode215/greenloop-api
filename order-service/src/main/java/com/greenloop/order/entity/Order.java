@@ -63,7 +63,6 @@ public class Order {
     @Column(name = "carrier", length = 20)
     private String carrier;
 
-
     @Column(name = "shipping_fee")
     private BigDecimal shippingFee;
 
@@ -72,6 +71,21 @@ public class Order {
 
     @Column(name = "shipping_status", length = 50)
     private String shippingStatus;
+
+    @Column(name = "selected_rate_id")
+    private String selectedRateId;
+
+    @Column(name = "parcel_weight")
+    private String parcelWeight;  // gram
+
+    @Column(name = "parcel_width")
+    private String parcelWidth;   // cm
+
+    @Column(name = "parcel_height")
+    private String parcelHeight;  // cm
+
+    @Column(name = "parcel_length")
+    private String parcelLength;  // cm
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

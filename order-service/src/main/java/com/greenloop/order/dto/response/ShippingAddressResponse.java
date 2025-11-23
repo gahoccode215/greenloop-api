@@ -1,4 +1,4 @@
-package com.greenloop.order.dto;
+package com.greenloop.order.dto.response;
 
 import lombok.*;
 
@@ -7,7 +7,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ShippingAddressDTO {
+public class ShippingAddressResponse {
 
     // Receiver info
     private String receiverName;

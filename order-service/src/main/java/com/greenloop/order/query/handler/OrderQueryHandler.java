@@ -30,9 +30,9 @@ public class OrderQueryHandler {
         return response;
     }
 
-    @QueryHandler
-    public PageResponseDTO<OrderResponse> handle(GetAllOrdersQuery query) {
-        log.info("Handling GetAllOrdersQuery for user: {}", query.getRequestingUserId());
-        return orderService.getAllOrders(query.getRequestingUserId(), query.getFilter());
-    }
+//    @QueryHandler
+//    public PageResponseDTO<OrderResponse> handle(GetAllOrdersQuery query) {
+//        log.info("Handling GetAllOrdersQuery for user: {}", query.getRequestingUserId());
+//        return orderService.getAllOrders(query.getRequestingUserId(), query.getFilter());
+//    }
 }
