@@ -8,12 +8,13 @@ import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;
 import com.greenloop.product.repository.CategoryRepository;
 import com.greenloop.product.repository.ProductRepository;
-import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -85,7 +86,7 @@ public class DataInitializer implements CommandLineRunner {
                 10,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 200, 30, 40, 1,  // Logistics: 200g, 30x40x1cm
                 List.of(
                         "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500",
@@ -102,7 +103,7 @@ public class DataInitializer implements CommandLineRunner {
                 12,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 250, 35, 45, 1,
                 List.of(
                         "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=500",
@@ -119,7 +120,7 @@ public class DataInitializer implements CommandLineRunner {
                 15,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.PURCHASE,
+                ProductType.RESALE,
                 220, 32, 42, 1,
                 List.of(
                         "https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=500"
@@ -136,7 +137,7 @@ public class DataInitializer implements CommandLineRunner {
                 25,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 400, 40, 35, 2,  // 400g, 40x35x2cm
                 List.of(
                         "https://images.unsplash.com/photo-1542272604-787c3835535d?w=500",
@@ -153,7 +154,7 @@ public class DataInitializer implements CommandLineRunner {
                 30,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 450, 42, 38, 2,
                 List.of(
                         "https://images.unsplash.com/photo-1582418702059-97ebafb35d09?w=500"
@@ -169,7 +170,7 @@ public class DataInitializer implements CommandLineRunner {
                 20,
                 ConditionGrade.FAIR,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 380, 40, 36, 2,
                 List.of(
                         "https://images.unsplash.com/photo-1475178626620-a4d074967452?w=500"
@@ -186,7 +187,7 @@ public class DataInitializer implements CommandLineRunner {
                 35,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 500, 45, 50, 3,  // 500g, 45x50x3cm
                 List.of(
                         "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
@@ -203,7 +204,7 @@ public class DataInitializer implements CommandLineRunner {
                 40,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.PURCHASE,
+                ProductType.RESALE,
                 600, 48, 52, 3,
                 List.of(
                         "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500"
@@ -219,7 +220,7 @@ public class DataInitializer implements CommandLineRunner {
                 45,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 550, 46, 51, 3,
                 List.of(
                         "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500"
@@ -236,7 +237,7 @@ public class DataInitializer implements CommandLineRunner {
                 30,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 300, 40, 50, 2,  // 300g, 40x50x2cm
                 List.of(
                         "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500",
@@ -253,7 +254,7 @@ public class DataInitializer implements CommandLineRunner {
                 25,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 280, 38, 48, 2,
                 List.of(
                         "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500"
@@ -269,7 +270,7 @@ public class DataInitializer implements CommandLineRunner {
                 20,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 250, 35, 40, 1,
                 List.of(
                         "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=500"
@@ -286,7 +287,7 @@ public class DataInitializer implements CommandLineRunner {
                 15,
                 ConditionGrade.GOOD,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 200, 30, 35, 1,  // 200g, 30x35x1cm
                 List.of(
                         "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500"
@@ -302,7 +303,7 @@ public class DataInitializer implements CommandLineRunner {
                 18,
                 ConditionGrade.FAIR,
                 ProductStatus.AVAILABLE,
-                ProductType.DONATION,
+                ProductType.RESALE,
                 220, 32, 36, 1,
                 List.of(
                         "https://images.unsplash.com/photo-1591195851821-21b8d3b818ee?w=500"
@@ -318,7 +319,7 @@ public class DataInitializer implements CommandLineRunner {
                 12,
                 ConditionGrade.LIKE_NEW,
                 ProductStatus.AVAILABLE,
-                ProductType.PURCHASE,
+                ProductType.RESALE,
                 180, 28, 32, 1,
                 List.of(
                         "https://images.unsplash.com/photo-1591195850639-4cebc8ec2d8b?w=500"
