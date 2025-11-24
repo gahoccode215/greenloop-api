@@ -38,9 +38,11 @@ public class OrderCreatedEvent {
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
 
-    private String parcelWeight;  // gram
-    private String parcelWidth;   // cm
-    private String parcelHeight;  // cm
-    private String parcelLength;  // cm
+    private String parcelWeight;
+    private String parcelWidth;
+    private String parcelHeight;
+    private String parcelLength;
+
+    private Integer shippingStatus;
 
 }

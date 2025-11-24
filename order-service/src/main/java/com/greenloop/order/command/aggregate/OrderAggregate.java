@@ -38,21 +38,18 @@ public class OrderAggregate {
     private String goshipTrackingCode;
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
-    private String shippingStatus;
-
+    private Integer shippingStatus;
     private String parcelWeight;
     private String parcelWidth;
     private String parcelHeight;
     private String parcelLength;
+    private String reason;
 
     @CommandHandler
     public OrderAggregate(CreateOrderCommand command) {
-        log.info("Creating order aggregate for: {}", command.getOrderCode());
-
         if (command.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidOrderPriceException();
         }
-
         AggregateLifecycle.apply(OrderCreatedEvent.builder()
                 .orderId(command.getOrderId())
                 .orderCode(command.getOrderCode())
@@ -72,13 +69,12 @@ public class OrderAggregate {
                 .parcelWidth(command.getParcelWidth())
                 .parcelHeight(command.getParcelHeight())
                 .parcelLength(command.getParcelLength())
+                .shippingStatus(command.getShippingStatus())
                 .build());
     }
 
     @EventSourcingHandler
     public void on(OrderCreatedEvent event) {
-        log.info("Applying OrderCreatedEvent for: {}", event.getOrderCode());
-
         this.orderId = event.getOrderId();
         this.orderCode = event.getOrderCode();
         this.customerId = event.getCustomerId();
@@ -90,51 +86,43 @@ public class OrderAggregate {
         this.paymentOrderCode = event.getPaymentOrderCode();
         this.carrier = event.getCarrier();
         this.expectedDeliveryTime = event.getExpectedDeliveryTime();
-
         this.parcelWeight = event.getParcelWeight();
         this.parcelWidth = event.getParcelWidth();
         this.parcelHeight = event.getParcelHeight();
         this.parcelLength = event.getParcelLength();
+        this.shippingStatus = event.getShippingStatus();
     }
 
     @CommandHandler
     public void handle(UpdateOrderStatusCommand command) {
-        log.info("Updating order {} status from {} to {}",
-                command.getOrderId(), this.orderStatus, command.getNewStatus());
-
         if (!this.orderStatus.canTransitionTo(command.getNewStatus())) {
             throw new InvalidOrderStatusException(
                     this.orderStatus.getDescription(),
                     command.getNewStatus().getDescription()
             );
         }
-
         if (command.getNewStatus() == OrderStatus.CANCELLED
                 && !this.orderStatus.isCancellable()) {
             throw new OrderNotCancellableException(this.orderStatus.getDescription());
         }
-
         AggregateLifecycle.apply(OrderStatusUpdatedEvent.builder()
                 .orderId(command.getOrderId())
                 .oldStatus(this.orderStatus)
                 .newStatus(command.getNewStatus())
                 .reason(command.getReason())
                 .goshipShipmentId(command.getGoshipShipmentId())
-                .goshipTrackingCode(command.getGoshipTrackingCode())
+                .goshipTrackingUrl(command.getGoshipTrackingCode())
                 .carrier(command.getCarrier())
                 .build());
     }
 
     @EventSourcingHandler
     public void on(OrderStatusUpdatedEvent event) {
-        log.info("Applying status update for order: {} from {} to {}",
-                event.getOrderId(), event.getOldStatus(), event.getNewStatus());
-
         this.orderStatus = event.getNewStatus();
-
+        this.reason = event.getReason();
         if (event.getGoshipShipmentId() != null) {
             this.goshipShipmentId = event.getGoshipShipmentId();
-            this.goshipTrackingCode = event.getGoshipTrackingCode();
+            this.goshipTrackingCode = event.getGoshipTrackingUrl();
             this.carrier = event.getCarrier();
         }
     }

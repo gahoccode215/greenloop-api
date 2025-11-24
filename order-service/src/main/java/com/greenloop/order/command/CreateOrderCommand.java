@@ -36,8 +36,10 @@ public class CreateOrderCommand {
     private final String carrier;
     private final LocalDateTime expectedDeliveryTime;
 
-    private final String parcelWeight;  // gram
-    private final String parcelWidth;   // cm
-    private final String parcelHeight;  // cm
-    private final String parcelLength;  // cm
+    private final String parcelWeight;
+    private final String parcelWidth;
+    private final String parcelHeight;
+    private final String parcelLength;
+
+    private final Integer shippingStatus;
 }

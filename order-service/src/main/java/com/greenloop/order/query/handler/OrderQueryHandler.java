@@ -20,19 +20,10 @@ public class OrderQueryHandler {
 
     @QueryHandler
     public OrderResponse handle(GetOrderQuery query) {
-        log.info("Handling GetOrderQuery for orderId: {}", query.getOrderId());
         OrderResponse response = orderService.getOrderById(query.getOrderId());
-
         if (response == null) {
             throw new OrderNotFoundException(query.getOrderId());
         }
-
         return response;
     }
-
-//    @QueryHandler
-//    public PageResponseDTO<OrderResponse> handle(GetAllOrdersQuery query) {
-//        log.info("Handling GetAllOrdersQuery for user: {}", query.getRequestingUserId());
-//        return orderService.getAllOrders(query.getRequestingUserId(), query.getFilter());
-//    }
 }

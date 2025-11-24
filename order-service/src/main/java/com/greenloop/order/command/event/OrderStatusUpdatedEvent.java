@@ -17,6 +17,6 @@ public class OrderStatusUpdatedEvent {
     private String reason;
 
     private String goshipShipmentId;
-    private String goshipTrackingCode;
+    private String goshipTrackingUrl;
     private String carrier;
 }

@@ -57,8 +57,8 @@ public class Order {
     @Column(name = "goship_shipment_id", length = 50)
     private String goshipShipmentId;
 
-    @Column(name = "goship_tracking_code", length = 50)
-    private String goshipTrackingCode;
+    @Column(name = "goship_tracking_url", length = 50)
+    private String goshipTrackingUrl;
 
     @Column(name = "carrier", length = 20)
     private String carrier;
@@ -70,22 +70,23 @@ public class Order {
     private LocalDateTime expectedDeliveryTime;
 
     @Column(name = "shipping_status", length = 50)
-    private String shippingStatus;
+    private Integer shippingStatus;
 
     @Column(name = "selected_rate_id")
     private String selectedRateId;
 
     @Column(name = "parcel_weight")
-    private String parcelWeight;  // gram
+    private String parcelWeight;
 
     @Column(name = "parcel_width")
-    private String parcelWidth;   // cm
+    private String parcelWidth;
 
     @Column(name = "parcel_height")
-    private String parcelHeight;  // cm
+    private String parcelHeight;
 
     @Column(name = "parcel_length")
-    private String parcelLength;  // cm
+    private String parcelLength;
+
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

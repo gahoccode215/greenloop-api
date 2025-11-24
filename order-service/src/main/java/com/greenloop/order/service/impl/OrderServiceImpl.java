@@ -28,6 +28,7 @@ import com.greenloop.order.service.PayOSPaymentService;
 import com.greenloop.order.service.ShippingCalculationService;
 import com.greenloop.order.util.OrderCodeGenerator;
 import com.greenloop.order.util.PageResponseUtil;
+import com.greenloop.order.util.ShippingStatusMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
@@ -164,7 +165,9 @@ public class OrderServiceImpl implements OrderService {
                 .parcelWeight(String.valueOf(parcelDimensions.getWeight()))
                 .parcelWidth(String.valueOf(parcelDimensions.getWidth()))
                 .parcelHeight(String.valueOf(parcelDimensions.getHeight()))
-                .parcelLength(String.valueOf(parcelDimensions.getLength()));
+                .parcelLength(String.valueOf(parcelDimensions.getLength()))
+                .shippingStatus(900);
+
 
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
@@ -297,7 +300,9 @@ public class OrderServiceImpl implements OrderService {
                 .expectedDeliveryTime(order.getExpectedDeliveryTime())
                 .shippingStatus(order.getShippingStatus())
                 .goshipShipmentId(order.getGoshipShipmentId())
-                .goshipTrackingCode(order.getGoshipTrackingCode())
+                .shippingStatus(order.getShippingStatus())
+                .shippingStatusText(ShippingStatusMapper.getStatusText(order.getShippingStatus()))
+                .goshipTrackingUrl(order.getGoshipTrackingUrl())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();

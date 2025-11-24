@@ -2,12 +2,14 @@ package com.greenloop.order.query.controller;
 
 import com.greenloop.order.dto.request.OrderFilterRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
+import com.greenloop.order.dto.response.OrderHistoryResponse;
 import com.greenloop.order.dto.response.OrderResponse;
 import com.greenloop.order.dto.response.PageResponseDTO;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.OrderAccessDeniedException;
 import com.greenloop.order.query.GetOrderQuery;
+import com.greenloop.order.service.OrderHistoryService;
 import com.greenloop.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,9 +20,12 @@ import org.axonframework.messaging.responsetypes.ResponseTypes;
 import org.axonframework.queryhandling.QueryGateway;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -31,6 +36,7 @@ public class OrderQueryController {
 
     private final QueryGateway queryGateway;
     private final OrderService orderService;
+    private final OrderHistoryService orderHistoryService;
 
     @Operation(summary = "Get all orders (Admin)")
     @GetMapping
@@ -169,6 +175,23 @@ public class OrderQueryController {
                 ApiResponseDTO.success(
                         "Lấy thông tin đơn hàng thành công",
                         response,
+                        HttpStatus.OK
+                )
+        );
+    }
+
+    @GetMapping("/{orderId}/history")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Lấy lịch sử đơn hàng", description = "Xem timeline thay đổi trạng thái của đơn hàng")
+    public ResponseEntity<ApiResponseDTO<List<OrderHistoryResponse>>> getOrderHistory(
+            @PathVariable String orderId) {
+
+        List<OrderHistoryResponse> history = orderHistoryService.getOrderHistory(orderId);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Lấy lịch sử đơn hàng thành công",
+                        history,
                         HttpStatus.OK
                 )
         );

@@ -8,18 +8,18 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class GoShipWebhookPayload {
 
     @JsonProperty("gcode")
-    private String gcode;  // GoShip shipment ID
+    private String gcode;
 
     @JsonProperty("code")
-    private String code;  // Carrier tracking code
+    private String code;
 
     @JsonProperty("order_id")
-    private String orderId;  // Your order code
+    private String orderId;
 
     @JsonProperty("weight")
     private String weight;
@@ -34,7 +34,7 @@ public class GoShipWebhookPayload {
     private String payer;
 
     @JsonProperty("status")
-    private String status;  // Status code (901, 902, 905, etc.)
+    private String status;
 
     @JsonProperty("status_text")
     private String statusText;

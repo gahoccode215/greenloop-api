@@ -61,7 +61,7 @@ axon:
         mode: subscribing
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
-    context: ${AXON_CONTEXT:greenloop-local}
+    context: ${AXON_CONTEXT:greenloop}
 
 goship:
   token: ${GOSHIP_TOKEN}

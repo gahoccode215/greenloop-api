@@ -9,5 +9,4 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
 
     Optional<Cart> findByCustomerId(Long customerId);
 
-    boolean existsByCustomerId(Long customerId);
 }

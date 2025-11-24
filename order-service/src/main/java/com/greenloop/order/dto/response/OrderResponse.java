@@ -29,11 +29,13 @@ public class OrderResponse {
     private Long paymentOrderCode;
     private String paymentTransactionId;
 
+    private Integer shippingStatus;
+    private String shippingStatusText;
+
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
-    private String shippingStatus;
     private String goshipShipmentId;
-    private String goshipTrackingCode;
+    private String goshipTrackingUrl;
 
     private ShippingAddressResponse shippingAddress;
     private List<OrderItemResponse> orderItems;

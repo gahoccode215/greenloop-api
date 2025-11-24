@@ -4,6 +4,7 @@ import com.greenloop.order.command.event.*;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ShippingAddress;
+import com.greenloop.order.repository.OrderHistoryRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -71,6 +72,7 @@ public class OrderProjection {
                 .parcelWidth(event.getParcelWidth())
                 .parcelHeight(event.getParcelHeight())
                 .parcelLength(event.getParcelLength())
+                .shippingStatus(event.getShippingStatus())
                 .build();
 
         if (event.getShippingAddress() != null) {
@@ -105,6 +107,8 @@ public class OrderProjection {
                             .productId(itemReq.getProductId())
                             .quantity(itemReq.getQuantity())
                             .price(itemReq.getPrice())
+                            .productName(itemReq.getProductName())
+                            .productImage(itemReq.getProductImage())
                             .order(order)
                             .build())
                     .collect(Collectors.toList());
@@ -112,23 +116,18 @@ public class OrderProjection {
         }
 
         orderService.createOrder(order);
-        log.info("Order created: {}", event.getOrderCode());
     }
 
     @EventHandler
     public void on(OrderStatusUpdatedEvent event) {
         orderRepository.findById(event.getOrderId()).ifPresent(order -> {
             order.setOrderStatus(event.getNewStatus());
-
             if (event.getGoshipShipmentId() != null) {
                 order.setGoshipShipmentId(event.getGoshipShipmentId());
-                order.setGoshipTrackingCode(event.getGoshipTrackingCode());
+                order.setGoshipTrackingUrl(event.getGoshipTrackingUrl());
                 order.setCarrier(event.getCarrier());
             }
-
             orderRepository.save(order);
-            log.info("Order {} status updated from {} to {}",
-                    event.getOrderId(), event.getOldStatus(), event.getNewStatus());
         });
     }
 
