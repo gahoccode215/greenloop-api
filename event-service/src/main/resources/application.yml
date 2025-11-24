@@ -24,6 +24,17 @@ spring:
     apiKey: ${CLOUDINARY_API_KEY}
     apiSecret: ${CLOUDINARY_API_SECRET}
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+rabbitmq:
+  exchangeName: greenloop.exchange
+  eco-donation-queue: ecoDonationQueue
+  eco-donation-routing-key: ecoDonationQueueRoutingKey
+
 eureka:
   client:
     service-url:

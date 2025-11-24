@@ -6,14 +6,13 @@ import com.greenloop.event.dto.response.*;
 import com.greenloop.event.entity.Event;
 import com.greenloop.event.entity.EventRegistration;
 import com.greenloop.event.entity.EventStaffAssignment;
-import com.greenloop.event.enums.ErrorCode;
-import com.greenloop.event.enums.EventStatus;
-import com.greenloop.event.enums.RegistrationStatus;
+import com.greenloop.event.enums.*;
 import com.greenloop.event.exception.BusinessException;
 import com.greenloop.event.repository.EventRegistrationRepository;
 import com.greenloop.event.repository.EventRepository;
 import com.greenloop.event.repository.EventStaffAssignmentRepository;
 import com.greenloop.event.service.CloudinaryService;
+import com.greenloop.event.service.EcoPointCheckInProducer;
 import com.greenloop.event.service.EventService;
 import com.greenloop.event.service.UserServiceFeign;
 import jakarta.transaction.Transactional;
@@ -42,6 +41,7 @@ public class EventServiceImpl implements EventService {
     private final CloudinaryService cloudinaryService;
     private final String localImagePath = "GreenLoop/Events";
     private final UserServiceFeign userServiceFeign;
+    private final EcoPointCheckInProducer ecoPointCheckInProducer;
 
     /**
      * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -824,23 +824,42 @@ public class EventServiceImpl implements EventService {
     public void checkInByTicketCode(String ticketCode) {
         Long userId = getCurrentUserId();
         log.info("Checking in staff {} with ticket code {}", userId, ticketCode);
+
         EventRegistration registration =
                 registrationRepository
                         .findByQrCodeAndIsActiveTrue(ticketCode)
-                        .orElseThrow(
-                                () -> {
-                                    log.warn(
-                                            "No active registration found for user {} with ticket code {}",
-                                            userId,
-                                            ticketCode);
-                                    return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
-                                });
+                        .orElseThrow(() -> {
+                            log.warn("No active registration found for user {} with ticket code {}",
+                                    userId, ticketCode);
+                            return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                        });
+
+        Event event = registration.getEvent();
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(event.getStartTime())) {
+            log.warn("User {} attempted to check in before event start time. Event starts at {}",
+                    userId, event.getStartTime());
+            throw new BusinessException(ErrorCode.EVENT_NOT_STARTED);
+        }
+
         registration.setStatus(RegistrationStatus.ATTENDED);
-        registration.setCheckinTime(LocalDateTime.now());
+        registration.setCheckinTime(now);
         registration.updatedBy(userId);
         registrationRepository.save(registration);
+        EcoPointTransactionDTO ecoPointTransaction = EcoPointTransactionDTO.builder()
+                .userId(registration.getUserId())
+                .points(5)
+                .description("Eco points for Checkin code: " + ticketCode)
+                .sourceType(SourceType.EVENT)
+                .sourceId(registration.getId())
+                .type(EcoPointType.EARNED)
+                .build();
+        ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+
         log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
     }
+
 
     /**
      * Cancels the event registration for the current user for a specific event.
