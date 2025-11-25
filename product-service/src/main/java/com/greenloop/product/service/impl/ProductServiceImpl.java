@@ -4,10 +4,7 @@ import com.greenloop.product.dto.request.AssignProductEventRequest;
 import com.greenloop.product.dto.request.CreateProductRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
 import com.greenloop.product.dto.request.UpdateProductRequest;
-import com.greenloop.product.dto.response.EcoPointResponse;
-import com.greenloop.product.dto.response.EventResponse;
-import com.greenloop.product.dto.response.PageResponseDTO;
-import com.greenloop.product.dto.response.ProductResponse;
+import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.*;
 import com.greenloop.product.enums.*;
 import com.greenloop.product.exception.BusinessException;
@@ -31,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -129,6 +127,7 @@ public class ProductServiceImpl implements ProductService {
 
         return mapProductToProductResponse(product);
     }
+
     @Override
     @Transactional
     public void updateProductStatus(Long productId, String newStatus) {
@@ -419,12 +418,7 @@ public class ProductServiceImpl implements ProductService {
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .donationItemId(product.getDonationItemId())
                 .conditionGrade(product.getConditionGrade())
-                .imageUrls(product.getAssets() != null
-                        ? product.getAssets().stream()
-                        .map(ProductAsset::getImageUrl)
-                        .filter(url -> url != null && !url.isEmpty())
-                        .collect(Collectors.toList())
-                        : List.of())
+                .imageUrls(mapProductAssetsToResponses(product.getAssets()))
                 .weight(product.getWeight())
                 .length(product.getLength())
                 .width(product.getWidth())
@@ -432,6 +426,15 @@ public class ProductServiceImpl implements ProductService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+    }
+
+    private List<ProductAssetResponse> mapProductAssetsToResponses(Set<ProductAsset> assets) {
+        return assets.stream()
+                .map(asset -> ProductAssetResponse.builder()
+                        .productAssetId(asset.getId())
+                        .productAssetUrl(asset.getImageUrl())
+                        .build())
+                .collect(Collectors.toList());
     }
 
 }
