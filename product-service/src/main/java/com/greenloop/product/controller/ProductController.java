@@ -107,8 +107,8 @@ public class ProductController {
     @Operation(summary = "Create new product", description = "Create product with images upload")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
     public ResponseEntity<ApiResponseDTO<Long>> createProduct(
-            @Valid @ModelAttribute CreateProductRequest request,
-            @RequestPart(required = false) List<MultipartFile> files) {
+            @RequestPart("product") @Valid CreateProductRequest request,
+            @RequestPart(value = "thumbnail", required = false) List<MultipartFile> files) {
 
         log.info("Request to create product: {}", request);
 
