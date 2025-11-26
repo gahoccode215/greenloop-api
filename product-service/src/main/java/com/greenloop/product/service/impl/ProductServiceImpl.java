@@ -404,7 +404,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapProductToProductResponse(Product product) {
-        DonationItem donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
+        DonationItem donationItem = null;
+        if (product.getDonationItemId() != null) {
+            donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
+        }
         return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
