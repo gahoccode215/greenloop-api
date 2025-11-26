@@ -404,6 +404,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapProductToProductResponse(Product product) {
+        DonationItem donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
         return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
@@ -417,6 +418,8 @@ public class ProductServiceImpl implements ProductService {
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .donationItemId(product.getDonationItemId())
+                .donationItemCode(donationItem != null ? donationItem.getCode() : null)
+                .eventProductMappingResponses(mapEventMappings(product))
                 .conditionGrade(product.getConditionGrade())
                 .imageUrls(mapProductAssetsToResponses(product.getAssets()))
                 .weight(product.getWeight())
@@ -427,6 +430,22 @@ public class ProductServiceImpl implements ProductService {
                 .updatedAt(product.getUpdatedAt())
                 .build();
     }
+
+    private List<EventProductMappingResponse> mapEventMappings(Product product) {
+        LocalDateTime now = LocalDateTime.now();
+
+        return product.getEventMappings().stream()
+                .filter(m -> m.getDisplayTo() == null || m.getDisplayTo().isAfter(now))
+                .map(m -> EventProductMappingResponse.builder()
+                        .id(m.getId())
+                        .eventId(m.getEventId())
+                        .displayFrom(m.getDisplayFrom())
+                        .displayTo(m.getDisplayTo())
+                        .status(m.getStatus())
+                        .build()
+                ).toList();
+    }
+
 
     private List<ProductAssetResponse> mapProductAssetsToResponses(Set<ProductAsset> assets) {
         return assets.stream()

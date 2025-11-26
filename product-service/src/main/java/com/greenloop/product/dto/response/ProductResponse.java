@@ -30,6 +30,8 @@ public class ProductResponse {
     private Long categoryId;
     private String categoryName;
     private Long donationItemId;
+    private String donationItemCode;
+    private List<EventProductMappingResponse> eventProductMappingResponses;
     private List<ProductAssetResponse> imageUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
