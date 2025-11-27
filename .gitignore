@@ -67,3 +67,5 @@ hs_err_pid*
 /.env.order
 /*.reward
 /*.event
+/.env.event
+/.env.reward
