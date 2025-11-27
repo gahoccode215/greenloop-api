@@ -4,6 +4,7 @@ import com.greenloop.user.dto.request.UpdateProfileRequest;
 import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.service.UserService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
