@@ -36,8 +36,11 @@ public interface ProductService {
 
     void assignProductsToEvent(AssignProductEventRequest request);
 
-    void removeProductFromEvent(List<Long> eventProductMappingId);
+    void removeProductFromEvent(
+            Long eventId,
+            List<Long> productIds);
 
     List<ProductResponse> getProductAssignableToEvent(Long eventId);
+
     void updateProductStatus(Long productId, String newStatus);
 }
