@@ -25,30 +25,44 @@ import org.springframework.web.multipart.MultipartFile;
 @Tag(name = "User Management", description = "User API")
 public class UserController {
 
-  private final UserService userService;
+    private final UserService userService;
 
-  @GetMapping("/profile")
-  @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Get current user profile")
-  public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    Long userId = Long.valueOf(auth.getName());
-    UserProfileResponse response = userService.getMyProfile(userId);
-    return ResponseEntity.ok(
-        ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
-  }
+    @GetMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get current user profile")
+    public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = Long.valueOf(auth.getName());
+        UserProfileResponse response = userService.getMyProfile(userId);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
+    }
 
-  @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Update current user profile")
-  public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
-      @RequestPart("request") @Valid UpdateProfileRequest request,
-      @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Update current user profile")
+    public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
+            @RequestPart("request") @Valid UpdateProfileRequest request,
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
 
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    Long userId = Long.valueOf(auth.getName());
-    UserProfileResponse response = userService.updateProfile(userId, request, avatar);
-    return ResponseEntity.ok(
-        ApiResponseDTO.success("Cập nhật thông tin cá nhân thành công", response, HttpStatus.OK));
-  }
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = Long.valueOf(auth.getName());
+        UserProfileResponse response = userService.updateProfile(userId, request, avatar);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật thông tin cá nhân thành công", response, HttpStatus.OK));
+    }
+
+    @Hidden
+    @GetMapping("/{id}/info")
+    public ResponseEntity<UserProfileResponse> getUserInfoById(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "API_SECRET_HEADER", required = false) String apiSecret) {
+
+        if (!"greenloopsecret".equals(apiSecret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        UserProfileResponse response = userService.getMyProfile(id);
+        return ResponseEntity.ok(response);
+    }
 }

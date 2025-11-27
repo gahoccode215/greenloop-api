@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EventProductMappingRepository extends JpaRepository<EventProductMapping, Long> {
@@ -28,4 +29,6 @@ public interface EventProductMappingRepository extends JpaRepository<EventProduc
 
 
     List<EventProductMapping> findByEventId(Long eventId);
+
+    Optional<EventProductMapping> findByEventIdAndProductId(Long eventId, Long productId);
 }

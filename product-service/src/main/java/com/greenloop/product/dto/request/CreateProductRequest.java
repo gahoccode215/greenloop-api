@@ -31,7 +31,7 @@ public class CreateProductRequest {
     private String description;
 
     @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.01", message = "Price must be greater than 0")
+    @DecimalMin(value = "0", message = "Price must be >= 0")
     private BigDecimal price;
 
     @NotNull(message = "Eco point value is required")

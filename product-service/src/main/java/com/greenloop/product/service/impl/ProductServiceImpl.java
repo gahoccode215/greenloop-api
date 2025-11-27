@@ -4,10 +4,7 @@ import com.greenloop.product.dto.request.AssignProductEventRequest;
 import com.greenloop.product.dto.request.CreateProductRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
 import com.greenloop.product.dto.request.UpdateProductRequest;
-import com.greenloop.product.dto.response.EcoPointResponse;
-import com.greenloop.product.dto.response.EventResponse;
-import com.greenloop.product.dto.response.PageResponseDTO;
-import com.greenloop.product.dto.response.ProductResponse;
+import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.*;
 import com.greenloop.product.enums.*;
 import com.greenloop.product.exception.BusinessException;
@@ -31,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -129,6 +127,7 @@ public class ProductServiceImpl implements ProductService {
 
         return mapProductToProductResponse(product);
     }
+
     @Override
     @Transactional
     public void updateProductStatus(Long productId, String newStatus) {
@@ -317,10 +316,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void removeProductFromEvent(List<Long> eventProductMappingId) {
-        for (Long mappingId : eventProductMappingId) {
-            EventProductMapping mapping = eventProductMappingRepository.findById(mappingId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND));
+    @Transactional
+    public void removeProductFromEvent(Long eventId, List<Long> productIds) {
+        for (Long productId : productIds) {
+            EventProductMapping mapping =
+                    eventProductMappingRepository.findByEventIdAndProductId(eventId, productId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND));
             eventProductMappingRepository.delete(mapping);
         }
     }
@@ -405,6 +406,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapProductToProductResponse(Product product) {
+        DonationItem donationItem = null;
+        if (product.getDonationItemId() != null) {
+            donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
+        }
         return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
@@ -418,13 +423,10 @@ public class ProductServiceImpl implements ProductService {
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .donationItemId(product.getDonationItemId())
+                .donationItemCode(donationItem != null ? donationItem.getCode() : null)
+                .eventProductMappingResponses(mapEventMappings(product))
                 .conditionGrade(product.getConditionGrade())
-                .imageUrls(product.getAssets() != null
-                        ? product.getAssets().stream()
-                        .map(ProductAsset::getImageUrl)
-                        .filter(url -> url != null && !url.isEmpty())
-                        .collect(Collectors.toList())
-                        : List.of())
+                .imageUrls(mapProductAssetsToResponses(product.getAssets()))
                 .weight(product.getWeight())
                 .length(product.getLength())
                 .width(product.getWidth())
@@ -432,6 +434,31 @@ public class ProductServiceImpl implements ProductService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+    }
+
+    private List<EventProductMappingResponse> mapEventMappings(Product product) {
+        LocalDateTime now = LocalDateTime.now();
+
+        return product.getEventMappings().stream()
+                .filter(m -> m.getDisplayTo() == null || m.getDisplayTo().isAfter(now))
+                .map(m -> EventProductMappingResponse.builder()
+                        .id(m.getId())
+                        .eventId(m.getEventId())
+                        .displayFrom(m.getDisplayFrom())
+                        .displayTo(m.getDisplayTo())
+                        .status(m.getStatus())
+                        .build()
+                ).toList();
+    }
+
+
+    private List<ProductAssetResponse> mapProductAssetsToResponses(Set<ProductAsset> assets) {
+        return assets.stream()
+                .map(asset -> ProductAssetResponse.builder()
+                        .productAssetId(asset.getId())
+                        .productAssetUrl(asset.getImageUrl())
+                        .build())
+                .collect(Collectors.toList());
     }
 
 }

@@ -107,8 +107,8 @@ public class ProductController {
     @Operation(summary = "Create new product", description = "Create product with images upload")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
     public ResponseEntity<ApiResponseDTO<Long>> createProduct(
-            @Valid @ModelAttribute CreateProductRequest request,
-            @RequestPart(required = false) List<MultipartFile> files) {
+            @RequestPart("product") @Valid CreateProductRequest request,
+            @RequestPart(value = "thumbnail", required = false) List<MultipartFile> files) {
 
         log.info("Request to create product: {}", request);
 
@@ -219,15 +219,16 @@ public class ProductController {
     }
 
 
-    @DeleteMapping("/remove-from-event")
+    @DeleteMapping("/remove-from-event/{eventId}")
     @Operation(summary = "Remove product-event mapping", description = "Deactivate product from event")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
     public ResponseEntity<ApiResponseDTO<String>> removeProductFromEvent(
-            @RequestBody List<Long> mappingIds) {
+            @PathVariable("eventId") Long eventId,
+            @RequestBody List<Long> productIds) {
 
-        log.info("Removing product-event mappings: {}", mappingIds);
+        log.info("Removing product-event mappings: {}", productIds);
 
-        productService.removeProductFromEvent(mappingIds);
+        productService.removeProductFromEvent(eventId, productIds);
 
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Xoá sản phẩm khỏi sự kiện thành công", null, HttpStatus.OK)
