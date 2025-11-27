@@ -316,10 +316,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void removeProductFromEvent(List<Long> eventProductMappingId) {
-        for (Long mappingId : eventProductMappingId) {
-            EventProductMapping mapping = eventProductMappingRepository.findById(mappingId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND));
+    @Transactional
+    public void removeProductFromEvent(Long eventId, List<Long> productIds) {
+        for (Long productId : productIds) {
+            EventProductMapping mapping =
+                    eventProductMappingRepository.findByEventIdAndProductId(eventId, productId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND));
             eventProductMappingRepository.delete(mapping);
         }
     }
