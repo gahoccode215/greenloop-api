@@ -2,12 +2,11 @@ package com.greenloop.order.enums;
 
 public enum OrderStatus {
     PENDING("Chờ xử lý"),
-    PAYMENT_PENDING("Chờ thanh toán"),
     CONFIRMED("Đã xác nhận"),
     PROCESSING("Đang xử lý"),
     READY_TO_SHIP("Chờ lấy hàng"),
 
-    SHIPPING("Đang vận chuyển"),             // GoShip status 903-904, 919
+    SHIPPING("Đã lấy hàng"),             // GoShip status 903
     DELIVERING("Đang giao hàng"),            // GoShip status 904
 
     DELIVERED("Đã giao hàng"),               // GoShip status 905
@@ -30,16 +29,9 @@ public enum OrderStatus {
         return description;
     }
 
-    /**
-     * Kiểm tra xem có thể chuyển sang trạng thái mới không
-     */
     public boolean canTransitionTo(OrderStatus newStatus) {
         return switch (this) {
-            case PENDING -> newStatus == PAYMENT_PENDING
-                    || newStatus == CONFIRMED
-                    || newStatus == CANCELLED;
-
-            case PAYMENT_PENDING -> newStatus == CONFIRMED
+            case PENDING ->  newStatus == CONFIRMED
                     || newStatus == CANCELLED;
 
             case CONFIRMED -> newStatus == PROCESSING
@@ -67,16 +59,13 @@ public enum OrderStatus {
 
             case RETURNING -> newStatus == RETURNED;
 
-            // Terminal states
             case COMPLETED, RETURNED, CANCELLED, LOST -> false;
-
-            default -> false;
         };
     }
 
 
     public boolean isCancellable() {
-        return this == PENDING || this == PAYMENT_PENDING;
+        return this == PENDING || this == CONFIRMED;
     }
 
 

@@ -10,17 +10,17 @@ import lombok.Data;
 @Data
 public class CreateVoucherCampaignRequest {
 
-    @NotBlank(message = "Campaign name is required")
-    private String campaignName;
+  @NotBlank(message = "Campaign name is required")
+  private String campaignName;
 
-    private String description;
+  private String description;
 
-    @NotNull(message = "Start date is required")
-    private LocalDateTime startDate;
+  @NotNull(message = "Start date is required")
+  private LocalDateTime startDate;
 
-    @NotNull(message = "End date is required")
-    @FutureOrPresent(message = "End date must be in the future")
-    private LocalDateTime endDate;
+  @NotNull(message = "End date is required")
+  @FutureOrPresent(message = "End date must be in the future")
+  private LocalDateTime endDate;
 
-    private List<CreateVoucherRequest> vouchers;
+  private List<CreateVoucherRequest> vouchers;
 }

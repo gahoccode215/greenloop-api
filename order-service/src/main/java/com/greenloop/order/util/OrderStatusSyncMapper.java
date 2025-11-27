@@ -37,7 +37,7 @@ public class OrderStatusSyncMapper {
             // 908: Đã hoàn trả → RETURNED
             case 908 -> OrderStatus.RETURNED;
 
-            case 913 -> null;  // Manual complete sau khi đối soát
+            case 913 -> null;
 
             // 914: Hủy → CANCELLED
             case 914 -> OrderStatus.CANCELLED;

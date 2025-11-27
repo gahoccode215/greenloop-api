@@ -15,11 +15,9 @@ public class CorsConfig {
   public CorsWebFilter corsWebFilter() {
     CorsConfiguration corsConfig = new CorsConfiguration();
 
-        // Allow specific origins
-        corsConfig.addAllowedOriginPattern("*");
-        corsConfig.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
-        ));
+    // Allow specific origins
+    corsConfig.addAllowedOriginPattern("*");
+    corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
     corsConfig.setAllowedHeaders(List.of("*"));
     corsConfig.setAllowCredentials(true);

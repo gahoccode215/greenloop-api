@@ -33,15 +33,8 @@ public class PayOSPaymentService {
     public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount, String platform) {
         try {
             long orderCode = System.currentTimeMillis() / 1000;
-
-            log.info("Creating PayOS payment link - OrderId: {}, OrderCode: {}, Platform: {}",
-                    orderId, orderCode, platform);
-
             String returnUrl = getReturnUrl(platform);
             String cancelUrl = getCancelUrl(platform);
-
-            log.info("Using returnUrl: {}, cancelUrl: {}", returnUrl, cancelUrl);
-
             CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
                     .amount(amount.longValue())
@@ -52,7 +45,6 @@ public class PayOSPaymentService {
 
             CreatePaymentLinkResponse data = payOS.paymentRequests().create(paymentData);
 
-            log.info("PayOS payment link created - OrderCode: {}, URL: {}", orderCode, data.getCheckoutUrl());
 
             return PayOSPaymentResponse.builder()
                     .checkoutUrl(data.getCheckoutUrl())
@@ -60,13 +52,12 @@ public class PayOSPaymentService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error creating PayOS payment link for orderId {}: {}", orderId, e.getMessage());
             throw new RuntimeException("Không thể tạo link thanh toán: " + e.getMessage());
         }
     }
 
     private String getReturnUrl(String platform) {
-        if ("mobile".equalsIgnoreCase(platform)) {
+        if ("web".equalsIgnoreCase(platform)) {
             return returnUrlMobile;
         }
         return returnUrlWeb;

@@ -63,7 +63,6 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void createOrder(Order order) {
         orderRepository.save(order);
-        log.info("Created order: {}", order.getOrderId());
     }
 
     @Override
@@ -72,52 +71,39 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.findById(orderId).ifPresent(order -> {
             order.setOrderStatus(newStatus);
             orderRepository.save(order);
-            log.info("Updated order {} status to {}", orderId, newStatus.getDescription());
         });
     }
 
     @Override
     @Transactional
     public CheckoutResponse checkout(Long userId, CheckoutRequest request) {
-        log.info("Checkout for user: {} with payment method: {}", userId, request.getPaymentMethod());
-
         if (request.getSelectedRateId() == null || request.getSelectedRateId().isBlank()) {
             throw new IllegalArgumentException("Vui lòng chọn đơn vị vận chuyển");
         }
-
         Cart cart = cartRepository.findByCustomerId(userId)
                 .orElseThrow(() -> new CartNotFoundException(userId));
-
         if (cart.getItems().isEmpty()) {
             throw new EmptyCartException();
         }
-
         List<OrderItemRequest> orderItems = cart.getItems().stream()
                 .map(this::validateAndMapCartItem)
                 .collect(Collectors.toList());
-
         BigDecimal productTotal = orderItems.stream()
                 .map(OrderItemRequest::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        log.info("Product total: {}đ", productTotal);
-
         ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
                 cart.getItems(),
                 productTotal,
                 String.valueOf(request.getShippingAddress().getCityId()),
                 String.valueOf(request.getShippingAddress().getDistrictId())
         );
-
         if (estimate.getAvailableOptions().isEmpty()) {
             throw new ShippingRateNotFoundException("Không tìm thấy đơn vị vận chuyển phù hợp");
         }
-
         ShippingEstimateResponse.ShippingOption selectedOption = estimate.getAvailableOptions().stream()
                 .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
                 .findFirst()
                 .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
-
         RateResponse selectedRate = RateResponse.builder()
                 .id(selectedOption.getRateId())
                 .carrierName(selectedOption.getCarrierName())
@@ -126,10 +112,8 @@ public class OrderServiceImpl implements OrderService {
                 .totalFee(selectedOption.getFee())
                 .expected(selectedOption.getEstimatedDelivery())
                 .build();
-
         BigDecimal shippingFee = selectedRate.getTotalFee();
         BigDecimal totalPrice = productTotal.add(shippingFee);
-
         LocalDateTime expectedDeliveryTime;
         try {
             String numberStr = selectedRate.getExpected().replaceAll("[^0-9]", "");
@@ -167,8 +151,6 @@ public class OrderServiceImpl implements OrderService {
                 .parcelHeight(String.valueOf(parcelDimensions.getHeight()))
                 .parcelLength(String.valueOf(parcelDimensions.getLength()))
                 .shippingStatus(900);
-
-
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -178,7 +160,6 @@ public class OrderServiceImpl implements OrderService {
                 .selectedCarrier(selectedRate.getCarrierName())
                 .estimatedDelivery(selectedRate.getExpected())
                 .createdAt(LocalDateTime.now());
-
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             responseBuilder
                     .paymentUrl(null)
@@ -189,42 +170,30 @@ public class OrderServiceImpl implements OrderService {
             String platform = request.getPlatform() != null ? request.getPlatform() : "web";
             PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
                     orderId, totalPrice, platform);
-
             commandBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
-
             responseBuilder
                     .paymentUrl(paymentResponse.getCheckoutUrl())
                     .message(String.format("Vui lòng thanh toán %,dđ để hoàn tất đơn hàng.",
                             totalPrice.longValue()));
         }
-
         commandGateway.sendAndWait(commandBuilder.build());
-
         cartService.clearCart(userId);
-
         return responseBuilder.build();
     }
-
-
-
-
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
         return orderRepository.findByPaymentOrderCode(paymentOrderCode)
                 .map(Order::getOrderId)
                 .orElse(null);
     }
-
     @Override
     @Transactional
     public void updatePaymentStatus(String orderId, PaymentStatus status) {
         orderRepository.findById(orderId).ifPresent(order -> {
             order.setPaymentStatus(status);
             orderRepository.save(order);
-            log.info("Updated payment status to {} for order {}", status, orderId);
         });
     }
-
     @Override
     @Transactional
     public void updatePaymentTransactionId(String orderId, String transactionId) {
@@ -233,51 +202,38 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.save(order);
         });
     }
-
     @Override
     @Transactional(readOnly = true)
     public Order getOrderEntityById(String orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
-
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(String orderId) {
-        log.info("Getting order by ID: {}", orderId);
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         return mapToOrderResponse(order);
     }
-
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter) {
-        log.info("Getting orders - UserId: {}, Filter: {}", requestingUserId, filter);
-
-        // Build Specification
         Specification<Order> spec = OrderSpecification.filterOrders(requestingUserId, filter);
-
-        // Build Pageable
         Sort sort = Sort.by(
                 "DESC".equalsIgnoreCase(filter.getSortDirection())
                         ? Sort.Direction.DESC
                         : Sort.Direction.ASC,
                 filter.getSortBy()
         );
-
         Pageable pageable = PageRequest.of(
                 filter.getPage() != null ? filter.getPage() : 0,
                 filter.getSize() != null ? filter.getSize() : 10,
                 sort
         );
 
-        // Query with Specification
         Page<Order> orderPage = orderRepository.findAll(spec, pageable);
 
-        // Map to Response DTO
         Page<OrderResponse> responsePage = orderPage.map(this::mapToOrderResponse);
 
         return PageResponseUtil.toPageResponse(responsePage);

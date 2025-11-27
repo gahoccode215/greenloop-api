@@ -88,7 +88,7 @@ public class UserServiceImpl implements UserService {
         .gender(user.getGender() != null ? user.getGender().name() : null)
         .phoneNumber(user.getPhone())
         .avatarUrl(user.getAvatarUrl())
-            .ecoPoints(user.getEcoPoints())
+        .ecoPoints(user.getEcoPoints())
         .roles(roleNames)
         .isActive(user.isActive())
         .isEmailVerified(user.getIsEmailVerified())

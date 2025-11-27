@@ -15,10 +15,8 @@ public class UpdateOrderStatusCommand {
 
     @TargetAggregateIdentifier
     private String orderId;
-
     private OrderStatus newStatus;
     private String reason;
-
     private String goshipShipmentId;
     private String goshipTrackingCode;
     private String carrier;

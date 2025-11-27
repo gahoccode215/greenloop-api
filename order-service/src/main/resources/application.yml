@@ -22,6 +22,8 @@ spring:
       bindings:
         orderCheckedOut-out-0:
           destination: order-checked-out
+        productSold-out-0:
+          destination: product-sold
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}

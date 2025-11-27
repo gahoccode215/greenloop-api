@@ -13,4 +13,10 @@ public class OrderCodeGenerator {
         String uniquePart = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         return String.format("ORD-%s-%s", datePart, uniquePart);
     }
+
+    public static String generatePOSOrderCode() {
+        String datePart = LocalDateTime.now().format(DATE_FORMATTER);
+        String uniquePart = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return String.format("POS-%s-%s", datePart, uniquePart);
+    }
 }

@@ -1,20 +1,19 @@
 package com.greenloop.reward.dto.response;
 
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Data;
-
-import java.time.LocalDateTime;
 
 @Data
 @Builder
 public class VoucherCampaignResponse {
-    private Long campaignId;
-    private String campaignName;
-    private String campaignDescription;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private Long updateBy;
-    private Boolean isActive;
+  private Long campaignId;
+  private String campaignName;
+  private String campaignDescription;
+  private LocalDateTime startDate;
+  private LocalDateTime endDate;
+  private LocalDateTime createdAt;
+  private LocalDateTime updatedAt;
+  private Long updateBy;
+  private Boolean isActive;
 }

@@ -28,38 +28,22 @@ public class PaymentWebhookController {
     private final PayOS payOS;
     private final OrderService orderService;
 
-    /**
-     * Endpoint nhận webhook từ PayOS khi thanh toán xong
-     */
     @PostMapping("/payos-webhook")
     public ResponseEntity<ApiResponseDTO<WebhookData>> handlePayOSWebhook(
             @RequestBody Webhook webhookBody,
             HttpServletRequest request) {
         try {
-            log.info("Received PayOS webhook: {}", webhookBody);
 
-            // Verify webhook data - QUAN TRỌNG để đảm bảo request từ PayOS
             WebhookData webhookData = payOS.webhooks().verify(webhookBody);
-
-            log.info("Webhook verified - OrderCode: {}, Code: {}, Amount: {}",
-                    webhookData.getOrderCode(),
-                    webhookData.getCode(),
-                    webhookData.getAmount());
-
-            // Code "00" = thanh toán thành công
             if ("00".equals(webhookData.getCode())) {
-                // Tìm order theo orderCode (đã lưu khi tạo payment)
                 String orderId = orderService.findOrderIdByPaymentOrderCode(webhookData.getOrderCode());
 
                 if (orderId != null) {
-                    // Cập nhật trạng thái thanh toán
                     orderService.updatePaymentStatus(orderId, PaymentStatus.PAID);
                     orderService.updateOrderStatus(orderId, OrderStatus.PENDING);
 
-                    // Lưu transaction ID
                     orderService.updatePaymentTransactionId(orderId, webhookData.getReference());
 
-                    log.info("Payment confirmed successfully for order {}", orderId);
 
                     return ResponseEntity.ok(
                             ApiResponseDTO.success(
@@ -79,11 +63,6 @@ public class PaymentWebhookController {
                     );
                 }
             } else {
-                log.warn("Payment failed - OrderCode: {}, Code: {}, Desc: {}",
-                        webhookData.getOrderCode(),
-                        webhookData.getCode(),
-                        webhookData.getDesc());
-
                 return ResponseEntity.ok(
                         ApiResponseDTO.success(
                                 "Webhook nhận được nhưng thanh toán không thành công",
@@ -105,20 +84,12 @@ public class PaymentWebhookController {
         }
     }
 
-    /**
-     * Endpoint để xác thực (confirm) webhook URL với PayOS
-     */
     @PostMapping("/confirm-webhook")
     public ResponseEntity<ApiResponseDTO<ConfirmWebhookResponse>> confirmWebhook(
             @RequestParam String webhookUrl,
             HttpServletRequest request) {
         try {
-            log.info("Confirming webhook URL: {}", webhookUrl);
-
             ConfirmWebhookResponse result = payOS.webhooks().confirm(webhookUrl);
-
-            log.info("Webhook confirmed successfully: {}", result);
-
             return ResponseEntity.ok(
                     ApiResponseDTO.success(
                             "Webhook xác thực thành công",
@@ -128,7 +99,6 @@ public class PaymentWebhookController {
             );
 
         } catch (Exception e) {
-            log.error("Error confirming webhook: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     ApiResponseDTO.error(
                             "Lỗi xác thực webhook: " + e.getMessage(),
@@ -138,6 +108,5 @@ public class PaymentWebhookController {
             );
         }
     }
-
 
 }

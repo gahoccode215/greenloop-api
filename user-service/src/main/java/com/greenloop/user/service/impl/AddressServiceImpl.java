@@ -39,7 +39,6 @@ public class AddressServiceImpl implements AddressService {
     UserAddress address = buildAddressEntity(request, user, shouldSetDefault);
     UserAddress savedAddress = addressRepository.save(address);
 
-
     return mapToResponse(savedAddress);
   }
 
@@ -75,7 +74,6 @@ public class AddressServiceImpl implements AddressService {
   public List<AddressResponse> getAllAddresses(Long userId) {
 
     List<UserAddress> addresses = addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
-
 
     return addresses.stream().map(this::mapToResponse).collect(Collectors.toList());
   }

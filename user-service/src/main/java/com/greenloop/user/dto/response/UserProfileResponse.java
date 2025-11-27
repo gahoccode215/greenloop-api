@@ -37,7 +37,7 @@ public class UserProfileResponse implements Serializable {
 
   private Boolean isEmailVerified;
 
-    private Integer ecoPoints;
+  private Integer ecoPoints;
 
   private String provider;
 

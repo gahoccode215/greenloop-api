@@ -1,6 +1,7 @@
 package com.greenloop.order.entity;
 
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.OrderType;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import jakarta.persistence.*;
@@ -87,6 +88,19 @@ public class Order {
     @Column(name = "parcel_length")
     private String parcelLength;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_type")
+    private OrderType orderType = OrderType.ONLINE;
+
+    @Column(name = "event_location_id")
+    private Long eventLocationId;
+
+    @Column(name = "pos_staff_id")
+    private Long posStaffId;
+
+    @Column(name = "is_guest_purchase")
+    private Boolean isGuestPurchase = false;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

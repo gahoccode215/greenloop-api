@@ -3,6 +3,7 @@ package com.greenloop.order.command.aggregate;
 import com.greenloop.order.command.*;
 import com.greenloop.order.command.event.*;
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.OrderType;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.InvalidOrderPriceException;
@@ -33,6 +34,7 @@ public class OrderAggregate {
     private BigDecimal shippingFee;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
+    private OrderType orderType;
     private Long paymentOrderCode;
     private String goshipShipmentId;
     private String goshipTrackingCode;
@@ -44,6 +46,9 @@ public class OrderAggregate {
     private String parcelHeight;
     private String parcelLength;
     private String reason;
+    private Boolean isGuestPurchase;
+    private Long eventLocationId;
+    private Long posStaffId;
 
     @CommandHandler
     public OrderAggregate(CreateOrderCommand command) {
@@ -101,9 +106,17 @@ public class OrderAggregate {
                     command.getNewStatus().getDescription()
             );
         }
-        if (command.getNewStatus() == OrderStatus.CANCELLED
-                && !this.orderStatus.isCancellable()) {
-            throw new OrderNotCancellableException(this.orderStatus.getDescription());
+        if (command.getNewStatus() == OrderStatus.CANCELLED) {
+            if (!this.orderStatus.isCancellable()) {
+                throw new OrderNotCancellableException(this.orderStatus.getDescription());
+            }
+            if (this.paymentStatus == PaymentStatus.PAID
+                    && this.paymentMethod == PaymentMethod.PAYOS) {
+                throw new OrderNotCancellableException(
+                        "Đơn hàng đã thanh toán online không thể hủy. "
+                                + "Vui lòng liên hệ CSKH"
+                );
+            }
         }
         AggregateLifecycle.apply(OrderStatusUpdatedEvent.builder()
                 .orderId(command.getOrderId())
@@ -125,6 +138,49 @@ public class OrderAggregate {
             this.goshipTrackingCode = event.getGoshipTrackingUrl();
             this.carrier = event.getCarrier();
         }
+    }
+
+    @CommandHandler
+    public OrderAggregate(CreatePOSOrderCommand command) {
+        if (command.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidOrderPriceException();
+        }
+
+        log.info("Creating POS Order: {}, eventId={}",
+                command.getOrderCode(), command.getEventLocationId());
+
+        AggregateLifecycle.apply(POSOrderCreatedEvent.builder()
+                .orderId(command.getOrderId())
+                .orderCode(command.getOrderCode())
+                .orderType(command.getOrderType())
+                .customerId(command.getCustomerId())
+                .isGuestPurchase(command.getIsGuestPurchase())
+                .eventLocationId(command.getEventLocationId())
+                .posStaffId(command.getPosStaffId())
+                .totalPrice(command.getTotalPrice())
+                .orderStatus(command.getOrderStatus())
+                .paymentStatus(command.getPaymentStatus())
+                .paymentMethod(command.getPaymentMethod())
+                .paymentOrderCode(command.getPaymentOrderCode())
+                .orderItems(command.getOrderItems())
+                .build());
+    }
+
+    @EventSourcingHandler
+    public void on(POSOrderCreatedEvent event) {
+        this.orderId = event.getOrderId();
+        this.orderCode = event.getOrderCode();
+        this.orderType = event.getOrderType();
+        this.customerId = event.getCustomerId();
+        this.isGuestPurchase = event.getIsGuestPurchase();
+        this.eventLocationId = event.getEventLocationId();
+        this.posStaffId = event.getPosStaffId();
+        this.totalPrice = event.getTotalPrice();
+        this.orderStatus = event.getOrderStatus();
+        this.paymentStatus = event.getPaymentStatus();
+        this.paymentMethod = event.getPaymentMethod();
+        this.paymentOrderCode = event.getPaymentOrderCode();
+
     }
 
 }
