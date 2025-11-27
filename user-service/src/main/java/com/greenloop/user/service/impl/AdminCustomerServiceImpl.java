@@ -35,13 +35,8 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
   private final UserRepository userRepository;
 
   @Override
-  //  @Cacheable(value = "customers_list", key = "#pageable.pageNumber + '-' + #search + '-' +
-  // #status")
   public PageResponseDTO<CustomerResponse> getCustomers(
       String search, String status, Pageable pageable) {
-
-    log.info("Getting customers - search: {}, status: {}", search, status);
-
     Specification<User> spec =
         (root, query, cb) -> {
           List<Predicate> predicates = new ArrayList<>();
@@ -71,21 +66,11 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
 
     Page<CustomerResponse> customerPage = page.map(this::mapUserToCustomerResponse);
 
-    PageResponseDTO<CustomerResponse> response = PageResponseUtil.toPageResponse(customerPage);
-
-    log.info(
-        "Retrieved {} customers out of {} total",
-        response.getContent().size(),
-        response.getTotalElements());
-
-    return response;
+    return PageResponseUtil.toPageResponse(customerPage);
   }
 
   @Override
-  //  @Cacheable(value = "customer_detail", key = "#id")
   public CustomerResponse getCustomerDetail(Long id) {
-    log.info("Getting customer detail for id: {}", id);
-
     User user =
         userRepository
             .findById(id)
@@ -102,12 +87,7 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
 
   @Override
   @Transactional
-  //  @CacheEvict(
-  //      value = {"customer_detail", "customers_list"},
-  //      allEntries = true)
   public CustomerResponse changeCustomerStatus(Long id, Boolean isActive) {
-    log.info("Changing customer status for id: {} to: {}", id, isActive);
-
     User customer =
         userRepository
             .findById(id)
@@ -120,23 +100,14 @@ public class AdminCustomerServiceImpl implements AdminCustomerService {
     }
 
     if (customer.isActive() == isActive) {
-      log.info("Customer status is already {}, no change needed", isActive);
       return mapUserToCustomerResponse(customer);
     }
-
     customer.setActive(isActive);
-
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     String currentUserId = auth.getPrincipal().toString();
     customer.setUpdatedBy(Long.parseLong(currentUserId));
 
     User updatedCustomer = userRepository.save(customer);
-
-    log.info(
-        "Customer status changed successfully for id: {}. New status: {}",
-        id,
-        isActive ? "ACTIVE" : "INACTIVE");
-
     return mapUserToCustomerResponse(updatedCustomer);
   }
 

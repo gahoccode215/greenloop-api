@@ -45,8 +45,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final CloudinaryService cloudinaryService;
 
   @Override
-  //  @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' +
-  // #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -91,7 +89,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   }
 
   @Override
-  //  @Cacheable(value = "employee_detail", key = "#id")
   public EmployeeResponse getEmployeeDetail(Long id) {
     User user =
         userRepository
@@ -121,10 +118,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  //  @CacheEvict(value = "employees_list", allEntries = true)
   public CreateEmployeeResponse createEmployee(
       CreateEmployeeRequest request, MultipartFile avatar) {
-    log.info("Creating employee with email: {}", request.getEmail());
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     boolean isAdmin =
@@ -170,8 +165,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User savedUser = userRepository.save(user);
 
-    log.info("Employee created successfully with id: {}", savedUser.getId());
-
     return CreateEmployeeResponse.builder()
         .id(savedUser.getId())
         .email(savedUser.getEmail())
@@ -186,12 +179,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-  //  @CacheEvict(
-  //      value = {"employee_detail", "employees_list"},
-  //      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
-    log.info("Updating employee with id: {}", id);
 
     User employee =
         userRepository
@@ -271,18 +260,13 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-    log.info("Employee updated successfully with id: {}", updatedEmployee.getId());
 
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
   @Override
   @Transactional
-  //  @CacheEvict(
-  //      value = {"employee_detail", "employees_list"},
-  //      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
-    log.info("Changing employee status for id: {} to: {}", id, isActive);
 
     // Tìm employee
     User employee =
@@ -326,19 +310,12 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-    log.info(
-        "Employee status changed successfully for id: {}. New status: {}",
-        id,
-        isActive ? "ACTIVE" : "INACTIVE");
-
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
   @Override
   @Transactional
-  //  @CacheEvict(value = "employee_detail", allEntries = true)
   public ResetPasswordResponse resetEmployeePassword(Long id) {
-    log.info("Resetting password for employee id: {}", id);
 
     User employee =
         userRepository
@@ -371,8 +348,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-    log.info("Password reset successfully for employee id: {}", id);
-
     return ResetPasswordResponse.builder()
         .id(updatedEmployee.getId())
         .email(updatedEmployee.getEmail())
@@ -382,9 +357,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
         .build();
   }
 
-  /**
-   * Xử lý upload avatar cho nhân viên. Nếu đã có avatar cũ, xóa ảnh cũ trước khi upload ảnh mới.
-   */
   private void handleAvatarUpload(User user, MultipartFile file) {
     try {
       // Xóa ảnh cũ nếu có
@@ -401,9 +373,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
       user.setMediaKey(uploadResult.get("public_id"));
 
-      log.info("Avatar uploaded successfully for user: {}", user.getEmail());
     } catch (Exception e) {
-      log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
       throw new RuntimeException("Failed to upload avatar", e);
     }
   }
