@@ -6,12 +6,9 @@ public final class RoleConstants {
   public static final String ADMIN = "ADMIN";
   public static final String MANAGER = "MANAGER";
   public static final String STAFF = "STAFF";
-  public static final String STORE_MANAGER = "STORE_MANAGER";
 
   public static final String CUSTOMER_DESC = "Standard customer role";
   public static final String ADMIN_DESC = "Administrator role with full access";
   public static final String MANAGER_DESC = "Manager role with access to staff and customer";
   public static final String STAFF_DESC = "Staff role with access to customer";
-  public static final String STORE_MANAGER_DESC =
-      "Store Manager role with access to staff and customer";
 }

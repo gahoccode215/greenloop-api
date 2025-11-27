@@ -31,7 +31,6 @@ public class DataInit implements CommandLineRunner {
     createRoleIfNotExists(RoleConstants.ADMIN, RoleConstants.ADMIN_DESC);
     createRoleIfNotExists(RoleConstants.MANAGER, RoleConstants.MANAGER_DESC);
     createRoleIfNotExists(RoleConstants.STAFF, RoleConstants.STAFF_DESC);
-    createRoleIfNotExists(RoleConstants.STORE_MANAGER, RoleConstants.STORE_MANAGER_DESC);
 
     log.info("Default roles initialized successfully");
   }
@@ -40,7 +39,6 @@ public class DataInit implements CommandLineRunner {
     if (!roleRepository.existsByName(roleName)) {
       Role role = Role.builder().name(roleName).description(description).build();
       roleRepository.save(role);
-      log.info("Created role: {}", roleName);
     }
   }
 
@@ -49,7 +47,6 @@ public class DataInit implements CommandLineRunner {
     Role adminRole = roleRepository.findByName(RoleConstants.ADMIN).orElse(null);
     Role managerRole = roleRepository.findByName(RoleConstants.MANAGER).orElse(null);
     Role staffRole = roleRepository.findByName(RoleConstants.STAFF).orElse(null);
-    Role storeManagerRole = roleRepository.findByName(RoleConstants.STORE_MANAGER).orElse(null);
 
     // Customers
     createUserIfNotExists("customer@greenloop.com", "Customer123", userRole, "Customer");
@@ -71,18 +68,6 @@ public class DataInit implements CommandLineRunner {
     createUserIfNotExists("manager2@greenloop.com", "Manager123", managerRole, "Manager2");
     createUserIfNotExists("manager3@greenloop.com", "Manager123", managerRole, "Manager3");
     createUserIfNotExists("manager4@greenloop.com", "Manager123", managerRole, "Manager4");
-
-    // Store Managers
-    createUserIfNotExists(
-        "store_manager1@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager1");
-    createUserIfNotExists(
-        "store_manager2@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager2");
-    createUserIfNotExists(
-        "store_manager3@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager3");
-    createUserIfNotExists(
-        "store_manager4@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager4");
-    createUserIfNotExists(
-        "store_manager5@greenloop.com", "StoreManager123", storeManagerRole, "Store Manager5");
 
     createUserIfNotExists("staff@greenloop.com", "Staff123", staffRole, "Staff");
     createUserIfNotExists("staff1@greenloop.com", "Staff123", staffRole, "Staff1");

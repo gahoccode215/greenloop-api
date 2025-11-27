@@ -15,27 +15,27 @@ import lombok.experimental.SuperBuilder;
 @Setter
 public class Blog extends BaseEntity {
 
-    @Column(name = "title", nullable = false, length = 200)
-    private String title;
+  @Column(name = "title", nullable = false, length = 200)
+  private String title;
 
-    @Column(name = "content", columnDefinition = "TEXT", nullable = false)
-    private String content;
+  @Column(name = "content", columnDefinition = "TEXT", nullable = false)
+  private String content;
 
-    @Column(name = "thumbnail_url")
-    private String thumbnailUrl;
+  @Column(name = "thumbnail_url")
+  private String thumbnailUrl;
 
-    @Column(name = "media_key")
-    private String mediaKey;
+  @Column(name = "media_key")
+  private String mediaKey;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    @Builder.Default
-    private BlogStatus status = BlogStatus.DRAFT;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", nullable = false, length = 20)
+  @Builder.Default
+  private BlogStatus status = BlogStatus.DRAFT;
 
-    @Column(name = "published_at")
-    private LocalDateTime publishedAt;
+  @Column(name = "published_at")
+  private LocalDateTime publishedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
-    private User author;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "author_id", nullable = false)
+  private User author;
 }

@@ -12,17 +12,19 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class EcoPointCheckInProducerImpl implements EcoPointCheckInProducer {
-    private final RabbitTemplate rabbitTemplate;
+  private final RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.exchangeName}")
-    private String exchange;
+  @Value("${rabbitmq.exchangeName}")
+  private String exchange;
 
-    @Value("${rabbitmq.eco-donation-routing-key}")
-    private String ecoDonationRoutingKey;
+  @Value("${rabbitmq.eco-donation-routing-key}")
+  private String ecoDonationRoutingKey;
 
-    @Override
-    public void sendEcoPointDonationMessage(EcoPointTransactionDTO ecoPointTransactionDTO) {
-        log.info("Sending eco point donation message to queue for userId: " + ecoPointTransactionDTO.getUserId());
-        rabbitTemplate.convertAndSend(exchange, ecoDonationRoutingKey, ecoPointTransactionDTO);
-    }
+  @Override
+  public void sendEcoPointDonationMessage(EcoPointTransactionDTO ecoPointTransactionDTO) {
+    log.info(
+        "Sending eco point donation message to queue for userId: "
+            + ecoPointTransactionDTO.getUserId());
+    rabbitTemplate.convertAndSend(exchange, ecoDonationRoutingKey, ecoPointTransactionDTO);
+  }
 }

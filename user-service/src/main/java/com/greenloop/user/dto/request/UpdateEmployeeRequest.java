@@ -21,9 +21,7 @@ public class UpdateEmployeeRequest {
 
   private Gender gender;
 
-  @Pattern(
-      regexp = "^(STAFF|MANAGER)$",
-      message = "Role chỉ được là STAFF, MANAGER")
+  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF, MANAGER")
   private String role;
 
   private Boolean isActive;

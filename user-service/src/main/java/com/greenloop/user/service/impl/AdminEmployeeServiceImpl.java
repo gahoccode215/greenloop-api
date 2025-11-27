@@ -260,7 +260,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 

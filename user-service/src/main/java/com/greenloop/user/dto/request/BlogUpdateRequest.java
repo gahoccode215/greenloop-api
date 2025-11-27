@@ -11,10 +11,10 @@ import lombok.*;
 @Builder
 public class BlogUpdateRequest {
 
-    @NotBlank(message = "Tiêu đề không được để trống")
-    @Size(max = 200, message = "Tiêu đề không được vượt quá 200 ký tự")
-    private String title;
+  @NotBlank(message = "Tiêu đề không được để trống")
+  @Size(max = 200, message = "Tiêu đề không được vượt quá 200 ký tự")
+  private String title;
 
-    @NotBlank(message = "Nội dung không được để trống")
-    private String content;
+  @NotBlank(message = "Nội dung không được để trống")
+  private String content;
 }
