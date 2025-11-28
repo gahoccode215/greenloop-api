@@ -709,6 +709,7 @@ public class EventServiceImpl implements EventService {
      * @throws BusinessException if the event is not found or store manager already assigned
      */
     @Transactional
+    @Override
     public void updateStaffAssignments(Long eventId, AssignStaffListRequest request) {
         Long currentUserId =
                 Long.valueOf(
@@ -723,7 +724,6 @@ public class EventServiceImpl implements EventService {
                                         ErrorCode.EVENT_NOT_FOUND
                                 )
                         );
-
 
         List<EventStaffAssignment> currentAssignments =
                 assignmentRepository.findByEventIdAndIsActiveTrue(eventId);
@@ -751,13 +751,36 @@ public class EventServiceImpl implements EventService {
         List<EventStaffAssignment> toAdd =
                 newAssignments.entrySet().stream()
                         .filter(e -> !currentStaffIds.contains(e.getKey()))
-                        .map(
-                                e ->
-                                        EventStaffAssignment.builder()
-                                                .event(event)
-                                                .staffId(e.getKey())
-                                                .isStoreManager(e.getValue())
-                                                .build())
+                        .map(e -> {
+                            // validate user
+                            UserProfileResponse user = userServiceFeign.getUserInfoById(e.getKey());
+                            if (user == null || Boolean.FALSE.equals(user.getIsActive())) {
+                                throw new BusinessException(
+                                        "Không tìm thấy người dùng hoặc người dùng chưa kích hoạt",
+                                        ErrorCode.USER_NOT_FOUND
+                                );
+                            }
+
+                            // validate trùng lịch
+                            List<Event> assignedEvents = assignmentRepository.findEventsByStaffId(e.getKey());
+                            for (Event assignedEvent : assignedEvents) {
+                                boolean overlap =
+                                        !(event.getEndTime().isBefore(assignedEvent.getStartTime())
+                                                || event.getStartTime().isAfter(assignedEvent.getEndTime()));
+                                if (overlap && !assignedEvent.getId().equals(eventId)) {
+                                    throw new BusinessException(
+                                            "Nhân viên có sự kiện khác trùng thời gian với sự kiện này",
+                                            ErrorCode.STAFF_EVENT_TIME_CONFLICT
+                                    );
+                                }
+                            }
+
+                            return EventStaffAssignment.builder()
+                                    .event(event)
+                                    .staffId(e.getKey())
+                                    .isStoreManager(e.getValue())
+                                    .build();
+                        })
                         .toList();
         assignmentRepository.saveAll(toAdd);
 
@@ -766,11 +789,10 @@ public class EventServiceImpl implements EventService {
                 currentAssignments.stream()
                         .filter(a -> newAssignments.containsKey(a.getStaffId()))
                         .filter(a -> a.isStoreManager() != newAssignments.get(a.getStaffId()))
-                        .peek(
-                                a -> {
-                                    a.setStoreManager(newAssignments.get(a.getStaffId()));
-                                    a.updatedBy(currentUserId);
-                                })
+                        .peek(a -> {
+                            a.setStoreManager(newAssignments.get(a.getStaffId()));
+                            a.updatedBy(currentUserId);
+                        })
                         .toList();
 
         assignmentRepository.saveAll(toUpdate);
@@ -785,6 +807,7 @@ public class EventServiceImpl implements EventService {
             throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
         }
     }
+
 
     /**
      * Get the list of staff assigned to an event.

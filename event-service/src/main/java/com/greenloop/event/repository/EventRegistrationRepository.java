@@ -51,4 +51,15 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
             @Param("eventStatus") EventStatus eventStatus,
             @Param("isActive") boolean isActive
     );
+
+    Long countByStatus(RegistrationStatus status);
+
+    @Query("SELECT FUNCTION('DATE', r.checkinTime) as date, COUNT(r) " +
+            "FROM EventRegistration r WHERE r.checkinTime IS NOT NULL " +
+            "GROUP BY FUNCTION('DATE', r.checkinTime)")
+    List<Object[]> countCheckinByDate();
+
+    @Query("SELECT r.userId, COUNT(r) " +
+            "FROM EventRegistration r GROUP BY r.userId ORDER BY COUNT(r) DESC")
+    List<Object[]> findTopUsers();
 }
