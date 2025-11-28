@@ -16,11 +16,12 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderCheckedOutEvent implements Serializable {
 
-    private Long orderId;
+    private String orderId;
     private Long customerId;
     private BigDecimal totalAmount;
     private LocalDateTime checkedOutAt;
     private List<ProductStatusChange> productStatusChanges;
+    private Integer totalEcoPoints;
 
     @Data
     @Builder
@@ -29,5 +30,6 @@ public class OrderCheckedOutEvent implements Serializable {
     public static class ProductStatusChange implements Serializable {
         private Long productId;
         private String newStatus;
+        private Integer ecoPointValue;
     }
 }

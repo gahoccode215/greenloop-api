@@ -36,7 +36,6 @@ public class CartServiceImpl implements CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
     private final ShippingCalculationService shippingCalculationService;
-    private final StreamBridge streamBridge;
 
     @Override
     public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
@@ -143,43 +142,10 @@ public class CartServiceImpl implements CartService {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
 
-        if (!cart.getItems().isEmpty()) {
-            int totalEcoPoints = 0;
-            List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
-
-            for (CartItem item : cart.getItems()) {
-                ApiResponseDTO<ProductDTO> response = productClient.getProductById(item.getProductId());
-
-                if (response.isSuccess() && response.getData() != null) {
-                    ProductDTO product = response.getData();
-                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
-                    totalEcoPoints += ecoPoint;
-
-                    productStatusChanges.add(
-                            OrderCheckedOutEvent.ProductStatusChange.builder()
-                                    .productId(item.getProductId())
-                                    .newStatus(ProductStatusConstant.SOLD)
-                                    .ecoPointValue(ecoPoint)
-                                    .build()
-                    );
-                }
-            }
-
-            OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
-                    .orderId(null)
-                    .customerId(customerId)
-                    .totalAmount(cart.getTotalAmount())
-                    .checkedOutAt(LocalDateTime.now())
-                    .productStatusChanges(productStatusChanges)
-                    .totalEcoPoints(totalEcoPoints)
-                    .build();
-
-            streamBridge.send("orderCheckedOut-out-0", event);
-        }
-
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);
+
     }
 
     private Cart createNewCart(Long customerId) {

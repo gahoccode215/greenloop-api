@@ -4,6 +4,7 @@ import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
+import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.response.OrderItemResponse;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.response.ShippingAddressResponse;
@@ -32,6 +33,7 @@ import com.greenloop.order.util.ShippingStatusMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -58,6 +61,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartService cartService;
     private final PayOSPaymentService payOSPaymentService;
     private final ShippingCalculationService shippingCalculationService;
+    private final StreamBridge streamBridge;
 
     @Override
     @Transactional
@@ -177,6 +181,9 @@ public class OrderServiceImpl implements OrderService {
                             totalPrice.longValue()));
         }
         commandGateway.sendAndWait(commandBuilder.build());
+
+        publishOrderCheckedOutEvent(orderId, userId, cart, totalPrice);
+
         cartService.clearCart(userId);
         return responseBuilder.build();
     }
@@ -309,6 +316,45 @@ public class OrderServiceImpl implements OrderService {
         return response;
     }
 
+    private void publishOrderCheckedOutEvent(String orderId, Long customerId, Cart cart, BigDecimal totalAmount) {
+        log.info("Publishing OrderCheckedOutEvent for order {}", orderId);
+        int totalEcoPoints = 0;
+        List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
+
+        for (CartItem item : cart.getItems()) {
+            try {
+                ApiResponseDTO<ProductDTO> response = productClient.getProductById(item.getProductId());
+
+                if (response.isSuccess() && response.getData() != null) {
+                    ProductDTO product = response.getData();
+                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
+                    totalEcoPoints += ecoPoint;
+
+                    productStatusChanges.add(
+                            OrderCheckedOutEvent.ProductStatusChange.builder()
+                                    .productId(item.getProductId())
+                                    .newStatus(ProductStatusConstant.SOLD)
+                                    .ecoPointValue(ecoPoint)
+                                    .build()
+                    );
+                }
+            } catch (Exception e) {
+                log.error("Failed to fetch product {}: {}", item.getProductId(), e.getMessage());
+            }
+        }
+
+        OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
+                .orderId(orderId)
+                .customerId(customerId)
+                .totalAmount(totalAmount)
+                .checkedOutAt(LocalDateTime.now())
+                .productStatusChanges(productStatusChanges)
+                .totalEcoPoints(totalEcoPoints)
+                .build();
+
+            streamBridge.send("orderCheckedOut-out-0", event);
+            log.info("Published OrderCheckedOutEvent for order {}", orderId);
+    }
 
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {
         ApiResponseDTO<ProductDTO> response = productClient.getProductById(cartItem.getProductId());
