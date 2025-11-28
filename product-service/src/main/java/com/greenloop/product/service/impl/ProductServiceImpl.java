@@ -153,10 +153,10 @@ public class ProductServiceImpl implements ProductService {
         String code = randomCodeDonationItemCode(request.getCategoryId().toString());
 
         Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy Category Id: " + request.getCategoryId(), ErrorCode.CATEGORY_NOT_FOUND));
 
         DonationItem donation = donationItemRepository.findByCode(request.getDonationItemCode())
-                .orElseThrow(() -> new BusinessException(ErrorCode.DONATION_ITEM_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy Donation Code: " + request.getDonationItemCode(), ErrorCode.DONATION_ITEM_NOT_FOUND));
 
 
         Product product = Product.builder()
@@ -195,7 +195,14 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public Long updateProduct(Long id, UpdateProductRequest request) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+        Product product = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "Không tìm thấy sản phẩm với ID: " + id,
+                                ErrorCode.PRODUCT_NOT_FOUND
+                        )
+                );
+
 
         if (request.getEcoPointValue() != null && !product.getEcoPointValue().equals(request.getEcoPointValue())) {
             validateEcoPointRuleUpdate(request);
@@ -229,7 +236,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void toggleStatusProduct(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "Không tìm thấy sản phẩm với ID: " + id,
+                                ErrorCode.PRODUCT_NOT_FOUND
+                        )
+                );
+
         product.setIsActive(!product.getIsActive());
         Long currentUserId = getCurrentUserId();
         product.setUpdatedBy(currentUserId);
@@ -239,7 +252,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Long updateProductImages(Long productAssetId, MultipartFile files) {
         ProductAsset productAsset = productAssetRepository.findById(productAssetId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_ASSET_NOT_FOUND));
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "Không tìm thấy Product Asset với ID: " + productAssetId,
+                                ErrorCode.PRODUCT_ASSET_NOT_FOUND
+                        )
+                );
+
         ProductAsset newAsset = handleImageUpload(files);
         productAsset.setMediaKey(newAsset.getMediaKey());
         productAsset.setImageUrl(newAsset.getImageUrl());
@@ -258,7 +277,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void addProductImages(Long productId, List<MultipartFile> files) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "Không tìm thấy sản phẩm với ID: " + productId,
+                                ErrorCode.PRODUCT_NOT_FOUND
+                        )
+                );
+
         if (files != null) {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
@@ -276,13 +301,24 @@ public class ProductServiceImpl implements ProductService {
 
         EventResponse eventInfo = eventServiceFeign.getInfoEventId(request.getEventId());
         if (eventInfo == null) {
-            throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+            throw new BusinessException("Không tìm thấy sự kiện với ID: " + request.getEventId(), ErrorCode.EVENT_NOT_FOUND);
+
         }
 
         LocalDateTime displayFrom = request.getDisplayFrom();
         LocalDateTime displayTo = request.getDisplayTo();
 
         for (Long productId : request.getProductIds()) {
+
+            boolean alreadyExists =
+                    eventProductMappingRepository.existsByEventIdAndProductId(
+                            request.getEventId(), productId
+                    );
+
+            if (alreadyExists) {
+                throw new BusinessException("Sản phẩm ID " + productId +
+                        " đã được gắn tại sự kiện: " + eventInfo.getName(), ErrorCode.EVENT_PRODUCT_ALREADY_EXISTS);
+            }
 
             List<EventProductMapping> overlaps =
                     eventProductMappingRepository.findOverlappingAssignments(
@@ -294,6 +330,7 @@ public class ProductServiceImpl implements ProductService {
 
             if (!overlaps.isEmpty()) {
                 throw new BusinessException(
+                        "Sản phẩm bị trùng thời gian với sự kiện khác",
                         ErrorCode.EVENT_PRODUCT_TIME_CONFLICT
                 );
             }
@@ -303,7 +340,11 @@ public class ProductServiceImpl implements ProductService {
                     .eventId(request.getEventId())
                     .product(
                             productRepository.findById(productId)
-                                    .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND))
+                                    .orElseThrow(() ->
+                                            new BusinessException(
+                                                    "Không tìm thấy sản phẩm với ID: " + productId,
+                                                    ErrorCode.PRODUCT_NOT_FOUND
+                                            ))
                     )
                     .displayFrom(displayFrom)
                     .displayTo(displayTo)
@@ -321,7 +362,13 @@ public class ProductServiceImpl implements ProductService {
         for (Long productId : productIds) {
             EventProductMapping mapping =
                     eventProductMappingRepository.findByEventIdAndProductId(eventId, productId)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND));
+                            .orElseThrow(() ->
+                                    new BusinessException(
+                                            "Không tìm thấy mapping sản phẩm trong sự kiện. Event ID: " + eventId + ", Product ID: " + productId,
+                                            ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND
+                                    )
+                            );
+
             eventProductMappingRepository.delete(mapping);
         }
     }
@@ -378,8 +425,12 @@ public class ProductServiceImpl implements ProductService {
 
         if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
             log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
-            throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            throw new BusinessException(
+                    "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
+                    ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+            );
         }
+
     }
 
 
@@ -396,7 +447,10 @@ public class ProductServiceImpl implements ProductService {
 
         if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
             log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
-            throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            throw new BusinessException(
+                    "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
+                    ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+            );
         }
     }
 

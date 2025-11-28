@@ -31,4 +31,7 @@ public interface EventProductMappingRepository extends JpaRepository<EventProduc
     List<EventProductMapping> findByEventId(Long eventId);
 
     Optional<EventProductMapping> findByEventIdAndProductId(Long eventId, Long productId);
+
+    boolean existsByEventIdAndProductId(Long eventId, Long productId);
+
 }
