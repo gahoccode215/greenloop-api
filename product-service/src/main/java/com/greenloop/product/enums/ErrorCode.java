@@ -22,7 +22,8 @@ public enum ErrorCode {
     PRODUCT_ASSET_NOT_FOUND("PROD_012", "Product asset not found", HttpStatus.NOT_FOUND),
     EVENT_NOT_FOUND("PROD_013", "Event not found", HttpStatus.NOT_FOUND),
     EVENT_PRODUCT_TIME_CONFLICT("PROD_014", "Event product display time conflict", HttpStatus.CONFLICT),
-    EVENT_PRODUCT_MAPPING_NOT_FOUND("PROD_015", "Event product mapping not found", HttpStatus.NOT_FOUND);
+    EVENT_PRODUCT_MAPPING_NOT_FOUND("PROD_015", "Event product mapping not found", HttpStatus.NOT_FOUND),
+    EVENT_PRODUCT_ALREADY_EXISTS("PROD_016", "Event product mapping already exists", HttpStatus.CONFLICT);
 
 
     private final String code;
