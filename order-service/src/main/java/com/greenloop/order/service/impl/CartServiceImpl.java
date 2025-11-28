@@ -2,7 +2,6 @@ package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
-import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.request.AddToCartRequest;
@@ -14,14 +13,11 @@ import com.greenloop.order.dto.response.ShippingEstimateResponse;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.exception.*;
-import com.greenloop.order.goship.dto.CalculateRateRequest;
-import com.greenloop.order.goship.dto.RateResponse;
 import com.greenloop.order.repository.CartItemRepository;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +30,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
@@ -45,7 +40,6 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
-
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
 
@@ -72,8 +66,6 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponse addToCart(Long customerId, AddToCartRequest request) {
-        log.info("Adding product {} to cart for customer {}", request.getProductId(), customerId);
-
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseGet(() -> createNewCart(customerId));
 
@@ -98,23 +90,13 @@ public class CartServiceImpl implements CartService {
         }
 
         String imageUrl = (product.getImageUrls() != null && !product.getImageUrls().isEmpty())
-                ? product.getImageUrls().get(0)
+                ? product.getImageUrls().get(0).getProductAssetUrl()
                 : null;
 
-        int weight = (product.getWeight() > 0)
-                ? product.getWeight() : 200;  // Default 200g
-
-        int length = (product.getLength() > 0)
-                ? product.getLength() : 20;   // Default 20cm
-
-        int width = (product.getWidth() > 0)
-                ? product.getWidth() : 15;    // Default 15cm
-
-        int height = (product.getHeight() > 0)
-                ? product.getHeight() : 5;    // Default 5cm
-
-        log.info("Product {} dimensions - Weight: {}g, Size: {}x{}x{} cm (L×W×H)",
-                product.getId(), weight, length, width, height);
+        int weight = (product.getWeight() > 0) ? product.getWeight() : 200;
+        int length = (product.getLength() > 0) ? product.getLength() : 20;
+        int width = (product.getWidth() > 0) ? product.getWidth() : 15;
+        int height = (product.getHeight() > 0) ? product.getHeight() : 5;
 
         CartItem newItem = CartItem.builder()
                 .cart(cart)
@@ -132,10 +114,8 @@ public class CartServiceImpl implements CartService {
         cart.recalculateTotal();
         cartRepository.save(cart);
 
-        log.info("Product {} added to cart successfully for customer {}", request.getProductId(), customerId);
         return mapToCartResponse(cart);
     }
-
 
     @Override
     @Transactional
@@ -164,10 +144,7 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new CartNotFoundException(customerId));
 
         if (!cart.getItems().isEmpty()) {
-            log.info("Publishing OrderCheckedOutEvent for customer: {}", customerId);
-
             int totalEcoPoints = 0;
-
             List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
 
             for (CartItem item : cart.getItems()) {
@@ -204,7 +181,6 @@ public class CartServiceImpl implements CartService {
         cart.recalculateTotal();
         cartRepository.save(cart);
     }
-
 
     private Cart createNewCart(Long customerId) {
         Cart cart = Cart.builder()
