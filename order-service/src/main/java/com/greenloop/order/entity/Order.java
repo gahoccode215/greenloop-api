@@ -89,6 +89,22 @@ public class Order {
     private String parcelLength;
 
 
+    @Column(name = "cash_amount")
+    private BigDecimal cashAmount;
+
+    @Column(name = "eco_points_used")
+    private Integer ecoPointsUsed;
+
+    @Column(name = "eco_points_earned")
+    private Integer ecoPointsEarned;
+
+    @Column(name = "customer_phone_temp")
+    private String customerPhoneTemp;  // Cho khách vãng lai
+
+    @Column(name = "customer_name_temp")
+    private String customerNameTemp;  // Cho khách vãng lai
+
+
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type")
     private OrderType orderType = OrderType.ONLINE;
