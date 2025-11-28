@@ -47,7 +47,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductAssetRepository productAssetRepository;
     private final EventProductMappingRepository eventProductMappingRepository;
     private final CloudinaryService cloudinaryService;
-    private final String localImagePath = "GreenLoop/Products";
     private final EventServiceFeign eventServiceFeign;
 
 
@@ -58,9 +57,6 @@ public class ProductServiceImpl implements ProductService {
             String type,
             Long categoryId,
             Pageable pageable) {
-
-        log.info("Getting products - search: {}, status: {}, type: {}, categoryId: {}",
-                search, status, type, categoryId);
 
         Specification<Product> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -87,7 +83,6 @@ public class ProductServiceImpl implements ProductService {
                 }
             }
 
-            // Filter by type
             if (type != null && !type.isEmpty()) {
                 try {
                     ProductType productType = ProductType.valueOf(type.toUpperCase());
@@ -97,7 +92,6 @@ public class ProductServiceImpl implements ProductService {
                 }
             }
 
-            // Filter by category
             if (categoryId != null) {
                 predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             }
@@ -111,37 +105,25 @@ public class ProductServiceImpl implements ProductService {
 
         PageResponseDTO<ProductResponse> response = PageResponseUtil.toPageResponse(productPage);
 
-        log.info("Retrieved {} products out of {} total",
-                response.getContent().size(),
-                response.getTotalElements());
-
         return response;
     }
 
     @Override
     public ProductResponse getProductDetail(Long id) {
-        log.info("Getting product detail for id: {}", id);
-
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID: " + id));
-
         return mapProductToProductResponse(product);
     }
 
     @Override
     @Transactional
     public void updateProductStatus(Long productId, String newStatus) {
-        log.info("Updating product {} to status: {}", productId, newStatus);
-
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(
                         "Không tìm thấy sản phẩm với ID: " + productId));
-
         ProductStatus status = ProductStatus.valueOf(newStatus);
         product.setStatus(status);
         productRepository.save(product);
-
-        log.info("Successfully updated product {} to status: {}", productId, newStatus);
     }
 
     @Override
@@ -388,6 +370,7 @@ public class ProductServiceImpl implements ProductService {
 
     private ProductAsset handleImageUpload(MultipartFile file) {
         try {
+            String localImagePath = "GreenLoop/Products";
             Map<String, String> accessKey =
                     cloudinaryService.uploadImage(file.getBytes(), localImagePath);
 

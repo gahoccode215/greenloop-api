@@ -18,7 +18,5 @@ public enum BlogStatus {
     return displayName;
   }
 
-  public String getCode() {
-    return this.name();
-  }
+
 }
