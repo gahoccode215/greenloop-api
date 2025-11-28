@@ -27,4 +27,9 @@ public interface VoucherUserRepository extends JpaRepository<VoucherUser, Long> 
             @Param("voucherStatus") VoucherStatus voucherStatus,
             @Param("isActive") boolean isActive
     );
+
+    Long countByStatus(VoucherUserStatus status);
+
+    @Query("SELECT vu.userId, COUNT(vu) FROM VoucherUser vu GROUP BY vu.userId ORDER BY COUNT(vu) DESC")
+    List<Object[]> findTopUsers();
 }

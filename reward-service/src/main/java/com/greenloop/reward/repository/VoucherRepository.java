@@ -2,6 +2,7 @@ package com.greenloop.reward.repository;
 
 import com.greenloop.reward.entity.Voucher;
 import com.greenloop.reward.enums.VoucherStatus;
+import com.greenloop.reward.enums.VoucherType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -29,4 +30,13 @@ public interface VoucherRepository
             VoucherStatus status,
             boolean isActive
     );
+
+    Long countByType(VoucherType type);
+
+    Long countByStatus(VoucherStatus status);
+
+    @Query("SELECT v.id, v.name, v.quantity - COALESCE(SUM(vu.quantity),0) " +
+            "FROM Voucher v LEFT JOIN v.voucherUsers vu " +
+            "GROUP BY v.id, v.name, v.quantity ORDER BY (v.quantity - COALESCE(SUM(vu.quantity),0)) DESC")
+    List<Object[]> findTopAvailableVouchers();
 }
