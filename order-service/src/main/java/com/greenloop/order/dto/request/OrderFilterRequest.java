@@ -13,21 +13,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrderFilterRequest {
 
-    // Pagination
     private Integer page = 0;
     private Integer size = 10;
     private String sortBy = "createdAt";
     private String sortDirection = "DESC";
 
-    // Filters
     private OrderStatus status;
     private PaymentStatus paymentStatus;
-    private String searchKeyword;  // Tìm theo orderCode hoặc orderId
-    private Long customerId;       // Filter theo customer ID
-    private String customerEmail;  // Tìm theo email khách hàng
-    private String customerName;   // Tìm theo tên khách hàng
+    private String searchKeyword;
+    private Long customerId;
+    private String customerEmail;
+    private String customerName;
 
-    // Date range
-    private String fromDate;  // Format: yyyy-MM-dd
-    private String toDate;    // Format: yyyy-MM-dd
+    private String fromDate;
+    private String toDate;
 }

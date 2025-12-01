@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AddToCartRequest {
-
-    @NotNull(message = "Product ID không được để trống")
+    @NotNull
     private Long productId;
 }

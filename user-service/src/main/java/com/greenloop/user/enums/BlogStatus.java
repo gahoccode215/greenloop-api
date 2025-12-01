@@ -17,6 +17,4 @@ public enum BlogStatus {
   public String getDisplayName() {
     return displayName;
   }
-
-
 }

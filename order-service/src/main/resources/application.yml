@@ -1,13 +1,11 @@
 spring:
   application:
     name: order-service
-
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_order_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:12345}
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -38,12 +36,10 @@ eureka:
   instance:
     ip-address: ${ORDER_HOST:localhost}
     prefer-ip-address: true
-
 springdoc:
   api-docs:
     enabled: true
     path: /v3/api-docs
-
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
@@ -54,7 +50,6 @@ springdoc:
         url: http://${GATEWAY_HOST}/order-service/v3/api-docs
       - name: Direct
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
-
 axon:
   eventhandling:
     processors:
@@ -63,7 +58,6 @@ axon:
   axonserver:
     servers: ${AXON_SERVER:localhost}:8124
     context: ${AXON_CONTEXT:greenloop}
-
 goship:
   token: ${GOSHIP_TOKEN}
   client-id: ${GOSHIP_CLIENT_ID}
@@ -82,8 +76,6 @@ goship:
     address: "39 Bến Nghé"
     name: "GreenLoop Warehouse"
     phone: "0987654321"
-
-
 payos:
   client-id: ${PAYOS_CLIENT_ID}
   api-key: ${PAYOS_API_KEY}

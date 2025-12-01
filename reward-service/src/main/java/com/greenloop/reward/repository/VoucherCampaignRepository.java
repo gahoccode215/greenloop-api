@@ -8,7 +8,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface VoucherCampaignRepository
-        extends JpaRepository<VoucherCampaign, Long>, JpaSpecificationExecutor<VoucherCampaign> {
-    @Query("SELECT COUNT(c) FROM VoucherCampaign c WHERE c.startDate <= CURRENT_DATE AND c.endDate >= CURRENT_DATE")
-    Long countActiveCampaigns();
+    extends JpaRepository<VoucherCampaign, Long>, JpaSpecificationExecutor<VoucherCampaign> {
+  @Query(
+      "SELECT COUNT(c) FROM VoucherCampaign c WHERE c.startDate <= CURRENT_DATE AND c.endDate >= CURRENT_DATE")
+  Long countActiveCampaigns();
 }

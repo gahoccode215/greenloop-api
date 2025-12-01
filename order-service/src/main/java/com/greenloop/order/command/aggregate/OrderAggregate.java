@@ -140,47 +140,5 @@ public class OrderAggregate {
         }
     }
 
-    @CommandHandler
-    public OrderAggregate(CreatePOSOrderCommand command) {
-        if (command.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidOrderPriceException();
-        }
-
-        log.info("Creating POS Order: {}, eventId={}",
-                command.getOrderCode(), command.getEventLocationId());
-
-        AggregateLifecycle.apply(POSOrderCreatedEvent.builder()
-                .orderId(command.getOrderId())
-                .orderCode(command.getOrderCode())
-                .orderType(command.getOrderType())
-                .customerId(command.getCustomerId())
-                .isGuestPurchase(command.getIsGuestPurchase())
-                .eventLocationId(command.getEventLocationId())
-                .posStaffId(command.getPosStaffId())
-                .totalPrice(command.getTotalPrice())
-                .orderStatus(command.getOrderStatus())
-                .paymentStatus(command.getPaymentStatus())
-                .paymentMethod(command.getPaymentMethod())
-                .paymentOrderCode(command.getPaymentOrderCode())
-                .orderItems(command.getOrderItems())
-                .build());
-    }
-
-    @EventSourcingHandler
-    public void on(POSOrderCreatedEvent event) {
-        this.orderId = event.getOrderId();
-        this.orderCode = event.getOrderCode();
-        this.orderType = event.getOrderType();
-        this.customerId = event.getCustomerId();
-        this.isGuestPurchase = event.getIsGuestPurchase();
-        this.eventLocationId = event.getEventLocationId();
-        this.posStaffId = event.getPosStaffId();
-        this.totalPrice = event.getTotalPrice();
-        this.orderStatus = event.getOrderStatus();
-        this.paymentStatus = event.getPaymentStatus();
-        this.paymentMethod = event.getPaymentMethod();
-        this.paymentOrderCode = event.getPaymentOrderCode();
-
-    }
 
 }

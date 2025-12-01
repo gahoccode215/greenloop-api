@@ -27,7 +27,6 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional
   public AddressResponse createAddress(Long userId, AddressRequest request) {
-    log.info("Creating new address for user: {}", userId);
 
     User user = findUserById(userId);
     boolean shouldSetDefault = determineDefaultStatus(userId, request.getIsDefault());
@@ -89,18 +88,12 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional
   public AddressResponse setDefaultAddress(Long userId, Long addressId) {
-    log.info("Setting default address {} for user: {}", addressId, userId);
 
     UserAddress address = findAddressByIdAndUserId(addressId, userId);
 
-    if (!address.getIsDefault()) {
-      unsetAllDefaultAddresses(userId);
-      address.setIsDefault(true);
-      addressRepository.save(address);
-      log.info("Default address set successfully: {}", addressId);
-    } else {
-      log.debug("Address {} is already default for user: {}", addressId, userId);
-    }
+    unsetAllDefaultAddresses(userId);
+    address.setIsDefault(true);
+    addressRepository.save(address);
 
     return mapToResponse(address);
   }
@@ -108,7 +101,6 @@ public class AddressServiceImpl implements AddressService {
   @Override
   @Transactional(readOnly = true)
   public AddressResponse getDefaultAddress(Long userId) {
-    log.info("Getting default address for user: {}", userId);
 
     UserAddress address =
         addressRepository
@@ -183,7 +175,6 @@ public class AddressServiceImpl implements AddressService {
     if (Boolean.TRUE.equals(requestedDefault) && !address.getIsDefault()) {
       unsetAllDefaultAddresses(userId);
       address.setIsDefault(true);
-      log.debug("Changed default address to: {}", address.getId());
     }
   }
 
@@ -191,14 +182,9 @@ public class AddressServiceImpl implements AddressService {
     List<UserAddress> remainingAddresses =
         addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
 
-    if (!remainingAddresses.isEmpty()) {
-      UserAddress firstAddress = remainingAddresses.get(0);
-      firstAddress.setIsDefault(true);
-      addressRepository.save(firstAddress);
-      log.info("Reassigned default address to: {} for user: {}", firstAddress.getId(), userId);
-    } else {
-      log.debug("No remaining addresses for user: {} after deletion", userId);
-    }
+    UserAddress firstAddress = remainingAddresses.get(0);
+    firstAddress.setIsDefault(true);
+    addressRepository.save(firstAddress);
   }
 
   private AddressResponse mapToResponse(UserAddress address) {

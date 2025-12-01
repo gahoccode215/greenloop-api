@@ -4,7 +4,7 @@ import com.greenloop.reward.dto.response.EcoPointStatisticsResponse;
 import com.greenloop.reward.dto.response.VoucherStatisticsResponse;
 
 public interface DashboardService {
-    EcoPointStatisticsResponse getEcoPointStatistics();
+  EcoPointStatisticsResponse getEcoPointStatistics();
 
-    VoucherStatisticsResponse getVoucherStatistics();
+  VoucherStatisticsResponse getVoucherStatistics();
 }

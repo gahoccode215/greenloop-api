@@ -46,7 +46,6 @@ public class RateResponse {
     @JsonProperty("discount")
     private BigDecimal discount;
 
-    // Fee breakdown
     @JsonProperty("weight_fee")
     private BigDecimal weightFee;
 

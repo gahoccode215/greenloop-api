@@ -9,7 +9,6 @@ import lombok.*;
 @AllArgsConstructor
 public class ShippingAddressResponse {
 
-    // Receiver info
     private String receiverName;
     private String receiverPhone;
     private String receiverAddress;
@@ -20,7 +19,6 @@ public class ShippingAddressResponse {
     private String receiverCityName;
     private Integer receiverCityId;
 
-    // Warehouse info
     private String warehouseName;
     private String warehousePhone;
     private String warehouseAddress;

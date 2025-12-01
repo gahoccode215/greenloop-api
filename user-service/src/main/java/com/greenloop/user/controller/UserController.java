@@ -5,7 +5,6 @@ import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.service.UserService;
 import io.swagger.v3.oas.annotations.Hidden;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,6 @@ public class UserController {
 
   @GetMapping("/profile")
   @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Get current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
@@ -41,7 +39,6 @@ public class UserController {
 
   @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Update current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
       @RequestPart("request") @Valid UpdateProfileRequest request,
       @RequestPart(value = "avatar", required = false) MultipartFile avatar) {

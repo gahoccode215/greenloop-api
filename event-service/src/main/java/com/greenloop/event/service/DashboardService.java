@@ -6,10 +6,9 @@ import com.greenloop.event.dto.response.EventStatisticsResponse;
 
 public interface DashboardService {
 
-    EventStatisticsResponse getEventStatistics();
+  EventStatisticsResponse getEventStatistics();
 
-    EventRegistrationStatisticsResponse getEventRegistrationStatistics();
+  EventRegistrationStatisticsResponse getEventRegistrationStatistics();
 
-    EventStaffStatisticsResponse getEventStaffStatistics();
-    
+  EventStaffStatisticsResponse getEventStaffStatistics();
 }

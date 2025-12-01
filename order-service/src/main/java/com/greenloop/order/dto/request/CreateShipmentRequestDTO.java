@@ -15,20 +15,17 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreateShipmentRequestDTO {
 
-    // Parcel Info - Optional (fallback to Order if null)
     private String weight;
     private String width;
     private String height;
     private String length;
     private String metadata;
     private String reason;
-
-
     private Long codAmount;
 
     private Long totalAmount;
 
-    @NotNull(message = "Người trả phí ship không được để trống")
+    @NotNull
     private Integer payer;
 
     @Valid

@@ -60,8 +60,6 @@ public class ShippingCalculationService {
             maxHeight = Math.max(maxHeight, item.getHeight());
         }
 
-        log.debug("Parcel dimensions - Weight: {}g, L×W×H: {}×{}×{} cm",
-                totalWeight, maxLength, maxWidth, maxHeight);
 
         return ParcelDimensionDTO.builder()
                 .weight(totalWeight)

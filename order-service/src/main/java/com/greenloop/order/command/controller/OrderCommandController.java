@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,7 @@ public class OrderCommandController {
     private final OrderService orderService;
     private final GoShipService goShipService;
 
-    @Operation(summary = "Confirm order (Staff)")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
     @PostMapping("/{orderId}/confirm")
     public ResponseEntity<ApiResponseDTO<Void>> confirmOrder(@PathVariable String orderId, @RequestParam(required = false) String reason) {
         UpdateOrderStatusCommand command = UpdateOrderStatusCommand.builder()
@@ -46,8 +47,9 @@ public class OrderCommandController {
         );
     }
 
-    @Operation(summary = "Start processing order (Staff)")
+
     @PostMapping("/{orderId}/process")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<Void>> processOrder(@PathVariable String orderId,
                                                              @RequestParam(required = false) String reason) {
         UpdateOrderStatusCommand command = UpdateOrderStatusCommand.builder()
@@ -61,7 +63,7 @@ public class OrderCommandController {
         );
     }
 
-    @Operation(summary = "Create shipment with custom info (Staff)")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
     @PostMapping("/{orderId}/ship")
     public ResponseEntity<ApiResponseDTO<ShipmentInfoResponse>> shipOrder(
             @PathVariable String orderId,
@@ -94,8 +96,8 @@ public class OrderCommandController {
     }
 
 
-    @Operation(summary = "Complete order)")
     @PostMapping("/{orderId}/complete")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<Void>> completeOrder(@PathVariable String orderId,
     @RequestParam(required = false) String reason) {
         UpdateOrderStatusCommand command = UpdateOrderStatusCommand.builder()
@@ -109,7 +111,8 @@ public class OrderCommandController {
         );
     }
 
-    @Operation(summary = "Cancel order (Customer/Staff)")
+
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER', 'CUSTOMER')")
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<ApiResponseDTO<Void>> cancelOrder(
             @PathVariable String orderId,

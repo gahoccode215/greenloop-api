@@ -21,7 +21,4 @@ public class CityDTO {
 
     @JsonProperty("name")
     private String name;
-
-//    @JsonProperty("support_carriers")
-//    private List<String> supportCarriers;
 }

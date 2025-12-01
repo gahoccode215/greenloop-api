@@ -17,7 +17,6 @@ public class CalculateRateRequest {
     @JsonProperty("shipment")
     private ShipmentInfo shipment;
 
-
     @Data
     @Builder
     @NoArgsConstructor

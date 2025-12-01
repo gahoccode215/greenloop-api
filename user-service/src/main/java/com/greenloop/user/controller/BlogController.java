@@ -6,8 +6,6 @@ import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.BlogResponse;
 import com.greenloop.user.dto.response.PageResponseDTO;
 import com.greenloop.user.service.BlogService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +29,6 @@ public class BlogController {
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(
-      summary = "Create new blog",
-      description = "Admin, Manager and Staff can create new blog with optional thumbnail")
   public ResponseEntity<ApiResponseDTO<BlogResponse>> createBlog(
       @Valid @RequestPart("blog") BlogCreateRequest request,
       @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail) {
@@ -45,10 +40,6 @@ public class BlogController {
 
   @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(
-      summary = "Update blog",
-      description =
-          "Admin, Manager and Staff can update blogs (Staff: own only, Manager/Admin: all)")
   public ResponseEntity<ApiResponseDTO<BlogResponse>> updateBlog(
       @PathVariable Long id,
       @Valid @RequestPart("blog") BlogUpdateRequest request,
@@ -61,9 +52,6 @@ public class BlogController {
 
   @DeleteMapping("/{id}")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(
-      summary = "Delete blog",
-      description = "Admin and Manager can delete all blogs, Staff can delete own blogs")
   public ResponseEntity<ApiResponseDTO<Void>> deleteBlog(@PathVariable Long id) {
     blogService.deleteBlog(id);
     return ResponseEntity.ok(ApiResponseDTO.success("Xóa blog thành công", null, HttpStatus.OK));
@@ -71,7 +59,6 @@ public class BlogController {
 
   @PatchMapping("/{id}/publish")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(summary = "Publish blog", description = "Change blog status to PUBLISHED")
   public ResponseEntity<ApiResponseDTO<BlogResponse>> publishBlog(@PathVariable Long id) {
     BlogResponse response = blogService.publishBlog(id);
     return ResponseEntity.ok(
@@ -80,17 +67,12 @@ public class BlogController {
 
   @PatchMapping("/{id}/hide")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(summary = "Hide blog", description = "Change blog status to HIDDEN")
   public ResponseEntity<ApiResponseDTO<BlogResponse>> hideBlog(@PathVariable Long id) {
     BlogResponse response = blogService.hideBlog(id);
     return ResponseEntity.ok(ApiResponseDTO.success("Ẩn blog thành công", response, HttpStatus.OK));
   }
 
   @GetMapping("/{id}")
-  @Operation(
-      summary = "Get blog detail",
-      description =
-          "Get blog detail by ID. Customer can only view published blogs, Admin/Manager/Staff can view all blogs")
   public ResponseEntity<ApiResponseDTO<BlogResponse>> getBlogDetail(@PathVariable Long id) {
     BlogResponse response = blogService.getBlogDetail(id);
     return ResponseEntity.ok(
@@ -98,19 +80,12 @@ public class BlogController {
   }
 
   @GetMapping("/published")
-  @Operation(
-      summary = "Get published blogs",
-      description = "Get list of published blogs with search and pagination. Public access.")
   public ResponseEntity<ApiResponseDTO<PageResponseDTO<BlogResponse>>> getPublishedBlogs(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
-      @Parameter(description = "Search by title or content") @RequestParam(required = false)
-          String search,
-      @Parameter(description = "Sort field") @RequestParam(defaultValue = "publishedAt")
-          String sortBy,
-      @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC")
-          String sortDir) {
-
+      @RequestParam(required = false) String search,
+      @RequestParam(defaultValue = "publishedAt") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDir) {
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
     PageResponseDTO<BlogResponse> response = blogService.getPublishedBlogs(search, pageable);
@@ -120,22 +95,13 @@ public class BlogController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(
-      summary = "Get all blogs",
-      description =
-          "Admin, Manager and Staff can view all blogs with search, filter by status and pagination")
   public ResponseEntity<ApiResponseDTO<PageResponseDTO<BlogResponse>>> getAllBlogs(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
-      @Parameter(description = "Search by title or content") @RequestParam(required = false)
-          String search,
-      @Parameter(description = "Filter by status (DRAFT/PUBLISHED/HIDDEN)")
-          @RequestParam(required = false)
-          String status,
-      @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt")
-          String sortBy,
-      @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC")
-          String sortDir) {
+      @RequestParam(required = false) String search,
+      @RequestParam(required = false) String status,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDir) {
 
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
@@ -146,18 +112,12 @@ public class BlogController {
 
   @GetMapping("/my-blogs")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
-  @Operation(
-      summary = "Get my blogs",
-      description = "Admin, Manager and Staff can view their own blogs with search and pagination")
   public ResponseEntity<ApiResponseDTO<PageResponseDTO<BlogResponse>>> getMyBlogs(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
-      @Parameter(description = "Search by title or content") @RequestParam(required = false)
-          String search,
-      @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt")
-          String sortBy,
-      @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC")
-          String sortDir) {
+      @RequestParam(required = false) String search,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDir) {
 
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));

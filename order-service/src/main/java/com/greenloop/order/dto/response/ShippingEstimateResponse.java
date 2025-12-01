@@ -13,18 +13,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ShippingEstimateResponse {
-
-
     private BigDecimal productTotal;
-
     private BigDecimal shippingFee;
-
     private BigDecimal totalPrice;
-
     private String selectedCarrier;
-
     private String estimatedDelivery;
-
     private List<ShippingOption> availableOptions;
 
     @Data
@@ -32,11 +25,11 @@ public class ShippingEstimateResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ShippingOption {
-        private String rateId;           // Rate ID để dùng khi checkout
-        private String carrierName;      // Tên đơn vị vận chuyển
-        private String carrierLogo;      // Logo URL
-        private String service;          // Loại dịch vụ
-        private BigDecimal fee;          // Phí vận chuyển
-        private String estimatedDelivery; // Thời gian dự kiến
+        private String rateId;
+        private String carrierName;
+        private String carrierLogo;
+        private String service;
+        private BigDecimal fee;
+        private String estimatedDelivery;
     }
 }

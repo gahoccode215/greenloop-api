@@ -12,20 +12,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PageResponseDTO<T> implements Serializable {
-
     private List<T> content;
-
     private int pageNumber;
-
     private int pageSize;
-
     private long totalElements;
-
     private int totalPages;
-
     private boolean first;
-
     private boolean last;
-
     private boolean empty;
 }

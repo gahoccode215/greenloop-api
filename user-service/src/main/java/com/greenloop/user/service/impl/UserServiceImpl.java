@@ -30,7 +30,6 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional(readOnly = true)
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-    log.debug("Loading user by email: {}", email);
     return userRepository
         .findByEmail(email)
         .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
@@ -39,7 +38,6 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional(readOnly = true)
   public UserProfileResponse getMyProfile(Long userId) {
-    log.info("Retrieving profile for user: {}", userId);
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
     return mapUserToProfileResponse(user);
@@ -49,7 +47,6 @@ public class UserServiceImpl implements UserService {
   @Transactional
   public UserProfileResponse updateProfile(
       Long userId, UpdateProfileRequest request, MultipartFile avatar) {
-    log.info("Updating profile for user: {}", userId);
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
     if (request.getPhoneNumber() != null
@@ -73,7 +70,6 @@ public class UserServiceImpl implements UserService {
       handleAvatarUpload(user, avatar);
     }
     User updatedUser = userRepository.save(user);
-    log.info("Profile updated successfully for user: {}", userId);
     return mapUserToProfileResponse(updatedUser);
   }
 
@@ -88,7 +84,6 @@ public class UserServiceImpl implements UserService {
         .gender(user.getGender() != null ? user.getGender().name() : null)
         .phoneNumber(user.getPhone())
         .avatarUrl(user.getAvatarUrl())
-        .ecoPoints(user.getEcoPoints())
         .roles(roleNames)
         .isActive(user.isActive())
         .isEmailVerified(user.getIsEmailVerified())

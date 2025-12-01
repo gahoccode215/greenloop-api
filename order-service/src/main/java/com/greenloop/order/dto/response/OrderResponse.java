@@ -15,31 +15,24 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderResponse {
-
     private String orderId;
     private String orderCode;
     private Long customerId;
-
     private BigDecimal totalPrice;
     private BigDecimal shippingFee;
-
     private OrderStatus orderStatus;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
     private String paymentTransactionId;
-
     private Integer shippingStatus;
     private String shippingStatusText;
-
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
     private String goshipShipmentId;
     private String goshipTrackingUrl;
-
     private ShippingAddressResponse shippingAddress;
     private List<OrderItemResponse> orderItems;
-
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ParcelDimensionDTO {
-    private int weight;  // grams (int for calculation)
-    private int length;  // cm
-    private int width;   // cm
-    private int height;  // cm
+    private int weight;
+    private int length;
+    private int width;
+    private int height;
 }
