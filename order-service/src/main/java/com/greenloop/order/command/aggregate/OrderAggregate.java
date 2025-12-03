@@ -29,8 +29,11 @@ public class OrderAggregate {
     private String orderId;
     private String orderCode;
     private Long customerId;
+    private Long eventId;
+    private Long voucherId;
     private OrderStatus orderStatus;
     private BigDecimal totalPrice;
+    private BigDecimal subTotal;
     private BigDecimal shippingFee;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
@@ -47,8 +50,11 @@ public class OrderAggregate {
     private String parcelLength;
     private String reason;
     private Boolean isGuestPurchase;
-    private Long eventLocationId;
-    private Long posStaffId;
+    private String guestName;
+    private String guestPhone;
+    private String voucherCode;
+    private BigDecimal discountAmount;
+    private Long voucherUserId;
 
     @CommandHandler
     public OrderAggregate(CreateOrderCommand command) {
@@ -140,5 +146,51 @@ public class OrderAggregate {
         }
     }
 
+    @CommandHandler
+    public OrderAggregate(CreateOrderOfflineCommand command) {
+        if (command.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidOrderPriceException();
+        }
 
+        AggregateLifecycle.apply(OrderCreatedOfflineEvent.builder()
+                .orderId(command.getOrderId())
+                .orderCode(command.getOrderCode())
+                .customerId(command.getCustomerId())
+                .eventId(command.getEventId())
+                .voucherUserId(command.getVoucherUserId()) // NEW
+                .voucherCode(command.getVoucherCode()) // NEW
+                .discountAmount(command.getDiscountAmount()) // NEW
+                .guestName(command.getGuestName())
+                .guestPhone(command.getGuestPhone())
+                .isGuestPurchase(command.getIsGuestPurchase())
+                .subTotal(command.getSubTotal())
+                .totalPrice(command.getTotalPrice())
+                .orderType(command.getOrderType())
+                .orderStatus(command.getOrderStatus())
+                .paymentStatus(command.getPaymentStatus())
+                .paymentMethod(command.getPaymentMethod())
+                .orderItems(command.getOrderItems())
+                .note(command.getNote())
+                .build());
+    }
+
+    @EventSourcingHandler
+    public void on(OrderCreatedOfflineEvent event) {
+        this.orderId = event.getOrderId();
+        this.orderCode = event.getOrderCode();
+        this.customerId = event.getCustomerId();
+        this.eventId = event.getEventId();
+        this.voucherUserId = event.getVoucherUserId(); // NEW
+        this.voucherCode = event.getVoucherCode(); // NEW
+        this.discountAmount = event.getDiscountAmount(); // NEW
+        this.guestName = event.getGuestName();
+        this.guestPhone = event.getGuestPhone();
+        this.isGuestPurchase = event.getIsGuestPurchase();
+        this.subTotal = event.getSubTotal();
+        this.totalPrice = event.getTotalPrice();
+        this.orderType = event.getOrderType();
+        this.orderStatus = event.getOrderStatus();
+        this.paymentStatus = event.getPaymentStatus();
+        this.paymentMethod = event.getPaymentMethod();
+    }
 }

@@ -46,4 +46,7 @@ public class UserProfileResponse implements Serializable {
 
   @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
   private LocalDateTime updatedAt;
+
+    private Integer totalEcoPoints;
+    private Integer lifetimeEcoPoints;
 }

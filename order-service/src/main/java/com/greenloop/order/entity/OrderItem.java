@@ -23,7 +23,7 @@ public class OrderItem {
     @JoinColumn(name = "order_id")
     private Order order;
 
-    private int quantity;
+    @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
     @Column(name = "product_name")
@@ -31,5 +31,6 @@ public class OrderItem {
 
     @Column(name = "product_image")
     private String productImage;
+
 
 }

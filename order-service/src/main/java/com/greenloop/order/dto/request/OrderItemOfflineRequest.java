@@ -1,5 +1,6 @@
 package com.greenloop.order.dto.request;
 
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -14,20 +15,14 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemRequest {
+public class OrderItemOfflineRequest {
 
     @NotNull
     private Long productId;
 
     @NotNull
-    @Min(value = 1)
-    private Integer quantity;
-
-    @NotNull
     @DecimalMin(value = "0.0", inclusive = false)
     private BigDecimal price;
-
-    private BigDecimal totalPrice;
 
     private String productName;
     private String productImage;

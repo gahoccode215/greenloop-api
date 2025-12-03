@@ -1,0 +1,38 @@
+package com.greenloop.order.dto.response;
+
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class OrderOfflineResponse {
+    private String orderId;
+    private String orderCode;
+    private Long eventId;
+
+    private Long customerId;
+    private String customerName;
+    private String customerPhone;
+
+    private Boolean isGuestPurchase;
+
+    private List<OrderItemResponse> items;
+
+    // Pricing
+    private BigDecimal subtotal;
+    private BigDecimal discountAmount; // NEW
+    private BigDecimal totalPrice; // NEW
+
+    // Voucher
+    private String voucherCode; // NEW
+
+    private String paymentMethod;
+    private LocalDateTime createdAt;
+    private String createdBy;
+}

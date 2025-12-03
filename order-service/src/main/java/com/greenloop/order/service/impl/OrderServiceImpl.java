@@ -303,7 +303,6 @@ public class OrderServiceImpl implements OrderService {
                     .map(item -> OrderItemResponse.builder()
                             .orderItemId(item.getOrderItemId())
                             .productId(item.getProductId())
-                            .quantity(item.getQuantity())
                             .price(item.getPrice())
                             .productName(item.getProductName())
                             .productImage(item.getProductImage())

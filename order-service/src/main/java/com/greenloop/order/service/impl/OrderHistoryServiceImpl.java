@@ -25,7 +25,6 @@ public class OrderHistoryServiceImpl implements OrderHistoryService {
 
         List<OrderHistory> histories = historyRepository.findByOrderIdOrderByCreatedAtAsc(orderId);
 
-
         return histories.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

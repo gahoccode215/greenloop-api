@@ -32,6 +32,17 @@ public class Order {
 
     private Long customerId;
 
+    @Column(name = "voucher_user_id")
+    private Long voucherUserId;
+
+    @Column(name = "voucher_code")
+    private String voucherCode;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount;
+
+    private BigDecimal subTotal;
+
     private BigDecimal totalPrice;
 
     @Enumerated(EnumType.STRING)
@@ -40,6 +51,39 @@ public class Order {
 
     @Embedded
     private ShippingAddress shippingAddress;
+
+    @Column(name = "goship_shipment_id", length = 50)
+    private String goshipShipmentId;
+
+    @Column(name = "goship_tracking_url")
+    private String goshipTrackingUrl;
+
+    @Column(name = "carrier", length = 20)
+    private String carrier;
+
+    @Column(name = "shipping_fee")
+    private BigDecimal shippingFee;
+
+    @Column(name = "expected_delivery_time")
+    private LocalDateTime expectedDeliveryTime;
+
+    @Column(name = "shipping_status")
+    private Integer shippingStatus;
+
+    @Column(name = "selected_rate_id", length = 50)
+    private String selectedRateId;
+
+    @Column(name = "parcel_weight", length = 20)
+    private String parcelWeight;
+
+    @Column(name = "parcel_width", length = 20)
+    private String parcelWidth;
+
+    @Column(name = "parcel_height", length = 20)
+    private String parcelHeight;
+
+    @Column(name = "parcel_length", length = 20)
+    private String parcelLength;
 
     @Column(name = "payment_status")
     @Enumerated(EnumType.STRING)
@@ -55,68 +99,26 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
-    @Column(name = "goship_shipment_id", length = 50)
-    private String goshipShipmentId;
-
-    @Column(name = "goship_tracking_url", length = 50)
-    private String goshipTrackingUrl;
-
-    @Column(name = "carrier", length = 20)
-    private String carrier;
-
-    @Column(name = "shipping_fee")
-    private BigDecimal shippingFee;
-
-    @Column(name = "expected_delivery_time")
-    private LocalDateTime expectedDeliveryTime;
-
-    @Column(name = "shipping_status", length = 50)
-    private Integer shippingStatus;
-
-    @Column(name = "selected_rate_id")
-    private String selectedRateId;
-
-    @Column(name = "parcel_weight")
-    private String parcelWeight;
-
-    @Column(name = "parcel_width")
-    private String parcelWidth;
-
-    @Column(name = "parcel_height")
-    private String parcelHeight;
-
-    @Column(name = "parcel_length")
-    private String parcelLength;
-
-
-    @Column(name = "cash_amount")
-    private BigDecimal cashAmount;
-
-    @Column(name = "eco_points_used")
-    private Integer ecoPointsUsed;
+    @Column(name = "event_id")
+    private Long eventId;
 
     @Column(name = "eco_points_earned")
     private Integer ecoPointsEarned;
-
-    @Column(name = "customer_phone_temp")
-    private String customerPhoneTemp;  // Cho khách vãng lai
-
-    @Column(name = "customer_name_temp")
-    private String customerNameTemp;  // Cho khách vãng lai
-
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type")
     private OrderType orderType = OrderType.ONLINE;
 
-    @Column(name = "event_location_id")
-    private Long eventLocationId;
-
-    @Column(name = "pos_staff_id")
-    private Long posStaffId;
-
     @Column(name = "is_guest_purchase")
     private Boolean isGuestPurchase = false;
+
+    @Column(name = "guest_name")
+    private String guestName;
+
+    @Column(name = "guest_phone")
+    private String guestPhone;
+
+
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

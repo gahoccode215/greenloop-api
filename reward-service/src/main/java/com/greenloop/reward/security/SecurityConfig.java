@@ -17,45 +17,46 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  private static final String[] WHITE_LISTS = {
-    "/v3/api-docs/**",
-    "/swagger-ui/**",
-    "/swagger-ui.html",
-    "/actuator/health",
-    "/api/v1/eco-points/**",
-    "/api/v1/eco-points/internal",
-    "/api/v1/vouchers/customer",
-    "/api/v1/vouchers/campaigns/customer"
-  };
+    private static final String[] WHITE_LISTS = {
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/actuator/health",
+            "/api/v1/eco-points/**",
+            "/api/v1/eco-points/internal",
+            "/api/v1/vouchers/customer",
+            "/api/v1/vouchers/campaigns/customer",
+            "/api/v1/internal/**"
+    };
 
-  @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http, HeaderAuthFilter headerAuthFilter)
-      throws Exception {
-    http.csrf(AbstractHttpConfigurer::disable)
-        .cors(AbstractHttpConfigurer::disable)
-        .formLogin(AbstractHttpConfigurer::disable)
-        .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
-        .authorizeHttpRequests(
-            request ->
-                request.requestMatchers(WHITE_LISTS).permitAll().anyRequest().authenticated())
-        .exceptionHandling(
-            ex ->
-                ex.authenticationEntryPoint(
-                        (request, response, authException) -> {
-                          SecurityExceptionUtils.writeErrorResponse(
-                              request,
-                              response,
-                              HttpStatus.UNAUTHORIZED,
-                              "Authentication required");
-                        })
-                    .accessDeniedHandler(
-                        (request, response, accessDeniedException) -> {
-                          SecurityExceptionUtils.writeErrorResponse(
-                              request, response, HttpStatus.FORBIDDEN, "Access denied");
-                        }));
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, HeaderAuthFilter headerAuthFilter)
+            throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(
+                        request ->
+                                request.requestMatchers(WHITE_LISTS).permitAll().anyRequest().authenticated())
+                .exceptionHandling(
+                        ex ->
+                                ex.authenticationEntryPoint(
+                                                (request, response, authException) -> {
+                                                    SecurityExceptionUtils.writeErrorResponse(
+                                                            request,
+                                                            response,
+                                                            HttpStatus.UNAUTHORIZED,
+                                                            "Authentication required");
+                                                })
+                                        .accessDeniedHandler(
+                                                (request, response, accessDeniedException) -> {
+                                                    SecurityExceptionUtils.writeErrorResponse(
+                                                            request, response, HttpStatus.FORBIDDEN, "Access denied");
+                                                }));
 
-    return http.build();
-  }
+        return http.build();
+    }
 }

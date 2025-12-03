@@ -35,6 +35,8 @@ public class PayOSPaymentService {
             long orderCode = System.currentTimeMillis() / 1000;
             String returnUrl = getReturnUrl(platform);
             String cancelUrl = getCancelUrl(platform);
+            log.info("RETURN URL:{}", returnUrl);
+            log.info("CANCEL URL:{}", cancelUrl);
             CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
                     .amount(amount.longValue())
@@ -58,15 +60,15 @@ public class PayOSPaymentService {
 
     private String getReturnUrl(String platform) {
         if ("web".equalsIgnoreCase(platform)) {
-            return returnUrlMobile;
+            return returnUrlWeb;
         }
-        return returnUrlWeb;
+        return returnUrlMobile;
     }
 
     private String getCancelUrl(String platform) {
-        if ("mobile".equalsIgnoreCase(platform)) {
-            return cancelUrlMobile;
+        if ("web".equalsIgnoreCase(platform)) {
+            return cancelUrlWeb;
         }
-        return cancelUrlWeb;
+        return cancelUrlMobile;
     }
 }

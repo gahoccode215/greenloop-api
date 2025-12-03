@@ -105,7 +105,6 @@ public class OrderProjection {
             List<OrderItem> items = event.getOrderItems().stream()
                     .map(itemReq -> OrderItem.builder()
                             .productId(itemReq.getProductId())
-                            .quantity(itemReq.getQuantity())
                             .price(itemReq.getPrice())
                             .productName(itemReq.getProductName())
                             .productImage(itemReq.getProductImage())
