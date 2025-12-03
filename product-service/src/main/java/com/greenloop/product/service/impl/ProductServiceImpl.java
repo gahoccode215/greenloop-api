@@ -396,21 +396,29 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private void validateEcoPointRuleUpdate(UpdateProductRequest itemReq) {
-        String redisKey = ecoPointRedisKey + EcoActionType.RESALE + "_" + itemReq.getCategoryId();
-        EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
-        if (ecoPointRule == null) {
-            ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.RESALE).categoryId(itemReq.getCategoryId()).build());
-        }
+        try {
+            String redisKey = ecoPointRedisKey + EcoActionType.RESALE + "_" + itemReq.getCategoryId();
+            EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
+            if (ecoPointRule == null) {
+                ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.RESALE).categoryId(itemReq.getCategoryId()).build());
+            }
 
-        if (ecoPointRule == null) {
-            log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
-        }
+            if (ecoPointRule == null) {
+                log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
+            }
 
-        if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
-            log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+            if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
+                log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+                throw new BusinessException(
+                        "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
+                        ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error validating eco point rule: {}", e.getMessage());
             throw new BusinessException(
-                    "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
-                    ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+                    "Lỗi khi xác thực quy tắc Eco Point",
+                    ErrorCode.ECO_POINT_RULE_NOT_FOUND
             );
         }
 
