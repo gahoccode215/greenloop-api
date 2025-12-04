@@ -108,6 +108,29 @@ public class ProductServiceImpl implements ProductService {
         return response;
     }
 
+    private boolean calculateEventFlag(Product product) {
+
+        if (product.getEventMappings() == null || product.getEventMappings().isEmpty())
+            return false;
+
+        EventProductMapping active = product.getEventMappings()
+                .stream()
+                .filter(m -> m.getStatus() == EventMappingStatus.PREPARED
+                        || m.getStatus() == EventMappingStatus.DISPLAYED)
+                .findFirst()
+                .orElse(null);
+
+        if (active == null) return false;
+
+        LocalDateTime displayFrom = active.getDisplayFrom();
+        if (displayFrom == null) return false;
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime limit = displayFrom.minusDays(1);
+        return now.isBefore(limit);
+    }
+
+
     @Override
     public ProductResponse getProductDetail(Long id) {
         Product product = productRepository.findById(id)
@@ -281,11 +304,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void assignProductsToEvent(AssignProductEventRequest request) {
 
-        EventResponse eventInfo = eventServiceFeign.getInfoEventId(request.getEventId());
+        EventResponse eventInfo = null;
+        try {
+            eventInfo = eventServiceFeign.getInfoEventId(request.getEventId());
+        } catch (Exception e) {
+            log.error("Error fetching event info for event ID {}: {}", request.getEventId(), e.getMessage());
+            throw new BusinessException("Lỗi khi lấy thông tin sự kiện với ID: " + request.getEventId(), ErrorCode.EVENT_SERVICE_ERROR);
+        }
         if (eventInfo == null) {
             throw new BusinessException("Không tìm thấy sự kiện với ID: " + request.getEventId(), ErrorCode.EVENT_NOT_FOUND);
 
         }
+
 
         LocalDateTime displayFrom = request.getDisplayFrom();
         LocalDateTime displayTo = request.getDisplayTo();
@@ -330,7 +360,7 @@ public class ProductServiceImpl implements ProductService {
                     )
                     .displayFrom(displayFrom)
                     .displayTo(displayTo)
-                    .status(EventMappingStatus.DISPLAYED)
+                    .status(EventMappingStatus.ASSIGNED)
                     .build();
 
             eventProductMappingRepository.save(mapping);
@@ -455,6 +485,14 @@ public class ProductServiceImpl implements ProductService {
         if (product.getDonationItemId() != null) {
             donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
         }
+
+        Boolean eventFlag = null;
+        try {
+            eventFlag = calculateEventFlag(product);
+        } catch (Exception e) {
+            log.error("Error calculating event flag for product ID {}: {}", product.getId(), e.getMessage());
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
@@ -478,6 +516,7 @@ public class ProductServiceImpl implements ProductService {
                 .height(product.getHeight())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
+                .isEventReadyForSelling(eventFlag)
                 .build();
     }
 
