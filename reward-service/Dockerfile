@@ -16,3 +16,4 @@ COPY --from=build /app/target/reward-service-*.jar reward-service.jar
 EXPOSE 8087
 
 ENTRYPOINT ["java", "-jar", "reward-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "reward-service.jar"]

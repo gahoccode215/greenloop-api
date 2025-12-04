@@ -16,3 +16,4 @@ COPY --from=build /app/target/user-service-*.jar user-service.jar
 EXPOSE 8081
 
 ENTRYPOINT ["java", "-jar", "user-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "user-service.jar"]
