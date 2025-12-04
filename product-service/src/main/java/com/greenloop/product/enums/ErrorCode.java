@@ -24,7 +24,8 @@ public enum ErrorCode {
     EVENT_PRODUCT_TIME_CONFLICT("PROD_014", "Thời gian trưng bày sản phẩm trong sự kiện bị xung đột", HttpStatus.CONFLICT),
     EVENT_PRODUCT_MAPPING_NOT_FOUND("PROD_015", "Không tìm thấy dữ liệu ánh xạ sản phẩm - sự kiện", HttpStatus.NOT_FOUND),
     EVENT_PRODUCT_ALREADY_EXISTS("PROD_016", "Ánh xạ sản phẩm - sự kiện đã tồn tại", HttpStatus.CONFLICT),
-    ECO_POINT_RULE_NOT_FOUND("PROD_017", "Không tìm thấy quy tắc eco point", HttpStatus.NOT_FOUND);
+    ECO_POINT_RULE_NOT_FOUND("PROD_017", "Không tìm thấy quy tắc eco point", HttpStatus.NOT_FOUND),
+    EVENT_SERVICE_ERROR("PROD_018", "Lỗi khi giao tiếp với dịch vụ sự kiện", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String message;
