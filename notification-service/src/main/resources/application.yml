@@ -4,7 +4,20 @@ server:
 spring:
   application:
     name: notification-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:12345}
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
   cloud:
     function:
       definition: userRegistrationConsumer;passwordResetConsumer
@@ -42,3 +55,27 @@ eureka:
   instance:
     ip-address: ${NOTIFICATION_HOST:localhost}
     prefer-ip-address: true
+
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    config-url: /v3/api-docs/swagger-config
+    disable-swagger-default-url: true
+    urls:
+      - name: Gateway (Production)
+        url: http://${GATEWAY_HOST}/notification-service/v3/api-docs
+      - name: Direct (Internal)
+        url: http://${SERVICE_HOST}:${server.port}/v3/api-docs
+
+
+
+rabbitmq:
+  exchangeName: greenloop.exchange
+  notification-queue: notificationQueue
+  notification-routing-key: notificationQueueRoutingKey
