@@ -587,6 +587,7 @@ public class VoucherServiceImpl implements VoucherService {
                 .expiryDate(voucher.getExpiryDate())
                 .active(voucher.isActive())
                 .voucherUserStatus(voucherUser.getStatus())
+                .voucherType(voucher.getType())
                 .build();
     }
 

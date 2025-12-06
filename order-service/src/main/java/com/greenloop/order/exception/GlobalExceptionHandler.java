@@ -4,7 +4,6 @@ import com.greenloop.order.dto.response.ApiResponseDTO;
 import feign.FeignException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.axonframework.commandhandling.CommandExecutionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -28,23 +27,6 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.error(
                         ex.getMessage(),
                         ex.getHttpStatus(),
-                        request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CommandExecutionException.class)
-    public ResponseEntity<ApiResponseDTO<Object>> handleCommandExecutionException(
-            CommandExecutionException ex, HttpServletRequest request) {
-
-        log.error("Command execution failed: {}", ex.getMessage(), ex);
-
-        String errorMessage = ex.getCause() != null
-                ? ex.getCause().getMessage()
-                : ex.getMessage();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponseDTO.error(
-                        "Command execution failed: " + errorMessage,
-                        HttpStatus.BAD_REQUEST,
                         request.getRequestURI()));
     }
 

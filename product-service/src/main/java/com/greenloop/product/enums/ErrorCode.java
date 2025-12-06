@@ -23,7 +23,13 @@ public enum ErrorCode {
     EVENT_NOT_FOUND("PROD_013", "Event not found", HttpStatus.NOT_FOUND),
     EVENT_PRODUCT_TIME_CONFLICT("PROD_014", "Event product display time conflict", HttpStatus.CONFLICT),
     EVENT_PRODUCT_MAPPING_NOT_FOUND("PROD_015", "Event product mapping not found", HttpStatus.NOT_FOUND),
-    EVENT_PRODUCT_ALREADY_EXISTS("PROD_016", "Event product mapping already exists", HttpStatus.CONFLICT);
+    EVENT_PRODUCT_ALREADY_EXISTS("PROD_016", "Event product mapping already exists", HttpStatus.CONFLICT),
+    PRODUCT_ALREADY_SOLD("PROD_017", "Product already sold", HttpStatus.CONFLICT),
+    PRODUCT_NOT_AVAILABLE("PROD_018", "Product not available", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_IN_EVENT("PROD_019", "Product not assigned to this event", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_YET_DISPLAYABLE("PROD_020", "Product display time not yet started", HttpStatus.BAD_REQUEST),
+    PRODUCT_DISPLAY_EXPIRED("PROD_021", "Product display time expired", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_DISPLAYED("PROD_022", "Product not in displayed status", HttpStatus.BAD_REQUEST);
 
 
     private final String code;

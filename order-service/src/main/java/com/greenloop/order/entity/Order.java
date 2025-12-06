@@ -89,6 +89,9 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
 
+    @Column(name = "earned_eco_points")
+    private Integer earnedEcoPoints;
+
     @Column(name = "payment_transaction_id")
     private String paymentTransactionId;
 
@@ -118,6 +121,8 @@ public class Order {
     @Column(name = "guest_phone")
     private String guestPhone;
 
+    @Column(name = "note")
+    private String note;
 
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -127,6 +132,9 @@ public class Order {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "created_by")
+    private String createdBy;
 
     @LastModifiedDate
     @Column(name = "updated_at")

@@ -32,5 +32,8 @@ public class OrderItem {
     @Column(name = "product_image")
     private String productImage;
 
+    @Column(name = "eco_point")
+    private Integer ecoPoint;
+
 
 }

@@ -1,5 +1,6 @@
 package com.greenloop.reward.dto.response;
 
+import com.greenloop.reward.enums.VoucherType;
 import com.greenloop.reward.enums.VoucherUserStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,4 +23,5 @@ public class UserVoucherResponse {
   private LocalDateTime expiryDate;
   private VoucherUserStatus voucherUserStatus;
   private Boolean active;
+    private VoucherType voucherType;
 }

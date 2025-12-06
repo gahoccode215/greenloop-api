@@ -19,9 +19,6 @@ public class VoucherDiscountResult {
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
 
-    /**
-     * Tạo result không có discount
-     */
     public static VoucherDiscountResult noDiscount() {
         return VoucherDiscountResult.builder()
                 .voucherUserId(null)
@@ -32,12 +29,5 @@ public class VoucherDiscountResult {
                 .build();
     }
 
-    /**
-     * Check xem có discount hay không
-     */
-    public boolean hasDiscount() {
-        return voucherUserId != null
-                && discountAmount != null
-                && discountAmount.compareTo(BigDecimal.ZERO) > 0;
-    }
+
 }

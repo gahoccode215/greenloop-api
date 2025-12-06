@@ -43,4 +43,5 @@ public interface ProductService {
     List<ProductResponse> getProductAssignableToEvent(Long eventId);
 
     void updateProductStatus(Long productId, String newStatus);
+    void validateProductsForOfflineOrder(Long eventId, List<Long> productIds);
 }

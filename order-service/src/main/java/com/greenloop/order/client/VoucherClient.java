@@ -6,10 +6,10 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
-@FeignClient(name = "reward-service", path = "/api/v1/internal")
+@FeignClient(name = "reward-service", path = "/api/v1/internal/vouchers")
 public interface VoucherClient {
 
-    @PostMapping("/vouchers/validate/{voucherUserId}")
+    @PostMapping("/validate/{voucherUserId}")
     ApiResponseDTO<UserVoucherResponse> validateVoucherForUser(
             @PathVariable("voucherUserId") Long voucherUserId);
 }

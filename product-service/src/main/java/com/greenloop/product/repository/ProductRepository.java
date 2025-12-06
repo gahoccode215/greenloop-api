@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long>,
         JpaSpecificationExecutor<Product> {
@@ -24,4 +25,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>,
             "WHERE m.status = 'SOLD_OUT' " +
             "GROUP BY p.id, p.name ORDER BY COUNT(m) DESC")
     List<Object[]> findTopSoldProducts();
+
+    Optional<Product> findByCode(String code);
+
 }

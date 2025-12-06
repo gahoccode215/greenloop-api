@@ -30,7 +30,7 @@ public class OrderOfflineController {
             summary = "Create offline order",
             description = "Tạo đơn hàng offline tại sự kiện bởi Staff"
     )
-//    @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponseDTO<OrderOfflineResponse>> createOrderOffline(
             @Valid @RequestBody CreateOrderOfflineRequest request) {
 

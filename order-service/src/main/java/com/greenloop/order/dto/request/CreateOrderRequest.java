@@ -1,7 +1,5 @@
-package com.greenloop.order.command.event;
+package com.greenloop.order.dto.request;
 
-import com.greenloop.order.dto.request.CheckoutShippingAddressRequest;
-import com.greenloop.order.dto.request.OrderItemRequest;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
@@ -16,14 +14,12 @@ import java.util.List;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class OrderCreatedEvent {
-
+@AllArgsConstructor
+public class CreateOrderRequest {
     private String orderId;
     private String orderCode;
     private Long customerId;
-
     private BigDecimal totalPrice;
     private BigDecimal shippingFee;
     private OrderStatus orderStatus;
@@ -34,15 +30,15 @@ public class OrderCreatedEvent {
     private List<OrderItemRequest> orderItems;
     private CheckoutShippingAddressRequest shippingAddress;
 
+    // Shipping details
     private String selectedRateId;
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
+    private Integer shippingStatus;
 
+    // Parcel dimensions
     private String parcelWeight;
     private String parcelWidth;
     private String parcelHeight;
     private String parcelLength;
-
-    private Integer shippingStatus;
-
 }

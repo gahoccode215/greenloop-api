@@ -2,6 +2,7 @@ package com.greenloop.order.service;
 
 import com.greenloop.order.dto.request.CheckoutRequest;
 import com.greenloop.order.dto.request.OrderFilterRequest;
+import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
 import com.greenloop.order.dto.response.CheckoutResponse;
 import com.greenloop.order.dto.response.OrderResponse;
 import com.greenloop.order.dto.response.PageResponseDTO;
@@ -21,5 +22,5 @@ public interface OrderService {
     Order getOrderEntityById(String orderId);
     OrderResponse getOrderById(String orderId);
     PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter);
-
+    void updateOrderStatusWithDetails(String orderId, UpdateOrderStatusRequest request);
 }

@@ -4,6 +4,7 @@ package com.greenloop.order.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.greenloop.order.enums.VoucherType;
 import com.greenloop.order.enums.VoucherUserStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -24,4 +25,5 @@ public class UserVoucherResponse {
     private LocalDateTime expiryDate;
     private VoucherUserStatus voucherUserStatus;
     private Boolean active;
+    private VoucherType voucherType;
 }

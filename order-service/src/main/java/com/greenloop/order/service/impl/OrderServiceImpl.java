@@ -1,25 +1,21 @@
 package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
-import com.greenloop.order.command.CreateOrderCommand;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
-import com.greenloop.order.dto.event.OrderCheckedOutEvent;
-import com.greenloop.order.dto.response.OrderItemResponse;
 import com.greenloop.order.dto.ProductDTO;
-import com.greenloop.order.dto.response.ShippingAddressResponse;
-import com.greenloop.order.dto.request.CheckoutRequest;
-import com.greenloop.order.dto.request.OrderFilterRequest;
-import com.greenloop.order.dto.request.OrderItemRequest;
+import com.greenloop.order.dto.event.OrderCheckedOutEvent;
+import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.OrderItem;
+import com.greenloop.order.entity.ShippingAddress;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.*;
-import com.greenloop.order.goship.dto.RateResponse;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.repository.specification.OrderSpecification;
@@ -32,7 +28,7 @@ import com.greenloop.order.util.PageResponseUtil;
 import com.greenloop.order.util.ShippingStatusMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,11 +53,37 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
     private final ProductClient productClient;
-    private final CommandGateway commandGateway;
     private final CartService cartService;
     private final PayOSPaymentService payOSPaymentService;
     private final ShippingCalculationService shippingCalculationService;
     private final StreamBridge streamBridge;
+
+    @Value("${goship.default-warehouse.name}")
+    private String warehouseName;
+
+    @Value("${goship.default-warehouse.phone}")
+    private String warehousePhone;
+
+    @Value("${goship.default-warehouse.address}")
+    private String warehouseAddress;
+
+    @Value("${goship.default-warehouse.ward-code}")
+    private Long warehouseWardCode;
+
+    @Value("${goship.default-warehouse.ward-name}")
+    private String warehouseWardName;
+
+    @Value("${goship.default-warehouse.district-id}")
+    private Integer warehouseDistrictId;
+
+    @Value("${goship.default-warehouse.city-id}")
+    private Integer warehouseCityId;
+
+    @Value("${goship.default-warehouse.district-name}")
+    private String warehouseDistrictName;
+
+    @Value("${goship.default-warehouse.city-name}")
+    private String warehouseCityName;
 
     @Override
     @Transactional
@@ -84,59 +106,51 @@ public class OrderServiceImpl implements OrderService {
         if (request.getSelectedRateId() == null || request.getSelectedRateId().isBlank()) {
             throw new IllegalArgumentException("Vui lòng chọn đơn vị vận chuyển");
         }
+
         Cart cart = cartRepository.findByCustomerId(userId)
                 .orElseThrow(() -> new CartNotFoundException(userId));
+
         if (cart.getItems().isEmpty()) {
             throw new EmptyCartException();
         }
+
         List<OrderItemRequest> orderItems = cart.getItems().stream()
                 .map(this::validateAndMapCartItem)
                 .collect(Collectors.toList());
+
         BigDecimal productTotal = orderItems.stream()
                 .map(OrderItemRequest::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
                 cart.getItems(),
                 productTotal,
                 String.valueOf(request.getShippingAddress().getCityId()),
                 String.valueOf(request.getShippingAddress().getDistrictId())
         );
+
         if (estimate.getAvailableOptions().isEmpty()) {
             throw new ShippingRateNotFoundException("Không tìm thấy đơn vị vận chuyển phù hợp");
         }
+
         ShippingEstimateResponse.ShippingOption selectedOption = estimate.getAvailableOptions().stream()
                 .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
                 .findFirst()
                 .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
-        RateResponse selectedRate = RateResponse.builder()
-                .id(selectedOption.getRateId())
-                .carrierName(selectedOption.getCarrierName())
-                .carrierLogo(selectedOption.getCarrierLogo())
-                .service(selectedOption.getService())
-                .totalFee(selectedOption.getFee())
-                .expected(selectedOption.getEstimatedDelivery())
-                .build();
-        BigDecimal shippingFee = selectedRate.getTotalFee();
-        BigDecimal totalPrice = productTotal.add(shippingFee);
-        LocalDateTime expectedDeliveryTime;
-        try {
-            String numberStr = selectedRate.getExpected().replaceAll("[^0-9]", "");
-            if (!numberStr.isEmpty()) {
-                int days = Integer.parseInt(numberStr);
-                expectedDeliveryTime = LocalDateTime.now().plusDays(days);
-            } else {
-                expectedDeliveryTime = LocalDateTime.now().plusDays(3);
-            }
-        } catch (Exception e) {
-            expectedDeliveryTime = LocalDateTime.now().plusDays(3);
-        }
 
-        ParcelDimensionDTO parcelDimensions = shippingCalculationService.calculateParcelDimensions(cart.getItems());
+        BigDecimal shippingFee = selectedOption.getFee();
+        BigDecimal totalPrice = productTotal.add(shippingFee);
+
+        LocalDateTime expectedDeliveryTime = calculateExpectedDeliveryTime(
+                selectedOption.getEstimatedDelivery());
+
+        ParcelDimensionDTO parcelDimensions = shippingCalculationService
+                .calculateParcelDimensions(cart.getItems());
 
         String orderId = UUID.randomUUID().toString();
         String orderCode = OrderCodeGenerator.generateOrderCode();
 
-        CreateOrderCommand.CreateOrderCommandBuilder commandBuilder = CreateOrderCommand.builder()
+        CreateOrderRequest.CreateOrderRequestBuilder orderRequestBuilder = CreateOrderRequest.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .customerId(userId)
@@ -148,25 +162,26 @@ public class OrderServiceImpl implements OrderService {
                 .shippingAddress(request.getShippingAddress())
                 .paymentMethod(request.getPaymentMethod())
                 .selectedRateId(request.getSelectedRateId())
-                .carrier(selectedRate.getCarrierName())
+                .carrier(selectedOption.getCarrierName())
                 .expectedDeliveryTime(expectedDeliveryTime)
                 .parcelWeight(String.valueOf(parcelDimensions.getWeight()))
                 .parcelWidth(String.valueOf(parcelDimensions.getWidth()))
                 .parcelHeight(String.valueOf(parcelDimensions.getHeight()))
                 .parcelLength(String.valueOf(parcelDimensions.getLength()))
                 .shippingStatus(900);
+
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .productTotal(productTotal)
                 .shippingFee(shippingFee)
                 .totalPrice(totalPrice)
-                .selectedCarrier(selectedRate.getCarrierName())
-                .estimatedDelivery(selectedRate.getExpected())
+                .selectedCarrier(selectedOption.getCarrierName())
+                .estimatedDelivery(selectedOption.getEstimatedDelivery())
                 .createdAt(LocalDateTime.now());
+
         if (request.getPaymentMethod() == PaymentMethod.COD) {
-            responseBuilder
-                    .paymentUrl(null)
+            responseBuilder.paymentUrl(null)
                     .message(String.format("Đặt hàng thành công! Tổng thanh toán: %,dđ khi nhận hàng.",
                             totalPrice.longValue()));
 
@@ -174,25 +189,121 @@ public class OrderServiceImpl implements OrderService {
             String platform = request.getPlatform() != null ? request.getPlatform() : "web";
             PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
                     orderId, totalPrice, platform);
-            commandBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
-            responseBuilder
-                    .paymentUrl(paymentResponse.getCheckoutUrl())
+
+            orderRequestBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
+
+            responseBuilder.paymentUrl(paymentResponse.getCheckoutUrl())
                     .message(String.format("Vui lòng thanh toán %,dđ để hoàn tất đơn hàng.",
                             totalPrice.longValue()));
         }
-        commandGateway.sendAndWait(commandBuilder.build());
 
-        publishOrderCheckedOutEvent(orderId, userId, cart, totalPrice);
+        CreateOrderRequest orderRequest = orderRequestBuilder.build();
+        Order createdOrder = buildAndSaveOrder(orderRequest);
+
+        publishOrderCheckedOutEvent(createdOrder.getOrderId(), userId, cart, totalPrice);
 
         cartService.clearCart(userId);
+
         return responseBuilder.build();
     }
+
+    @Transactional
+    protected Order buildAndSaveOrder(CreateOrderRequest request) {
+        log.info("Creating order {} for customer {}",
+                request.getOrderCode(), request.getCustomerId());
+
+        if (request.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidOrderPriceException();
+        }
+
+        Order order = Order.builder()
+                .orderId(request.getOrderId())
+                .orderCode(request.getOrderCode())
+                .customerId(request.getCustomerId())
+                .totalPrice(request.getTotalPrice())
+                .shippingFee(request.getShippingFee())
+                .orderStatus(request.getOrderStatus())
+                .paymentStatus(request.getPaymentStatus())
+                .paymentMethod(request.getPaymentMethod())
+                .paymentOrderCode(request.getPaymentOrderCode())
+                .selectedRateId(request.getSelectedRateId())
+                .carrier(request.getCarrier())
+                .expectedDeliveryTime(request.getExpectedDeliveryTime())
+                .shippingStatus(request.getShippingStatus())
+                .parcelWeight(request.getParcelWeight())
+                .parcelWidth(request.getParcelWidth())
+                .parcelHeight(request.getParcelHeight())
+                .parcelLength(request.getParcelLength())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        if (request.getShippingAddress() != null) {
+            ShippingAddress shippingAddress = ShippingAddress.builder()
+                    .receiverName(request.getShippingAddress().getReceiverName())
+                    .receiverPhone(request.getShippingAddress().getReceiverPhone())
+                    .receiverAddress(request.getShippingAddress().getAddress())
+                    .receiverWardCode(request.getShippingAddress().getWardCode())
+                    .receiverWardName(request.getShippingAddress().getWard())
+                    .receiverDistrictName(request.getShippingAddress().getDistrictName())
+                    .receiverCityName(request.getShippingAddress().getCityName())
+                    .receiverDistrictId(request.getShippingAddress().getDistrictId())
+                    .receiverCityId(request.getShippingAddress().getCityId())
+                    .note(request.getShippingAddress().getNote())
+                    .warehouseName(warehouseName)
+                    .warehousePhone(warehousePhone)
+                    .warehouseAddress(warehouseAddress)
+                    .warehouseWardCode(warehouseWardCode)
+                    .warehouseWardName(warehouseWardName)
+                    .warehouseDistrictId(warehouseDistrictId)
+                    .warehouseDistrictName(warehouseDistrictName)
+                    .warehouseCityName(warehouseCityName)
+                    .warehouseCityId(warehouseCityId)
+                    .build();
+
+            order.setShippingAddress(shippingAddress);
+        }
+
+        if (request.getOrderItems() != null && !request.getOrderItems().isEmpty()) {
+            List<OrderItem> orderItems = request.getOrderItems().stream()
+                    .map(itemReq -> OrderItem.builder()
+                            .productId(itemReq.getProductId())
+                            .price(itemReq.getPrice())
+                            .productName(itemReq.getProductName())
+                            .productImage(itemReq.getProductImage())
+                            .order(order)
+                            .build())
+                    .collect(Collectors.toList());
+
+            order.setOrderItems(orderItems);
+        }
+
+        Order savedOrder = orderRepository.save(order);
+
+        log.info("Order created successfully: {}", savedOrder.getOrderCode());
+
+        return savedOrder;
+    }
+
+    private LocalDateTime calculateExpectedDeliveryTime(String estimatedDelivery) {
+        try {
+            String numberStr = estimatedDelivery.replaceAll("[^0-9]", "");
+            if (!numberStr.isEmpty()) {
+                int days = Integer.parseInt(numberStr);
+                return LocalDateTime.now().plusDays(days);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse delivery time: {}", estimatedDelivery);
+        }
+        return LocalDateTime.now().plusDays(3);
+    }
+
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
         return orderRepository.findByPaymentOrderCode(paymentOrderCode)
                 .map(Order::getOrderId)
                 .orElse(null);
     }
+
     @Override
     @Transactional
     public void updatePaymentStatus(String orderId, PaymentStatus status) {
@@ -201,6 +312,7 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.save(order);
         });
     }
+
     @Override
     @Transactional
     public void updatePaymentTransactionId(String orderId, String transactionId) {
@@ -209,12 +321,14 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.save(order);
         });
     }
+
     @Override
     @Transactional(readOnly = true)
     public Order getOrderEntityById(String orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
+
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(String orderId) {
@@ -223,6 +337,7 @@ public class OrderServiceImpl implements OrderService {
 
         return mapToOrderResponse(order);
     }
+
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter) {
@@ -240,10 +355,61 @@ public class OrderServiceImpl implements OrderService {
         );
 
         Page<Order> orderPage = orderRepository.findAll(spec, pageable);
-
         Page<OrderResponse> responsePage = orderPage.map(this::mapToOrderResponse);
 
         return PageResponseUtil.toPageResponse(responsePage);
+    }
+
+    @Override
+    @Transactional
+    public void updateOrderStatusWithDetails(String orderId, UpdateOrderStatusRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus oldStatus = order.getOrderStatus();
+
+        // Validate status transition
+        if (!oldStatus.canTransitionTo(request.getNewStatus())) {
+            throw new InvalidOrderStatusException(
+                    oldStatus.getDescription(),
+                    request.getNewStatus().getDescription()
+            );
+        }
+
+        // Additional validation for cancellation
+        if (request.getNewStatus() == OrderStatus.CANCELLED) {
+            validateCancellation(order);
+        }
+
+        // Update order status
+        order.setOrderStatus(request.getNewStatus());
+        order.setUpdatedAt(LocalDateTime.now());
+
+        // Update shipping info if provided
+        if (request.getGoshipShipmentId() != null) {
+            order.setGoshipShipmentId(request.getGoshipShipmentId());
+            order.setGoshipTrackingUrl(request.getGoshipTrackingCode());
+            order.setCarrier(request.getCarrier());
+        }
+
+        orderRepository.save(order);
+
+        log.info("Order {} status updated from {} to {}. Reason: {}",
+                orderId, oldStatus, request.getNewStatus(), request.getReason());
+
+    }
+
+    private void validateCancellation(Order order) {
+        if (!order.getOrderStatus().isCancellable()) {
+            throw new OrderNotCancellableException(order.getOrderStatus().getDescription());
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID
+                && order.getPaymentMethod() == PaymentMethod.PAYOS) {
+            throw new OrderNotCancellableException(
+                    "Đơn hàng đã thanh toán online không thể hủy. Vui lòng liên hệ CSKH"
+            );
+        }
     }
 
 
@@ -263,14 +429,12 @@ public class OrderServiceImpl implements OrderService {
                 .expectedDeliveryTime(order.getExpectedDeliveryTime())
                 .shippingStatus(order.getShippingStatus())
                 .goshipShipmentId(order.getGoshipShipmentId())
-                .shippingStatus(order.getShippingStatus())
                 .shippingStatusText(ShippingStatusMapper.getStatusText(order.getShippingStatus()))
                 .goshipTrackingUrl(order.getGoshipTrackingUrl())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();
 
-        // Map shipping address
         if (order.getShippingAddress() != null) {
             ShippingAddressResponse addressDTO = ShippingAddressResponse.builder()
                     .receiverName(order.getShippingAddress().getReceiverName())
@@ -297,7 +461,6 @@ public class OrderServiceImpl implements OrderService {
             response.setShippingAddress(addressDTO);
         }
 
-        // Map order items
         if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
             List<OrderItemResponse> itemDTOs = order.getOrderItems().stream()
                     .map(item -> OrderItemResponse.builder()
@@ -351,8 +514,8 @@ public class OrderServiceImpl implements OrderService {
                 .totalEcoPoints(totalEcoPoints)
                 .build();
 
-            streamBridge.send("orderCheckedOut-out-0", event);
-            log.info("Published OrderCheckedOutEvent for order {}", orderId);
+        streamBridge.send("orderCheckedOut-out-0", event);
+        log.info("Published OrderCheckedOutEvent for order {}", orderId);
     }
 
     private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {

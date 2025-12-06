@@ -17,4 +17,5 @@ public class OrderItemResponse {
     private BigDecimal price;
     private String productName;
     private String productImage;
+    private Integer ecoPoint;
 }

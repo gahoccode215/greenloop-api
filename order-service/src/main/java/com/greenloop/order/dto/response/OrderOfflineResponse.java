@@ -24,15 +24,14 @@ public class OrderOfflineResponse {
 
     private List<OrderItemResponse> items;
 
-    // Pricing
     private BigDecimal subtotal;
-    private BigDecimal discountAmount; // NEW
-    private BigDecimal totalPrice; // NEW
+    private BigDecimal discountAmount;
+    private BigDecimal totalPrice;
 
-    // Voucher
-    private String voucherCode; // NEW
+    private String voucherCode;
 
     private String paymentMethod;
     private LocalDateTime createdAt;
     private String createdBy;
+    private Integer earnedEcoPoints;
 }

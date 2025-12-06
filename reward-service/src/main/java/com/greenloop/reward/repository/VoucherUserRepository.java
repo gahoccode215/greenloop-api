@@ -32,4 +32,6 @@ public interface VoucherUserRepository extends JpaRepository<VoucherUser, Long> 
   @Query(
       "SELECT vu.userId, COUNT(vu) FROM VoucherUser vu GROUP BY vu.userId ORDER BY COUNT(vu) DESC")
   List<Object[]> findTopUsers();
+
+    List<VoucherUser> findByUserId(Long userId);
 }
