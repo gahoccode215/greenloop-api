@@ -33,12 +33,42 @@ public class OrderSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("paymentStatus"), filter.getPaymentStatus()));
             }
 
+            if (filter.getOrderType() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("orderType"), filter.getOrderType()));
+            }
+
+            if (filter.getEventId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("eventId"), filter.getEventId()));
+            }
+
+            if (filter.getIsGuestPurchase() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isGuestPurchase"), filter.getIsGuestPurchase()));
+            }
+
+            if (filter.getPaymentMethod() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("paymentMethod"), filter.getPaymentMethod()));
+            }
+
+            if (filter.getCreatedBy() != null && !filter.getCreatedBy().trim().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(root.get("createdBy"), filter.getCreatedBy()));
+            }
+
+            if (filter.getMinPrice() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("totalPrice"), filter.getMinPrice()));
+            }
+
+            if (filter.getMaxPrice() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("totalPrice"), filter.getMaxPrice()));
+            }
+
             if (filter.getSearchKeyword() != null && !filter.getSearchKeyword().trim().isEmpty()) {
                 String searchPattern = "%" + filter.getSearchKeyword().toLowerCase().trim() + "%";
                 predicates.add(
                         criteriaBuilder.or(
                                 criteriaBuilder.like(criteriaBuilder.lower(root.get("orderCode")), searchPattern),
-                                criteriaBuilder.like(criteriaBuilder.lower(root.get("orderId")), searchPattern)
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("orderId")), searchPattern),
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("guestName")), searchPattern),
+                                criteriaBuilder.like(criteriaBuilder.lower(root.get("guestPhone")), searchPattern)
                         )
                 );
             }

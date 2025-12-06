@@ -8,6 +8,8 @@ import com.greenloop.reward.dto.response.EcoPointUserTransactionResponse;
 import com.greenloop.reward.entity.EcoPointTransaction;
 import com.greenloop.reward.entity.EcoPointUser;
 import com.greenloop.reward.enums.EcoPointStatus;
+import com.greenloop.reward.enums.EcoPointType;
+import com.greenloop.reward.enums.SourceType;
 import com.greenloop.reward.repository.EcoPointTransactionRepository;
 import com.greenloop.reward.repository.EcoPointUserRepository;
 import com.greenloop.reward.service.EcoPointUserService;
@@ -143,6 +145,25 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
                 .topUsers(topUsers)
                 .build();
     }
+
+    @Override
+    public void addEcoPointsForOfflineOrder(Long customerId, Integer points, String orderId, String orderCode) {
+        EcoPointTransactionDTO transactionDTO = EcoPointTransactionDTO.builder()
+                .userId(customerId)
+                .points(points)
+                .type(EcoPointType.EARNED)
+                .sourceType(SourceType.ORDER)
+                .sourceId((long) Math.abs(orderId.hashCode()))
+                .description("Mua hàng offline - " + orderCode)
+                .build();
+
+        updateEcoPointUserBalance(transactionDTO);
+        log.info("Added {} eco points for customer {} from offline order {}",
+                points, customerId, orderCode);
+    }
+
+
+
 
     private Long getCurrentUserId() {
         return Long.valueOf(

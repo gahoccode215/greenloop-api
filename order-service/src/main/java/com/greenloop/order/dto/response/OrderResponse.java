@@ -1,6 +1,7 @@
 package com.greenloop.order.dto.response;
 
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.OrderType;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import lombok.*;
@@ -25,6 +26,7 @@ public class OrderResponse {
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
     private String paymentTransactionId;
+
     private Integer shippingStatus;
     private String shippingStatusText;
     private String carrier;
@@ -32,7 +34,22 @@ public class OrderResponse {
     private String goshipShipmentId;
     private String goshipTrackingUrl;
     private ShippingAddressResponse shippingAddress;
+
     private List<OrderItemResponse> orderItems;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private OrderType orderType;
+    private Long eventId;
+    private String eventName;
+    private Boolean isGuestPurchase;
+    private String guestName;
+    private String guestPhone;
+    private String paymentProofImageUrl;
+    private String createdBy;
+    private BigDecimal subTotal;
+    private BigDecimal discountAmount;
+    private String voucherCode;
+    private Integer earnedEcoPoints;
+    private String note;
 }

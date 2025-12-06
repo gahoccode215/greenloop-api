@@ -61,7 +61,7 @@ public class CartServiceImpl implements CartService {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseGet(() -> createNewCart(customerId));
 
-        ApiResponseDTO<ProductDTO> response = productClient.getProductById(request.getProductId());
+        ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(request.getProductId());
 
         if (!response.isSuccess() || response.getData() == null) {
             throw new ProductNotFoundException(request.getProductId());

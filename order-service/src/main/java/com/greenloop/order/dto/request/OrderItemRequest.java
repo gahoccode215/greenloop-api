@@ -20,14 +20,8 @@ public class OrderItemRequest {
     private Long productId;
 
     @NotNull
-    @Min(value = 1)
-    private Integer quantity;
-
-    @NotNull
     @DecimalMin(value = "0.0", inclusive = false)
     private BigDecimal price;
-
-    private BigDecimal totalPrice;
 
     private String productName;
     private String productImage;

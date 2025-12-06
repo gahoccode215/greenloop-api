@@ -6,25 +6,36 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class OrderCodeGenerator {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter FULL_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final OrderRepository orderRepository;
 
-    // Online order
-    public static String generateOrderCode() {
-        String datePart = LocalDateTime.now().format(DATE_FORMATTER);
-        String uniquePart = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        return String.format("ORD-%s-%s", datePart, uniquePart);
+    /**
+     * Generate order code cho đơn hàng ONLINE
+     * Format: ONL-YYYYMMDD-XXXXX
+     * Example: ONL-20251206-00001
+     */
+    public String generateOrderOnlineCode() {
+        LocalDateTime now = LocalDateTime.now();
+        String datePart = now.format(FULL_DATE_FORMATTER);
+        String prefix = "ONL-" + datePart;
+
+        long count = orderRepository.countByOrderCodeStartingWith(prefix);
+        String sequence = String.format("%05d", count + 1);
+
+        return String.format("ONL-%s-%s", datePart, sequence);
     }
 
-    // Offline order - ALL IN ONE
+    /**
+     * Generate order code cho đơn hàng OFFLINE
+     * Format: OFF-YYYYMMDD-XXXXX
+     * Example: OFF-20251206-00001
+     */
     public String generateOrderOfflineCode() {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(FULL_DATE_FORMATTER);

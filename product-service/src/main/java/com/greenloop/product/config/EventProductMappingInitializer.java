@@ -12,6 +12,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -28,7 +29,8 @@ public class EventProductMappingInitializer implements CommandLineRunner {
         if (eventProductMappingRepository.count() == 0) {
             log.info("Initializing Event-Product mappings...");
             initializeEventProductMappings();
-            log.info("Event-Product mapping initialization completed!");
+            log.info("Event-Product mapping initialization completed! Total: {}",
+                    eventProductMappingRepository.count());
         } else {
             log.info("Event-Product mappings already exist, skipping initialization");
         }
@@ -37,84 +39,99 @@ public class EventProductMappingInitializer implements CommandLineRunner {
     private void initializeEventProductMappings() {
         LocalDateTime now = LocalDateTime.now();
 
-        // ✅ EVENT 1: Ngày hội Tái chế Xanh 2025 (ACTIVE NOW)
-        // Thời gian: Đã bắt đầu từ 2 ngày trước, kéo dài 7 ngày
-        assignProductsToEvent(
+        // EVENT 1: Ngày Hội Thu Gom Quần Áo Cũ Quận 1 (ONGOING)
+        // Status: DISPLAYED (đang trưng bày tại sự kiện, đang diễn ra)
+        // Products: ID 1-5 (AT001-AT005)
+        assignProductsToEventByIds(
                 1L,
-                List.of("AT001", "AT002", "QJ001", "QJ002", "AK001"),
-                now.minusDays(2),  // Bắt đầu từ 2 ngày trước
-                now.plusDays(5),   // Kết thúc sau 5 ngày nữa
+                List.of(1L, 2L, 3L, 4L, 5L),
+                now.minusDays(1),
+                now.plusDays(2),
                 EventMappingStatus.DISPLAYED
         );
 
-        // ✅ EVENT 2: Chiến dịch Làm sạch Biển Vũng Tàu (ACTIVE NOW)
-        // Thời gian: Đang diễn ra
-        assignProductsToEvent(
+        // EVENT 2: Thu Gom Cuối Tuần - Gò Vấp (UPCOMING)
+        // Status: PREPARED (đã chuẩn bị sẵn, chờ sự kiện bắt đầu)
+        // Products: ID 6-10 (AT006-AT010)
+        assignProductsToEventByIds(
                 2L,
-                List.of("AT003", "QS001", "QS003"),
-                now.minusHours(12), // Bắt đầu từ 12 giờ trước
-                now.plusDays(3),    // Kết thúc sau 3 ngày
-                EventMappingStatus.DISPLAYED
+                List.of(6L, 7L, 8L, 9L, 10L),
+                now.plusDays(7),
+                now.plusDays(8),
+                EventMappingStatus.PREPARED
         );
 
-        // ✅ EVENT 5: Ngày Trái Đất Xanh 2025 (ACTIVE NOW - Event lớn)
-        // Thời gian: Đang diễn ra, kéo dài
-        assignProductsToEvent(
+        // EVENT 3: Thu Gom Tháng 11 - Quận 3 (CLOSED)
+        // Status: CLOSED - KHÔNG GÁN PRODUCT
+
+        // EVENT 4: Thu Gom Quận 7 - Tạm Hoãn (CANCELED)
+        // Status: CANCELED - KHÔNG GÁN PRODUCT
+
+        // EVENT 5: Đại Hội Toàn Thành Phố 2025 (UPCOMING - Event lớn)
+        // Status: ASSIGNED (đã phân công, chưa chuẩn bị)
+        // Products: ID 11-20 (QJ001-QJ010)
+        assignProductsToEventByIds(
                 5L,
-                List.of("AT001", "AT003", "QJ002", "AK001", "AK002", "AK003", "DV001", "DV002"),
-                now.minusDays(1),  // Bắt đầu từ hôm qua
-                now.plusDays(10),  // Kết thúc sau 10 ngày
-                EventMappingStatus.DISPLAYED
+                List.of(11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L),
+                now.plusDays(30),
+                now.plusDays(31),
+                EventMappingStatus.ASSIGNED
         );
 
-        // ✅ EVENT 6: Workshop Làm Túi Vải từ Quần Áo Cũ (ACTIVE NOW)
-        // Thời gian: Đang trong khung giờ workshop
-        assignProductsToEvent(
+        // EVENT 6: Thu Gom Tháng 12 - Bình Thạnh (UPCOMING)
+        // Status: PREPARED (đã chuẩn bị sẵn, sắp diễn ra)
+        // Products: ID 21-28 (AK001-AK008)
+        assignProductsToEventByIds(
                 6L,
-                List.of("AT002", "DV003", "QJ003"),
-                now.minusHours(2),  // Bắt đầu từ 2 giờ trước
-                now.plusHours(4),   // Kết thúc sau 4 giờ nữa
-                EventMappingStatus.DISPLAYED
+                List.of(21L, 22L, 23L, 24L, 25L, 26L, 27L, 28L),
+                now.plusDays(5),
+                now.plusDays(5).plusHours(4),
+                EventMappingStatus.PREPARED
         );
 
-        // ✅ EVENT 7: Trồng 1000 Cây Xanh cho Sài Gòn (ACTIVE NOW)
-        // Thời gian: Đang trong ngày trồng cây
-        assignProductsToEvent(
+        // EVENT 7: Thu Gom Phú Mỹ Hưng (UPCOMING)
+        // Status: ASSIGNED (đã phân công, chưa chuẩn bị chi tiết)
+        // Products: ID 29-35 (AK009, AK010, DV001-DV005)
+        assignProductsToEventByIds(
                 7L,
-                List.of("AT001", "QS002", "QS003", "QJ001"),
-                now.minusHours(6),  // Bắt đầu từ 6 giờ trước (sáng sớm)
-                now.plusHours(10),  // Kết thúc sau 10 giờ (chiều tối)
-                EventMappingStatus.DISPLAYED
+                List.of(29L, 30L, 31L, 32L, 33L, 34L, 35L),
+                now.plusDays(20),
+                now.plusDays(20).plusHours(6),
+                EventMappingStatus.ASSIGNED
         );
 
-        log.info("Total Event-Product mappings created: {}", eventProductMappingRepository.count());
+        log.info("Successfully created mappings for active/upcoming events only");
     }
 
-    private void assignProductsToEvent(
+    /**
+     * Gán products cho event theo danh sách Product IDs
+     */
+    private void assignProductsToEventByIds(
             Long eventId,
-            List<String> productCodes,
+            List<Long> productIds,
             LocalDateTime displayFrom,
             LocalDateTime displayTo,
             EventMappingStatus status) {
 
+        List<EventProductMapping> mappings = new ArrayList<>();
         int successCount = 0;
-        int skipCount = 0;
+        int notFoundCount = 0;
 
-        for (String code : productCodes) {
-            Product product = productRepository.findByCode(code).orElse(null);
+        for (Long productId : productIds) {
+            Product product = productRepository.findById(productId).orElse(null);
 
             if (product == null) {
-                log.warn("Product with code {} not found, skipping", code);
-                skipCount++;
+                log.warn("Product ID {} not found, skipping", productId);
+                notFoundCount++;
                 continue;
             }
 
+            // Check if mapping already exists
             boolean exists = eventProductMappingRepository
                     .existsByEventIdAndProductId(eventId, product.getId());
 
             if (exists) {
-                log.debug("Mapping already exists for Event {} and Product {}", eventId, code);
-                skipCount++;
+                log.debug("Mapping already exists for Event {} and Product ID {}", eventId, productId);
                 continue;
             }
 
@@ -126,16 +143,21 @@ public class EventProductMappingInitializer implements CommandLineRunner {
                     .status(status)
                     .build();
 
-            eventProductMappingRepository.save(mapping);
+            mappings.add(mapping);
             successCount++;
-
-            // ✅ Log chi tiết để dễ debug
-            log.debug("Created mapping: Event {}, Product {} ({}), Display: {} to {}",
-                    eventId, product.getId(), code, displayFrom, displayTo);
         }
 
-        log.info("Event {}: Assigned {} products, Skipped {} products. " +
-                        "Display period: {} to {}",
-                eventId, successCount, skipCount, displayFrom, displayTo);
+        if (!mappings.isEmpty()) {
+            eventProductMappingRepository.saveAll(mappings);
+        }
+
+        log.info("Event {}: Assigned {} products (IDs: {}), Not found: {}, Status: {}, Display: {} to {}",
+                eventId,
+                successCount,
+                productIds,
+                notFoundCount,
+                status,
+                displayFrom,
+                displayTo);
     }
 }

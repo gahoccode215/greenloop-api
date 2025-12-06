@@ -63,10 +63,4 @@ public enum OrderStatus {
         };
     }
 
-
-    public boolean isCancellable() {
-        return this == PENDING || this == CONFIRMED;
-    }
-
-
 }

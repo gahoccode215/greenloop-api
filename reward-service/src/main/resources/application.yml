@@ -4,20 +4,22 @@ server:
 spring:
   application:
     name: reward-service
-  datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_reward_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:12345}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
   cloud:
     function:
-      definition: ecoPointDonationConsumer
+      definition: ecoPointDonationConsumer;orderOfflineCreatedRewardConsumer
     stream:
       bindings:
         ecoPointDonation-int-0:
           destination: ecopoint-donation
           group: ${spring.application.name}
+        orderOfflineCreatedRewardConsumer-in-0:
+          destination: order-offline-created-reward
+          group: ${spring.application.name}
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_reward_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:12345}
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:

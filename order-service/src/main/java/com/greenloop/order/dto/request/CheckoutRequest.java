@@ -25,4 +25,6 @@ public class CheckoutRequest {
 
     @Builder.Default
     private String platform = "web";
+
+    private Long voucherUserId;
 }

@@ -22,12 +22,16 @@ spring:
   cloud:
     stream:
       bindings:
-        orderCheckedOut-out-0:
-          destination: order-checked-out
-        productSold-out-0:
-          destination: product-sold
-        orderOfflineCreated-out-0:
-          destination: order-offline-created
+        orderCheckedOutReward-out-0:
+          destination: order-checked-out-reward
+        orderCheckedOutProduct-out-0:
+          destination: order-checked-out-product
+        orderOfflineCreatedProduct-out-0:
+          destination: order-offline-created-product
+        orderOfflineCreatedReward-out-0:
+          destination: order-offline-created-reward
+        orderCancelledProduct-out-0:
+          destination: order-cancelled-product
   rabbitmq:
     host: ${RABBITMQ_HOST:35.198.237.130}
     port: ${RABBITMQ_PORT:5672}

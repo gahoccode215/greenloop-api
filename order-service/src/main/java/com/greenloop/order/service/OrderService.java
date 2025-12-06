@@ -1,11 +1,13 @@
 package com.greenloop.order.service;
 
 import com.greenloop.order.dto.request.CheckoutRequest;
+import com.greenloop.order.dto.request.CreateShipmentRequestDTO;
 import com.greenloop.order.dto.request.OrderFilterRequest;
 import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
 import com.greenloop.order.dto.response.CheckoutResponse;
 import com.greenloop.order.dto.response.OrderResponse;
 import com.greenloop.order.dto.response.PageResponseDTO;
+import com.greenloop.order.dto.response.ShipmentInfoResponse;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentStatus;
@@ -13,7 +15,6 @@ import com.greenloop.order.enums.PaymentStatus;
 
 
 public interface OrderService {
-    void createOrder(Order order);
     void updateOrderStatus(String orderId, OrderStatus newStatus);
     CheckoutResponse checkout(Long userId, CheckoutRequest request);
     String findOrderIdByPaymentOrderCode(Long paymentOrderCode);
@@ -22,5 +23,10 @@ public interface OrderService {
     Order getOrderEntityById(String orderId);
     OrderResponse getOrderById(String orderId);
     PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter);
-    void updateOrderStatusWithDetails(String orderId, UpdateOrderStatusRequest request);
+    void cancelOrder(String orderId, String reason);
+    void confirmOrder(String orderId, String reason);
+    void processOrder(String orderId, String reason);
+    void completeOrder(String orderId, String reason);
+    ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
+
 }

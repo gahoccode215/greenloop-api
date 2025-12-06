@@ -4,6 +4,7 @@ import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.event.OrderCancelledEvent;
 import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.*;
@@ -16,13 +17,12 @@ import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.*;
+import com.greenloop.order.goship.dto.CreateShipmentResponse;
+import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.repository.specification.OrderSpecification;
-import com.greenloop.order.service.CartService;
-import com.greenloop.order.service.OrderService;
-import com.greenloop.order.service.PayOSPaymentService;
-import com.greenloop.order.service.ShippingCalculationService;
+import com.greenloop.order.service.*;
 import com.greenloop.order.util.OrderCodeGenerator;
 import com.greenloop.order.util.PageResponseUtil;
 import com.greenloop.order.util.ShippingStatusMapper;
@@ -56,7 +56,10 @@ public class OrderServiceImpl implements OrderService {
     private final CartService cartService;
     private final PayOSPaymentService payOSPaymentService;
     private final ShippingCalculationService shippingCalculationService;
+    private final GoShipService goShipService;
     private final StreamBridge streamBridge;
+    private final VoucherDiscountService voucherDiscountService;
+    private final OrderCodeGenerator orderCodeGenerator;
 
     @Value("${goship.default-warehouse.name}")
     private String warehouseName;
@@ -85,11 +88,6 @@ public class OrderServiceImpl implements OrderService {
     @Value("${goship.default-warehouse.city-name}")
     private String warehouseCityName;
 
-    @Override
-    @Transactional
-    public void createOrder(Order order) {
-        orderRepository.save(order);
-    }
 
     @Override
     @Transactional
@@ -114,8 +112,28 @@ public class OrderServiceImpl implements OrderService {
             throw new EmptyCartException();
         }
 
+        // Validate cart items
         List<OrderItemRequest> orderItems = cart.getItems().stream()
-                .map(this::validateAndMapCartItem)
+                .map(cartItem -> {
+                    ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(cartItem.getProductId());
+
+                    if (!response.isSuccess() || response.getData() == null) {
+                        throw new ProductNotFoundException(cartItem.getProductId());
+                    }
+
+                    ProductDTO product = response.getData();
+
+                    if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
+                        throw new ProductNotAvailableException(product.getId());
+                    }
+
+                    return OrderItemRequest.builder()
+                            .productId(cartItem.getProductId())
+                            .price(cartItem.getPrice())
+                            .productName(cartItem.getProductName())
+                            .productImage(cartItem.getProductImage())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         BigDecimal productTotal = orderItems.stream()
@@ -138,24 +156,61 @@ public class OrderServiceImpl implements OrderService {
                 .findFirst()
                 .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
 
-        BigDecimal shippingFee = selectedOption.getFee();
-        BigDecimal totalPrice = productTotal.add(shippingFee);
+        BigDecimal originalShippingFee = selectedOption.getFee();
 
-        LocalDateTime expectedDeliveryTime = calculateExpectedDeliveryTime(
-                selectedOption.getEstimatedDelivery());
+        VoucherDiscountResult voucherResult = voucherDiscountService.validateAndCalculateOnline(
+                request.getVoucherUserId(),
+                productTotal,
+                originalShippingFee
+        );
+
+        BigDecimal productDiscount = voucherResult.getDiscountAmount() != null
+                ? voucherResult.getDiscountAmount()
+                : BigDecimal.ZERO;
+
+        BigDecimal shippingDiscount = voucherResult.getShippingDiscount() != null
+                ? voucherResult.getShippingDiscount()
+                : BigDecimal.ZERO;
+
+        BigDecimal finalShippingFee = originalShippingFee.subtract(shippingDiscount);
+        if (finalShippingFee.compareTo(BigDecimal.ZERO) < 0) {
+            finalShippingFee = BigDecimal.ZERO;
+        }
+
+        BigDecimal subtotalAfterDiscount = productTotal.subtract(productDiscount);
+        BigDecimal totalPrice = subtotalAfterDiscount.add(finalShippingFee);
+
+        // Calculate expected delivery time
+        LocalDateTime expectedDeliveryTime;
+        try {
+            String numberStr = selectedOption.getEstimatedDelivery().replaceAll("[^0-9]", "");
+            if (!numberStr.isEmpty()) {
+                int days = Integer.parseInt(numberStr);
+                expectedDeliveryTime = LocalDateTime.now().plusDays(days);
+            } else {
+                expectedDeliveryTime = LocalDateTime.now().plusDays(3);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse delivery time: {}", selectedOption.getEstimatedDelivery());
+            expectedDeliveryTime = LocalDateTime.now().plusDays(3);
+        }
 
         ParcelDimensionDTO parcelDimensions = shippingCalculationService
                 .calculateParcelDimensions(cart.getItems());
 
         String orderId = UUID.randomUUID().toString();
-        String orderCode = OrderCodeGenerator.generateOrderCode();
+        String orderCode = orderCodeGenerator.generateOrderOnlineCode();
 
         CreateOrderRequest.CreateOrderRequestBuilder orderRequestBuilder = CreateOrderRequest.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .customerId(userId)
+                .subTotal(productTotal)
+                .discountAmount(productDiscount.add(shippingDiscount))
                 .totalPrice(totalPrice)
-                .shippingFee(shippingFee)
+                .shippingFee(finalShippingFee)
+                .voucherUserId(request.getVoucherUserId())
+                .voucherCode(voucherResult.getVoucherCode())
                 .orderStatus(OrderStatus.PENDING)
                 .paymentStatus(PaymentStatus.UNPAID)
                 .orderItems(orderItems)
@@ -174,16 +229,31 @@ public class OrderServiceImpl implements OrderService {
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .productTotal(productTotal)
-                .shippingFee(shippingFee)
+                .originalShippingFee(originalShippingFee)
+                .productDiscount(productDiscount)
+                .shippingDiscount(shippingDiscount)
+                .discountAmount(productDiscount.add(shippingDiscount))
+                .voucherCode(voucherResult.getVoucherCode())
+                .isFreeShip(voucherResult.getIsFreeShip())
+                .subtotalAfterDiscount(subtotalAfterDiscount)
+                .shippingFee(finalShippingFee)
                 .totalPrice(totalPrice)
                 .selectedCarrier(selectedOption.getCarrierName())
                 .estimatedDelivery(selectedOption.getEstimatedDelivery())
                 .createdAt(LocalDateTime.now());
 
+
         if (request.getPaymentMethod() == PaymentMethod.COD) {
-            responseBuilder.paymentUrl(null)
-                    .message(String.format("Đặt hàng thành công! Tổng thanh toán: %,dđ khi nhận hàng.",
-                            totalPrice.longValue()));
+            String message = String.format("Đặt hàng thành công! Tổng thanh toán: %,dđ khi nhận hàng.",
+                    totalPrice.longValue());
+
+            if (Boolean.TRUE.equals(voucherResult.getIsFreeShip())) {
+                message += String.format(" (Miễn phí ship %,dđ)", originalShippingFee.longValue());
+            } else if (productDiscount.add(shippingDiscount).compareTo(BigDecimal.ZERO) > 0) {
+                message += String.format(" (Giảm %,dđ)", productDiscount.add(shippingDiscount).longValue());
+            }
+
+            responseBuilder.paymentUrl(null).message(message);
 
         } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
             String platform = request.getPlatform() != null ? request.getPlatform() : "web";
@@ -192,20 +262,66 @@ public class OrderServiceImpl implements OrderService {
 
             orderRequestBuilder.paymentOrderCode(paymentResponse.getPaymentOrderCode());
 
-            responseBuilder.paymentUrl(paymentResponse.getCheckoutUrl())
-                    .message(String.format("Vui lòng thanh toán %,dđ để hoàn tất đơn hàng.",
-                            totalPrice.longValue()));
+            String message = String.format("Vui lòng thanh toán %,dđ để hoàn tất đơn hàng.",
+                    totalPrice.longValue());
+
+            if (Boolean.TRUE.equals(voucherResult.getIsFreeShip())) {
+                message += String.format(" (Miễn phí ship %,dđ)", originalShippingFee.longValue());
+            } else if (productDiscount.add(shippingDiscount).compareTo(BigDecimal.ZERO) > 0) {
+                message += String.format(" (Giảm %,dđ)", productDiscount.add(shippingDiscount).longValue());
+            }
+
+            responseBuilder.paymentUrl(paymentResponse.getCheckoutUrl()).message(message);
         }
 
         CreateOrderRequest orderRequest = orderRequestBuilder.build();
         Order createdOrder = buildAndSaveOrder(orderRequest);
 
-        publishOrderCheckedOutEvent(createdOrder.getOrderId(), userId, cart, totalPrice);
+        // Publish event
+        log.info("Publishing OrderCheckedOutEvent for order {}", orderId);
+        int totalEcoPoints = 0;
+        List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
+
+        for (CartItem item : cart.getItems()) {
+            try {
+                ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(item.getProductId());
+
+                if (response.isSuccess() && response.getData() != null) {
+                    ProductDTO product = response.getData();
+                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
+                    totalEcoPoints += ecoPoint;
+
+                    productStatusChanges.add(
+                            OrderCheckedOutEvent.ProductStatusChange.builder()
+                                    .productId(item.getProductId())
+                                    .newStatus(ProductStatusConstant.RESERVED)
+                                    .ecoPointValue(ecoPoint)
+                                    .build()
+                    );
+                }
+            } catch (Exception e) {
+                log.error("Failed to fetch product {}: {}", item.getProductId(), e.getMessage());
+            }
+        }
+
+        OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
+                .orderId(orderId)
+                .customerId(userId)
+                .totalAmount(totalPrice)
+                .checkedOutAt(LocalDateTime.now())
+                .productStatusChanges(productStatusChanges)
+                .totalEcoPoints(totalEcoPoints)
+                .build();
+
+        streamBridge.send("orderCheckedOutReward-out-0", event);
+        streamBridge.send("orderCheckedOutProduct-out-0", event);
+        log.info("Published OrderCheckedOutEvent for order {}", orderId);
 
         cartService.clearCart(userId);
 
         return responseBuilder.build();
     }
+
 
     @Transactional
     protected Order buildAndSaveOrder(CreateOrderRequest request) {
@@ -220,8 +336,12 @@ public class OrderServiceImpl implements OrderService {
                 .orderId(request.getOrderId())
                 .orderCode(request.getOrderCode())
                 .customerId(request.getCustomerId())
+                .subTotal(request.getSubTotal())
+                .discountAmount(request.getDiscountAmount())
                 .totalPrice(request.getTotalPrice())
                 .shippingFee(request.getShippingFee())
+                .voucherUserId(request.getVoucherUserId())
+                .voucherCode(request.getVoucherCode())
                 .orderStatus(request.getOrderStatus())
                 .paymentStatus(request.getPaymentStatus())
                 .paymentMethod(request.getPaymentMethod())
@@ -284,18 +404,6 @@ public class OrderServiceImpl implements OrderService {
         return savedOrder;
     }
 
-    private LocalDateTime calculateExpectedDeliveryTime(String estimatedDelivery) {
-        try {
-            String numberStr = estimatedDelivery.replaceAll("[^0-9]", "");
-            if (!numberStr.isEmpty()) {
-                int days = Integer.parseInt(numberStr);
-                return LocalDateTime.now().plusDays(days);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse delivery time: {}", estimatedDelivery);
-        }
-        return LocalDateTime.now().plusDays(3);
-    }
 
     @Override
     public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
@@ -362,55 +470,164 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void updateOrderStatusWithDetails(String orderId, UpdateOrderStatusRequest request) {
+    public ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         OrderStatus oldStatus = order.getOrderStatus();
 
-        // Validate status transition
-        if (!oldStatus.canTransitionTo(request.getNewStatus())) {
+        if (!oldStatus.canTransitionTo(OrderStatus.READY_TO_SHIP)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
-                    request.getNewStatus().getDescription()
+                    OrderStatus.READY_TO_SHIP.getDescription()
             );
         }
 
-        // Additional validation for cancellation
-        if (request.getNewStatus() == OrderStatus.CANCELLED) {
-            validateCancellation(order);
-        }
+        CreateShipmentResponse shipmentResponse = goShipService.createShipmentForOrder(orderId, request);
 
-        // Update order status
-        order.setOrderStatus(request.getNewStatus());
+        order.setOrderStatus(OrderStatus.READY_TO_SHIP);
+        order.setGoshipShipmentId(shipmentResponse.getId());
+        order.setGoshipTrackingUrl(shipmentResponse.getTrackingNumber());
+        order.setCarrier(shipmentResponse.getCarrier());
         order.setUpdatedAt(LocalDateTime.now());
-
-        // Update shipping info if provided
-        if (request.getGoshipShipmentId() != null) {
-            order.setGoshipShipmentId(request.getGoshipShipmentId());
-            order.setGoshipTrackingUrl(request.getGoshipTrackingCode());
-            order.setCarrier(request.getCarrier());
-        }
 
         orderRepository.save(order);
 
-        log.info("Order {} status updated from {} to {}. Reason: {}",
-                orderId, oldStatus, request.getNewStatus(), request.getReason());
+        log.info("Order {} ready to ship. Shipment ID: {}. Carrier: {}. Previous status: {}. Reason: {}",
+                orderId, shipmentResponse.getId(), shipmentResponse.getCarrier(), oldStatus, request.getReason());
 
+        return ShipmentInfoResponse.builder()
+                .shipmentId(shipmentResponse.getId())
+                .trackingNumber(shipmentResponse.getTrackingNumber())
+                .carrier(shipmentResponse.getCarrier())
+                .fee(shipmentResponse.getFee())
+                .createdAt(shipmentResponse.getCreatedAt())
+                .build();
     }
 
-    private void validateCancellation(Order order) {
-        if (!order.getOrderStatus().isCancellable()) {
-            throw new OrderNotCancellableException(order.getOrderStatus().getDescription());
-        }
 
-        if (order.getPaymentStatus() == PaymentStatus.PAID
-                && order.getPaymentMethod() == PaymentMethod.PAYOS) {
-            throw new OrderNotCancellableException(
-                    "Đơn hàng đã thanh toán online không thể hủy. Vui lòng liên hệ CSKH"
+    @Override
+    @Transactional
+    public void completeOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus oldStatus = order.getOrderStatus();
+
+        if (!oldStatus.canTransitionTo(OrderStatus.COMPLETED)) {
+            throw new InvalidOrderStatusException(
+                    oldStatus.getDescription(),
+                    OrderStatus.COMPLETED.getDescription()
             );
         }
+
+        order.setOrderStatus(OrderStatus.COMPLETED);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        orderRepository.save(order);
+
+        log.info("Order {} completed. Previous status: {}. Reason: {}",
+                orderId, oldStatus, reason);
     }
+
+
+    @Override
+    @Transactional
+    public void processOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus oldStatus = order.getOrderStatus();
+
+        if (!oldStatus.canTransitionTo(OrderStatus.PROCESSING)) {
+            throw new InvalidOrderStatusException(
+                    oldStatus.getDescription(),
+                    OrderStatus.PROCESSING.getDescription()
+            );
+        }
+
+        order.setOrderStatus(OrderStatus.PROCESSING);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        orderRepository.save(order);
+
+        log.info("Order {} processing started. Previous status: {}. Reason: {}",
+                orderId, oldStatus, reason);
+    }
+
+
+    @Override
+    @Transactional
+    public void confirmOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus oldStatus = order.getOrderStatus();
+
+        if (!oldStatus.canTransitionTo(OrderStatus.CONFIRMED)) {
+            throw new InvalidOrderStatusException(
+                    oldStatus.getDescription(),
+                    OrderStatus.CONFIRMED.getDescription()
+            );
+        }
+
+        order.setOrderStatus(OrderStatus.CONFIRMED);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        orderRepository.save(order);
+
+        log.info("Order {} confirmed. Previous status: {}. Reason: {}",
+                orderId, oldStatus, reason);
+    }
+
+
+    @Override
+    @Transactional
+    public void cancelOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus oldStatus = order.getOrderStatus();
+
+        if (!oldStatus.canTransitionTo(OrderStatus.CANCELLED)) {
+            throw new InvalidOrderStatusException(
+                    oldStatus.getDescription(),
+                    OrderStatus.CANCELLED.getDescription()
+            );
+        }
+
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        // Publish event: RESERVED → AVAILABLE
+        publishOrderCancelledEvent(order, reason);
+
+        log.info("Order {} cancelled. Previous status: {}. Reason: {}",
+                orderId, oldStatus, reason);
+    }
+
+    private void publishOrderCancelledEvent(Order order, String reason) {
+        List<OrderCancelledEvent.ProductStatusChange> changes =
+                order.getOrderItems().stream()
+                        .map(item -> OrderCancelledEvent.ProductStatusChange.builder()
+                                .productId(item.getProductId())
+                                .newStatus(ProductStatusConstant.AVAILABLE)
+                                .build())
+                        .collect(Collectors.toList());
+
+        OrderCancelledEvent event = OrderCancelledEvent.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .cancelledAt(LocalDateTime.now())
+                .reason(reason)
+                .productStatusChanges(changes)
+                .build();
+
+        streamBridge.send("orderCancelledProduct-out-0", event);
+        log.info("Published OrderCancelledEvent for order {}", order.getOrderId());
+    }
+
 
 
     private OrderResponse mapToOrderResponse(Order order) {
@@ -418,6 +635,9 @@ public class OrderServiceImpl implements OrderService {
                 .orderId(order.getOrderId())
                 .orderCode(order.getOrderCode())
                 .customerId(order.getCustomerId())
+                .subTotal(order.getSubTotal())
+                .discountAmount(order.getDiscountAmount())
+                .voucherCode(order.getVoucherCode())
                 .totalPrice(order.getTotalPrice())
                 .shippingFee(order.getShippingFee())
                 .orderStatus(order.getOrderStatus())
@@ -476,67 +696,5 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return response;
-    }
-
-    private void publishOrderCheckedOutEvent(String orderId, Long customerId, Cart cart, BigDecimal totalAmount) {
-        log.info("Publishing OrderCheckedOutEvent for order {}", orderId);
-        int totalEcoPoints = 0;
-        List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
-
-        for (CartItem item : cart.getItems()) {
-            try {
-                ApiResponseDTO<ProductDTO> response = productClient.getProductById(item.getProductId());
-
-                if (response.isSuccess() && response.getData() != null) {
-                    ProductDTO product = response.getData();
-                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
-                    totalEcoPoints += ecoPoint;
-
-                    productStatusChanges.add(
-                            OrderCheckedOutEvent.ProductStatusChange.builder()
-                                    .productId(item.getProductId())
-                                    .newStatus(ProductStatusConstant.SOLD)
-                                    .ecoPointValue(ecoPoint)
-                                    .build()
-                    );
-                }
-            } catch (Exception e) {
-                log.error("Failed to fetch product {}: {}", item.getProductId(), e.getMessage());
-            }
-        }
-
-        OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
-                .orderId(orderId)
-                .customerId(customerId)
-                .totalAmount(totalAmount)
-                .checkedOutAt(LocalDateTime.now())
-                .productStatusChanges(productStatusChanges)
-                .totalEcoPoints(totalEcoPoints)
-                .build();
-
-        streamBridge.send("orderCheckedOut-out-0", event);
-        log.info("Published OrderCheckedOutEvent for order {}", orderId);
-    }
-
-    private OrderItemRequest validateAndMapCartItem(CartItem cartItem) {
-        ApiResponseDTO<ProductDTO> response = productClient.getProductById(cartItem.getProductId());
-
-        if (!response.isSuccess() || response.getData() == null) {
-            throw new ProductNotFoundException(cartItem.getProductId());
-        }
-
-        ProductDTO product = response.getData();
-
-        if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
-            throw new ProductNotAvailableException(product.getId());
-        }
-
-        return OrderItemRequest.builder()
-                .productId(cartItem.getProductId())
-                .quantity(1)
-                .price(cartItem.getPrice())
-                .productName(cartItem.getProductName())
-                .productImage(cartItem.getProductImage())
-                .build();
     }
 }

@@ -11,17 +11,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "product-service",
-        path = "/api/v1/internal/products"
+        path = "/api/v1"
 )
 public interface ProductClient {
 
-    @GetMapping("/{id}")
-    ApiResponseDTO<ProductDTO> getProductById(@PathVariable("id") Long id);
-
-    @PostMapping("/validate-for-offline-order")
+    @PostMapping("/internal/products/validate-for-offline-order")
     ApiResponseDTO<Void> validateProductsForOfflineOrder(
             @RequestBody ProductValidationRequest request);
 
-    @GetMapping("/detail/{id}")
+    @GetMapping("/internal/products/detail/{id}")
     ApiResponseDTO<ProductDTO> getProductDetailById(@PathVariable("id") Long id);
 }

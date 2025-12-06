@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -14,19 +13,12 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderOfflineCreatedEvent implements Serializable {
-
+public class OrderCancelledEvent implements Serializable {
     private String orderId;
     private String orderCode;
-    private Long eventId;
-    private Long customerId;
-    private Boolean isGuestPurchase;
-    private BigDecimal totalAmount;
-    private LocalDateTime createdAt;
+    private LocalDateTime cancelledAt;
+    private String reason;
     private List<ProductStatusChange> productStatusChanges;
-    private Integer earnedEcoPoints;
-    private Long voucherUserId;
-    private BigDecimal discountAmount;
 
     @Data
     @Builder

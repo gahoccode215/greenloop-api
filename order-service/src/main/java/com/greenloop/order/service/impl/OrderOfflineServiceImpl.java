@@ -57,10 +57,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     public OrderOfflineResponse createOrderOffline(
             CreateOrderOfflineRequest request,
             MultipartFile paymentProofImage) {
-
-        log.info("Creating offline order for event: {}, paymentMethod: {}",
-                request.getEventId(), request.getPaymentMethod());
-
         // 1. Validate products trong event
         validateProductsInEvent(request);
 
@@ -72,7 +68,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
         // 4. Validate và tính discount từ voucher
         VoucherDiscountResult voucherResult =
-                voucherDiscountService.validateAndCalculate(
+                voucherDiscountService.validateAndCalculateOffline(
                         request.getVoucherUserId(), subtotal);
 
         BigDecimal discountAmount = voucherResult.getDiscountAmount();
@@ -137,9 +133,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         // 9. Lưu vào database
         Order savedOrder = orderRepository.save(order);
 
-        log.info("Order created successfully: orderCode={}, totalPrice={}, earnedEcoPoints={}",
-                orderCode, totalPrice, earnedEcoPoints);
-
         // 10. Publish event
         publishOrderOfflineCreatedEvent(savedOrder);
 
@@ -147,9 +140,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         return buildResponseFromEntity(savedOrder, voucherResult);
     }
 
-    /**
-     * Upload ảnh bill thanh toán lên Cloudinary
-     */
     private String handlePaymentProofUpload(MultipartFile file) {
         try {
             Map<String, String> uploadResult = cloudinaryService.uploadImage(
@@ -242,10 +232,12 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                     .earnedEcoPoints(order.getEarnedEcoPoints())
                     .createdAt(order.getCreatedAt())
                     .productStatusChanges(productStatusChanges)
+                    .voucherUserId(order.getVoucherUserId())
+                    .discountAmount(order.getDiscountAmount())
                     .build();
 
-            streamBridge.send("orderOfflineCreated-out-0", event);
-
+            streamBridge.send("orderOfflineCreatedProduct-out-0", event);
+            streamBridge.send("orderOfflineCreatedReward-out-0", event);
             log.info("Published OrderOfflineCreatedEvent for order: {}", order.getOrderCode());
 
         } catch (Exception e) {
@@ -292,7 +284,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         List<Long> productIds = request.getItems().stream()
                 .map(OrderItemOfflineRequest::getProductId)
                 .collect(Collectors.toList());
-
         try {
             productClient.validateProductsForOfflineOrder(
                     ProductValidationRequest.builder()
@@ -301,7 +292,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                             .build()
             );
         } catch (Exception e) {
-            log.error("Product validation failed for event {}", request.getEventId());
             throw new ProductValidationException();
         }
     }

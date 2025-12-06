@@ -19,6 +19,10 @@ public class VoucherDiscountResult {
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
 
+    private BigDecimal shippingDiscount;
+    private Boolean isFreeShip;
+    private String discountType;
+
     public static VoucherDiscountResult noDiscount() {
         return VoucherDiscountResult.builder()
                 .voucherUserId(null)
@@ -26,8 +30,9 @@ public class VoucherDiscountResult {
                 .voucherName(null)
                 .discountAmount(BigDecimal.ZERO)
                 .finalAmount(BigDecimal.ZERO)
+                .shippingDiscount(BigDecimal.ZERO)
+                .isFreeShip(false)
+                .discountType(null)
                 .build();
     }
-
-
 }

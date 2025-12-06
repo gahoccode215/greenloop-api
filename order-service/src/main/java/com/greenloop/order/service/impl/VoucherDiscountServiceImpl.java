@@ -22,8 +22,12 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
     private final VoucherClient voucherClient;
 
+    /**
+     * Validate và tính discount cho đơn OFFLINE
+     * Không cho phép voucher FREESHIP
+     */
     @Override
-    public VoucherDiscountResult validateAndCalculate(
+    public VoucherDiscountResult validateAndCalculateOffline(
             Long voucherUserId,
             BigDecimal subtotal) {
 
@@ -41,10 +45,13 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
             UserVoucherResponse voucher = response.getData();
 
-            // Validate voucher type trước tiên
-            validateVoucherType(voucher);
+            if (voucher.getVoucherType() == VoucherType.FREESHIP) {
+                throw new VoucherException(
+                        String.format("Voucher '%s' là voucher miễn phí ship, " +
+                                        "không áp dụng cho đơn hàng offline",
+                                voucher.getVoucherCode()));
+            }
 
-            // Validate các điều kiện khác
             validateVoucher(voucher, subtotal);
 
             BigDecimal discount = calculateDiscount(voucher, subtotal);
@@ -55,6 +62,9 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
                     .voucherName(voucher.getVoucherName())
                     .discountAmount(discount)
                     .finalAmount(subtotal.subtract(discount))
+                    .shippingDiscount(BigDecimal.ZERO)
+                    .isFreeShip(false)
+                    .discountType("PRODUCT")
                     .build();
 
         } catch (VoucherException e) {
@@ -70,21 +80,96 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
     }
 
     /**
-     * Validate voucher type - Chỉ chấp nhận PERCENT và AMOUNT cho đơn offline
+     * Validate và tính discount cho đơn ONLINE
+     * Cho phép voucher FREESHIP, PERCENT, AMOUNT
      */
-    private void validateVoucherType(UserVoucherResponse voucher) {
-        if (voucher.getVoucherType() == null) {
-            throw new VoucherException("Loại voucher không xác định");
+    @Override
+    public VoucherDiscountResult validateAndCalculateOnline(
+            Long voucherUserId,
+            BigDecimal subtotal,
+            BigDecimal shippingFee) {
+
+        if (voucherUserId == null) {
+            return VoucherDiscountResult.noDiscount();
         }
 
-        if (voucher.getVoucherType() == VoucherType.FREESHIP) {
+        try {
+            ApiResponseDTO<UserVoucherResponse> response =
+                    voucherClient.validateVoucherForUser(voucherUserId);
+
+            if (!response.isSuccess() || response.getData() == null) {
+                throw new VoucherException("Voucher không hợp lệ hoặc không tồn tại");
+            }
+
+            UserVoucherResponse voucher = response.getData();
+
+            validateVoucher(voucher, subtotal);
+
+            BigDecimal productDiscount = BigDecimal.ZERO;
+            BigDecimal shippingDiscount = BigDecimal.ZERO;
+            Boolean isFreeShip = false;
+            String discountType;
+
+            if (voucher.getVoucherType() == VoucherType.FREESHIP) {
+                shippingDiscount = shippingFee;
+                isFreeShip = true;
+                discountType = "SHIPPING";
+
+            } else if (voucher.getVoucherType() == VoucherType.PERCENT) {
+                productDiscount = subtotal
+                        .multiply(voucher.getValue())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+                if (voucher.getMaxDiscount() != null
+                        && productDiscount.compareTo(voucher.getMaxDiscount()) > 0) {
+                    productDiscount = voucher.getMaxDiscount();
+                }
+
+                if (productDiscount.compareTo(subtotal) > 0) {
+                    productDiscount = subtotal;
+                }
+                discountType = "PRODUCT";
+
+            } else if (voucher.getVoucherType() == VoucherType.AMOUNT) {
+                productDiscount = voucher.getValue();
+                if (productDiscount.compareTo(subtotal) > 0) {
+                    productDiscount = subtotal;
+                }
+                discountType = "PRODUCT";
+
+            } else {
+                throw new VoucherException("Loại voucher không được hỗ trợ");
+            }
+
+            BigDecimal finalAmount = subtotal.subtract(productDiscount)
+                    .add(shippingFee.subtract(shippingDiscount));
+
+            return VoucherDiscountResult.builder()
+                    .voucherUserId(voucherUserId)
+                    .voucherCode(voucher.getVoucherCode())
+                    .voucherName(voucher.getVoucherName())
+                    .discountAmount(productDiscount)
+                    .shippingDiscount(shippingDiscount)
+                    .isFreeShip(isFreeShip)
+                    .discountType(discountType)
+                    .finalAmount(finalAmount)
+                    .build();
+
+        } catch (VoucherException e) {
+            throw e;
+
+        } catch (FeignException.NotFound e) {
+            throw new VoucherException("Voucher không tồn tại");
+
+        } catch (FeignException e) {
             throw new VoucherException(
-                    String.format("Voucher '%s' là voucher miễn phí ship, " +
-                                    "không áp dụng cho đơn hàng offline",
-                            voucher.getVoucherCode()));
+                    "Không thể xác thực voucher. Vui lòng thử lại sau");
         }
     }
 
+    /**
+     * Validate các điều kiện chung của voucher
+     */
     private void validateVoucher(UserVoucherResponse voucher,
                                  BigDecimal subtotal) {
 
@@ -125,30 +210,28 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
         }
     }
 
+    /**
+     * Tính discount cho voucher PERCENT hoặc AMOUNT (cho đơn offline)
+     */
     private BigDecimal calculateDiscount(UserVoucherResponse voucher,
                                          BigDecimal subtotal) {
 
         BigDecimal discount;
         BigDecimal value = voucher.getValue();
 
-        // Xử lý theo loại voucher
         if (voucher.getVoucherType() == VoucherType.PERCENT) {
-            // Tính phần trăm giảm giá
             discount = subtotal
                     .multiply(value)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-            // Áp dụng max discount nếu có
             if (voucher.getMaxDiscount() != null
                     && discount.compareTo(voucher.getMaxDiscount()) > 0) {
                 discount = voucher.getMaxDiscount();
             }
         } else {
-            // VoucherType.AMOUNT - Giảm giá cố định
             discount = value;
         }
 
-        // Đảm bảo discount không vượt quá subtotal
         if (discount.compareTo(subtotal) > 0) {
             discount = subtotal;
         }

@@ -46,5 +46,6 @@ public interface ProductService {
     List<ProductResponse> getProductAssignableToEvent(Long eventId);
 
     void updateProductStatus(Long productId, String newStatus);
+    void updateProductEventMappingStatus(Long productId, Long eventId, EventMappingStatus status);
 
 }

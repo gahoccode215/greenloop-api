@@ -145,6 +145,20 @@ public class ProductServiceImpl implements ProductService {
         product.setStatus(status);
         productRepository.save(product);
     }
+    @Override
+    @Transactional
+    public void updateProductEventMappingStatus(Long productId, Long eventId, EventMappingStatus status) {
+        EventProductMapping mapping = eventProductMappingRepository
+                .findByEventIdAndProductId(eventId, productId)
+                .orElseThrow(() -> new BusinessException(
+                        "Không tìm thấy mapping sản phẩm trong sự kiện. Event ID: " + eventId + ", Product ID: " + productId,
+                        ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND
+                ));
+
+        mapping.setStatus(status);
+        eventProductMappingRepository.save(mapping);
+    }
+
 
     @Override
     @Transactional

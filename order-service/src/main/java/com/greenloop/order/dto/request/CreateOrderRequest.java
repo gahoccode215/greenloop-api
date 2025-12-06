@@ -30,15 +30,18 @@ public class CreateOrderRequest {
     private List<OrderItemRequest> orderItems;
     private CheckoutShippingAddressRequest shippingAddress;
 
-    // Shipping details
     private String selectedRateId;
     private String carrier;
     private LocalDateTime expectedDeliveryTime;
     private Integer shippingStatus;
 
-    // Parcel dimensions
     private String parcelWeight;
     private String parcelWidth;
     private String parcelHeight;
     private String parcelLength;
+
+    private BigDecimal subTotal;
+    private BigDecimal discountAmount;
+    private Long voucherUserId;
+    private String voucherCode;
 }

@@ -5,16 +5,19 @@ spring:
     name: product-service
   cloud:
     function:
-      definition: orderCheckedOutConsumer
+      definition: orderCheckedOutProductConsumer;orderOfflineCreatedProductConsumer;orderCancelledProductConsumer
     stream:
       bindings:
         ecoPointDonation-out-0:
           destination: ecopoint-donation
-        orderCheckedOutConsumer-in-0:
-          destination: order-checked-out
+        orderCheckedOutProductConsumer-in-0:
+          destination: order-checked-out-product
           group: ${spring.application.name}
-        orderOfflineCreatedConsumer-in-0:
-          destination: order-offline-created
+        orderOfflineCreatedProductConsumer-in-0:
+          destination: order-offline-created-product
+          group: ${spring.application.name}
+        orderCancelledProductConsumer-in-0:
+          destination: order-cancelled-product
           group: ${spring.application.name}
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_product_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
