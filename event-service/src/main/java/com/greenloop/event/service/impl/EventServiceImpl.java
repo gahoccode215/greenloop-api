@@ -1,6 +1,7 @@
 package com.greenloop.event.service.impl;
 
 import com.greenloop.event.constraint.RoleConstants;
+import com.greenloop.event.dto.event.NotificationEvent;
 import com.greenloop.event.dto.request.*;
 import com.greenloop.event.dto.response.*;
 import com.greenloop.event.entity.Event;
@@ -11,10 +12,7 @@ import com.greenloop.event.exception.BusinessException;
 import com.greenloop.event.repository.EventRegistrationRepository;
 import com.greenloop.event.repository.EventRepository;
 import com.greenloop.event.repository.EventStaffAssignmentRepository;
-import com.greenloop.event.service.CloudinaryService;
-import com.greenloop.event.service.EcoPointCheckInProducer;
-import com.greenloop.event.service.EventService;
-import com.greenloop.event.service.UserServiceFeign;
+import com.greenloop.event.service.*;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +39,7 @@ public class EventServiceImpl implements EventService {
   private final String localImagePath = "GreenLoop/Events";
   private final UserServiceFeign userServiceFeign;
   private final EcoPointCheckInProducer ecoPointCheckInProducer;
+  private final NotificationProducer notificationProducer;
 
   /**
    * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -496,6 +495,46 @@ public class EventServiceImpl implements EventService {
     event.updatedBy(userId);
     eventRepository.save(event);
     log.info("Event status updated successfully for ID: {}", event.getId());
+
+    if( status == EventStatus.CLOSED) {
+        List<Long> notifiedUserIds = new ArrayList<>();
+        notifiedUserIds.addAll(event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+        notifiedUserIds.addAll(event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+        for (Long userIdToNotify : notifiedUserIds) {
+            notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                    .userId(userIdToNotify)
+                    .title("Sự kiện đã kết thúc")
+                    .message("Sự kiện " + event.getName() + " đã chính thức kết thúc. Cảm ơn bạn đã tham gia!")
+                    .build());
+        }
+    }
+    if( status == EventStatus.CANCELED) {
+        List<Long> notifiedUserIds = new ArrayList<>();
+        notifiedUserIds.addAll(event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+        notifiedUserIds.addAll(event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+        for (Long userIdToNotify : notifiedUserIds) {
+            notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                    .userId(userIdToNotify)
+                    .title("Sự kiện đã bị hủy")
+                    .message("Sự kiện " + event.getName() + " đã bị hủy bỏ. Chúng tôi xin lỗi vì sự bất tiện này.")
+                    .build());
+        }
+    }
+    if(status == EventStatus.UPCOMING) {
+        List<Long> notifiedUserIds = new ArrayList<>();
+        notifiedUserIds.addAll(event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+        notifiedUserIds.addAll(event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+        for (Long userIdToNotify : notifiedUserIds) {
+            notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                    .userId(userIdToNotify)
+                    .title("Sự kiện sắp diễn ra")
+                    .message("Sự kiện " + event.getName() + " sẽ diễn ra vào ngày " + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + ". Hãy chuẩn bị tham gia nhé!")
+                    .build());
+        }
+    }
     return event.getId();
   }
 
@@ -669,6 +708,18 @@ public class EventServiceImpl implements EventService {
       assignments.add(assignment);
     }
     assignmentRepository.saveAll(assignments);
+    for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder()
+                .userId(dto.getStaffId())
+                .title("Phân công công việc")
+                .message(
+                    "Bạn đã được phân công làm "
+                        + (dto.isStoreManager() ? "quản lý cửa hàng " : "nhân viên ")
+                        + "cho sự kiện: "
+                        + event.getName())
+                .build());
+    }
     log.info(
         "User {} successfully assigned staff to event {}", currentUserId, request.getEventId());
   }
@@ -777,6 +828,20 @@ public class EventServiceImpl implements EventService {
     if (storeManagerCount > 1) {
       throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
     }
+    for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder()
+                .userId(dto.getStaffId())
+                .title("Cập nhật phân công công việc")
+                .message(
+                    "Phân công của bạn đã được cập nhật cho sự kiện: "
+                        + event.getName()
+                        + ". Vai trò mới của bạn là "
+                        + (dto.isStoreManager() ? "quản lý cửa hàng " : "nhân viên "))
+                .build());
+    }
+    log.info(
+        "User {} successfully updated staff assignments for event {}", currentUserId, eventId);
   }
 
   /**
@@ -927,6 +992,17 @@ public class EventServiceImpl implements EventService {
             .build();
     ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
 
+    notificationProducer.sendNotificationMessage(
+        NotificationEvent.builder()
+            .userId(registration.getUserId())
+            .title("Check-in sự kiện thành công")
+            .message(
+                "Bạn đã check-in thành công cho sự kiện: "
+                    + event.getName()
+                    + ". Bạn nhận được 5 điểm Eco Point.")
+            .build()
+    );
+
     log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
   }
 
@@ -962,6 +1038,7 @@ public class EventServiceImpl implements EventService {
     registration.updatedBy(userId);
     registrationRepository.save(registration);
     log.info("User {} successfully cancelled registration to event {}", userId, eventId);
+
   }
 
   /**

@@ -3,9 +3,11 @@ package com.greenloop.product.controller;
 import com.greenloop.product.dto.request.AssignProductEventRequest;
 import com.greenloop.product.dto.request.CreateProductRequest;
 import com.greenloop.product.dto.request.UpdateProductRequest;
+import com.greenloop.product.dto.request.UpdateStatusProductEventMappingRequest;
 import com.greenloop.product.dto.response.ApiResponseDTO;
 import com.greenloop.product.dto.response.PageResponseDTO;
 import com.greenloop.product.dto.response.ProductResponse;
+import com.greenloop.product.enums.EventMappingStatus;
 import com.greenloop.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -215,6 +217,18 @@ public class ProductController {
 
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Gán sản phẩm vào sự kiện thành công", null, HttpStatus.OK)
+        );
+    }
+
+    @PutMapping("/change-event-status")
+    @Operation(summary = "Change product-event mapping status", description = "Update status of products in an event")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<String>> changeProductEventStatus(
+            @RequestBody @Valid UpdateStatusProductEventMappingRequest request) {
+        log.info("Change product event mapping status: {}", request);
+        productService.changeProductEventStatus(request);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success("Cập nhật trạng thái sản phẩm trong sự kiện thành công", null, HttpStatus.OK)
         );
     }
 

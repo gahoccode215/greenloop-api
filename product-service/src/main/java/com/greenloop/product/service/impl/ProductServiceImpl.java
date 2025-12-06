@@ -1,9 +1,6 @@
 package com.greenloop.product.service.impl;
 
-import com.greenloop.product.dto.request.AssignProductEventRequest;
-import com.greenloop.product.dto.request.CreateProductRequest;
-import com.greenloop.product.dto.request.EcoPointInfoRequest;
-import com.greenloop.product.dto.request.UpdateProductRequest;
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.*;
 import com.greenloop.product.enums.*;
@@ -366,6 +363,24 @@ public class ProductServiceImpl implements ProductService {
             eventProductMappingRepository.save(mapping);
         }
 
+    }
+
+    @Override
+    @Transactional
+    public void changeProductEventStatus(UpdateStatusProductEventMappingRequest eventMappingRequest) {
+        for (Long productId : eventMappingRequest.getProductIds()) {
+            EventProductMapping mapping =
+                    eventProductMappingRepository.findByEventIdAndProductId(eventMappingRequest.getEventId(), productId)
+                            .orElseThrow(() ->
+                                    new BusinessException(
+                                            "Không tìm thấy mapping sản phẩm trong sự kiện. Event ID: " + eventMappingRequest.getEventId() + ", Product ID: " + productId,
+                                            ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND
+                                    )
+                            );
+
+            mapping.setStatus(eventMappingRequest.getStatus());
+            eventProductMappingRepository.save(mapping);
+        }
     }
 
     @Override
