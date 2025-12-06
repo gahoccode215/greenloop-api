@@ -16,3 +16,4 @@ COPY --from=build /app/target/product-service-*.jar product-service.jar
 EXPOSE 8082
 
 ENTRYPOINT ["java", "-jar", "product-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "product-service.jar"]

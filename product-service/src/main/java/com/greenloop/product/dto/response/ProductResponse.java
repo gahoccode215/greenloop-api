@@ -40,4 +40,5 @@ public class ProductResponse {
     private int width;
     private int height;
     private EventMappingStatus eventMappingStatus;
+    private Boolean isEventReadyForSelling;
 }

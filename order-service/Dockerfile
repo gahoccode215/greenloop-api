@@ -16,3 +16,4 @@ COPY --from=build /app/target/order-service-*.jar order-service.jar
 EXPOSE 8083
 
 ENTRYPOINT ["java", "-jar", "order-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "order-service.jar"]

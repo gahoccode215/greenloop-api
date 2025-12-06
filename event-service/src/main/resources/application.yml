@@ -39,6 +39,7 @@ rabbitmq:
   exchangeName: greenloop.exchange
   eco-donation-queue: ecoDonationQueue
   eco-donation-routing-key: ecoDonationQueueRoutingKey
+  notification-routing-key: notificationQueueRoutingKey
 
 eureka:
   client:

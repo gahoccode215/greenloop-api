@@ -41,4 +41,11 @@ public interface EventProductMappingRepository extends JpaRepository<EventProduc
             "FROM EventProductMapping m GROUP BY m.eventId")
     List<Object[]> countProductsByEvent();
 
+    @Query("""
+                SELECT m FROM EventProductMapping m
+                WHERE m.status = 'ASSIGNED'
+                AND m.displayFrom IS NOT NULL
+                AND m.displayFrom <= :prepareThreshold
+            """)
+    List<EventProductMapping> findMappingsToPrepare(@Param("prepareThreshold") LocalDateTime prepareThreshold);
 }

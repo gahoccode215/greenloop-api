@@ -243,19 +243,24 @@ public class DonationServiceImpl implements DonationService {
     }
 
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
-        String redisKey = ecoPointRedisKey + EcoActionType.DONATION + "_" + itemReq.getCategoryId();
-        EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
-        if (ecoPointRule == null) {
-            ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.DONATION).categoryId(itemReq.getCategoryId()).build());
-        }
+        try {
+            String redisKey = ecoPointRedisKey + EcoActionType.DONATION + "_" + itemReq.getCategoryId();
+            EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
+            if (ecoPointRule == null) {
+                ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.DONATION).categoryId(itemReq.getCategoryId()).build());
+            }
 
-        if (ecoPointRule == null) {
-            log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
-        }
+            if (ecoPointRule == null) {
+                log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
+            }
 
-        if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
-            log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
-            throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
+                log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+                throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            }
+        } catch (Exception e) {
+            log.error("Error validating eco point rule: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.ECO_POINT_RULE_NOT_FOUND);
         }
     }
 

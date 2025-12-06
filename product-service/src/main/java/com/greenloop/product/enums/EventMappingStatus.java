@@ -1,7 +1,8 @@
 package com.greenloop.product.enums;
 
 public enum EventMappingStatus {
-    ONLINE,
+    ASSIGNED,
+    PREPARED,
     DISPLAYED,
     SOLD_OUT,
     RETURNED

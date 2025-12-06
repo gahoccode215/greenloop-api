@@ -1,9 +1,6 @@
 package com.greenloop.product.service.impl;
 
-import com.greenloop.product.dto.request.AssignProductEventRequest;
-import com.greenloop.product.dto.request.CreateProductRequest;
-import com.greenloop.product.dto.request.EcoPointInfoRequest;
-import com.greenloop.product.dto.request.UpdateProductRequest;
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.*;
 import com.greenloop.product.enums.*;
@@ -107,6 +104,29 @@ public class ProductServiceImpl implements ProductService {
 
         return response;
     }
+
+    private boolean calculateEventFlag(Product product) {
+
+        if (product.getEventMappings() == null || product.getEventMappings().isEmpty())
+            return false;
+
+        EventProductMapping active = product.getEventMappings()
+                .stream()
+                .filter(m -> m.getStatus() == EventMappingStatus.PREPARED
+                        || m.getStatus() == EventMappingStatus.DISPLAYED)
+                .findFirst()
+                .orElse(null);
+
+        if (active == null) return false;
+
+        LocalDateTime displayFrom = active.getDisplayFrom();
+        if (displayFrom == null) return false;
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime limit = displayFrom.minusDays(1);
+        return now.isBefore(limit);
+    }
+
 
     @Override
     public ProductResponse getProductDetail(Long id) {
@@ -281,11 +301,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void assignProductsToEvent(AssignProductEventRequest request) {
 
-        EventResponse eventInfo = eventServiceFeign.getInfoEventId(request.getEventId());
+        EventResponse eventInfo = null;
+        try {
+            eventInfo = eventServiceFeign.getInfoEventId(request.getEventId());
+        } catch (Exception e) {
+            log.error("Error fetching event info for event ID {}: {}", request.getEventId(), e.getMessage());
+            throw new BusinessException("Lỗi khi lấy thông tin sự kiện với ID: " + request.getEventId(), ErrorCode.EVENT_SERVICE_ERROR);
+        }
         if (eventInfo == null) {
             throw new BusinessException("Không tìm thấy sự kiện với ID: " + request.getEventId(), ErrorCode.EVENT_NOT_FOUND);
 
         }
+
 
         LocalDateTime displayFrom = request.getDisplayFrom();
         LocalDateTime displayTo = request.getDisplayTo();
@@ -330,12 +357,30 @@ public class ProductServiceImpl implements ProductService {
                     )
                     .displayFrom(displayFrom)
                     .displayTo(displayTo)
-                    .status(EventMappingStatus.DISPLAYED)
+                    .status(EventMappingStatus.ASSIGNED)
                     .build();
 
             eventProductMappingRepository.save(mapping);
         }
 
+    }
+
+    @Override
+    @Transactional
+    public void changeProductEventStatus(UpdateStatusProductEventMappingRequest eventMappingRequest) {
+        for (Long productId : eventMappingRequest.getProductIds()) {
+            EventProductMapping mapping =
+                    eventProductMappingRepository.findByEventIdAndProductId(eventMappingRequest.getEventId(), productId)
+                            .orElseThrow(() ->
+                                    new BusinessException(
+                                            "Không tìm thấy mapping sản phẩm trong sự kiện. Event ID: " + eventMappingRequest.getEventId() + ", Product ID: " + productId,
+                                            ErrorCode.EVENT_PRODUCT_MAPPING_NOT_FOUND
+                                    )
+                            );
+
+            mapping.setStatus(eventMappingRequest.getStatus());
+            eventProductMappingRepository.save(mapping);
+        }
     }
 
     @Override
@@ -449,21 +494,29 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private void validateEcoPointRuleUpdate(UpdateProductRequest itemReq) {
-        String redisKey = ecoPointRedisKey + EcoActionType.RESALE + "_" + itemReq.getCategoryId();
-        EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
-        if (ecoPointRule == null) {
-            ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.RESALE).categoryId(itemReq.getCategoryId()).build());
-        }
+        try {
+            String redisKey = ecoPointRedisKey + EcoActionType.RESALE + "_" + itemReq.getCategoryId();
+            EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
+            if (ecoPointRule == null) {
+                ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.RESALE).categoryId(itemReq.getCategoryId()).build());
+            }
 
-        if (ecoPointRule == null) {
-            log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
-        }
+            if (ecoPointRule == null) {
+                log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
+            }
 
-        if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
-            log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+            if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
+                log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+                throw new BusinessException(
+                        "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
+                        ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error validating eco point rule: {}", e.getMessage());
             throw new BusinessException(
-                    "Giá trị Eco Point " + itemReq.getEcoPointValue() + " không hợp lệ cho Category ID " + itemReq.getCategoryId(),
-                    ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS
+                    "Lỗi khi xác thực quy tắc Eco Point",
+                    ErrorCode.ECO_POINT_RULE_NOT_FOUND
             );
         }
 
@@ -500,6 +553,14 @@ public class ProductServiceImpl implements ProductService {
         if (product.getDonationItemId() != null) {
             donationItem = donationItemRepository.findById(product.getDonationItemId()).orElse(null);
         }
+
+        Boolean eventFlag = null;
+        try {
+            eventFlag = calculateEventFlag(product);
+        } catch (Exception e) {
+            log.error("Error calculating event flag for product ID {}: {}", product.getId(), e.getMessage());
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
@@ -523,6 +584,7 @@ public class ProductServiceImpl implements ProductService {
                 .height(product.getHeight())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
+                .isEventReadyForSelling(eventFlag)
                 .build();
     }
 
