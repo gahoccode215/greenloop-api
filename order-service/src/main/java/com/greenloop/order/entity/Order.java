@@ -124,6 +124,8 @@ public class Order {
     @Column(name = "note")
     private String note;
 
+    @Column(name = "payment_proof_image_url", length = 500)
+    private String paymentProofImageUrl;  // URL ảnh bill
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

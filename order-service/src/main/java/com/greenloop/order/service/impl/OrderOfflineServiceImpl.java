@@ -19,6 +19,7 @@ import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.ProductValidationException;
 import com.greenloop.order.repository.OrderRepository;
+import com.greenloop.order.service.CloudinaryService;
 import com.greenloop.order.service.OrderOfflineService;
 import com.greenloop.order.service.VoucherDiscountService;
 import com.greenloop.order.util.OrderCodeGenerator;
@@ -29,6 +30,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -48,16 +50,22 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     private final VoucherDiscountService voucherDiscountService;
     private final StreamBridge streamBridge;
     private final ProductClient productClient;
+    private final CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
-    public OrderOfflineResponse createOrderOffline(CreateOrderOfflineRequest request) {
+    public OrderOfflineResponse createOrderOffline(
+            CreateOrderOfflineRequest request,
+            MultipartFile paymentProofImage) {
 
-        // 1. Validate products thuộc event
+        log.info("Creating offline order for event: {}, paymentMethod: {}",
+                request.getEventId(), request.getPaymentMethod());
+
+        // 1. Validate products trong event
         validateProductsInEvent(request);
 
-        // 2. Lấy thông tin Product từ Product Service (bao gồm ecoPointValue)
-        Map<Long, ProductDTO> productDetailsMap = fetchProductDetails(request);
+        // 2. Lấy thông tin Product
+        Map<Long, ProductDTO> productDetailsMap = fetchProductDetailsForOrder(request);
 
         // 3. Tính subtotal
         BigDecimal subtotal = calculateSubtotal(request.getItems());
@@ -70,10 +78,16 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         BigDecimal discountAmount = voucherResult.getDiscountAmount();
         BigDecimal totalPrice = subtotal.subtract(discountAmount);
 
-        // 5. Tính tổng eco points từ Product Service
+        // 5. Tính eco points
         Integer earnedEcoPoints = calculateEcoPoints(request, productDetailsMap);
 
-        // 6. Tạo Order entity
+        // 6. Upload ảnh bill nếu là BANK_TRANSFER
+        String paymentProofImageUrl = null;
+        if ("BANK_TRANSFER".equals(request.getPaymentMethod()) && paymentProofImage != null) {
+            paymentProofImageUrl = handlePaymentProofUpload(paymentProofImage);
+        }
+
+        // 7. Tạo Order
         String orderId = UUID.randomUUID().toString();
         String orderCode = orderCodeGenerator.generateOrderOfflineCode();
 
@@ -95,12 +109,13 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .orderStatus(OrderStatus.COMPLETED)
                 .paymentStatus(PaymentStatus.PAID)
                 .paymentMethod(PaymentMethod.valueOf(request.getPaymentMethod()))
+                .paymentProofImageUrl(paymentProofImageUrl)
                 .note(request.getNote())
                 .createdAt(LocalDateTime.now())
                 .createdBy(getCreatedBy())
                 .build();
 
-        // 7. Tạo OrderItems với ecoPoint từ Product Service
+        // 8. Tạo OrderItems
         List<OrderItem> orderItems = request.getItems().stream()
                 .map(item -> {
                     ProductDTO productDetail = productDetailsMap.get(item.getProductId());
@@ -119,63 +134,64 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
         order.setOrderItems(orderItems);
 
-        // 8. Lưu vào database
+        // 9. Lưu vào database
         Order savedOrder = orderRepository.save(order);
 
-        log.info("Order created successfully with code: {}, earnedEcoPoints: {}",
-                orderCode, earnedEcoPoints);
+        log.info("Order created successfully: orderCode={}, totalPrice={}, earnedEcoPoints={}",
+                orderCode, totalPrice, earnedEcoPoints);
 
-        // 9. Publish event
+        // 10. Publish event
         publishOrderOfflineCreatedEvent(savedOrder);
 
-        // 10. Trả response
+        // 11. Trả response
         return buildResponseFromEntity(savedOrder, voucherResult);
     }
 
     /**
-     * Lấy thông tin chi tiết Product từ Product Service
-     * Trả về Map<ProductId, ProductDTO> để dễ lookup
+     * Upload ảnh bill thanh toán lên Cloudinary
      */
-    private Map<Long, ProductDTO> fetchProductDetails(CreateOrderOfflineRequest request) {
+    private String handlePaymentProofUpload(MultipartFile file) {
+        try {
+            Map<String, String> uploadResult = cloudinaryService.uploadImage(
+                    file.getBytes(),
+                    "GreenLoop/Orders/PaymentProofs"
+            );
+
+            String imageUrl = cloudinaryService.getImageUrl(uploadResult.get("asset_id"));
+
+            log.info("Payment proof image uploaded successfully");
+
+            return imageUrl;
+
+        } catch (Exception e) {
+            log.error("Failed to upload payment proof image: {}", e.getMessage());
+            throw new RuntimeException("Không thể upload ảnh chứng từ thanh toán", e);
+        }
+    }
+
+    private Map<Long, ProductDTO> fetchProductDetailsForOrder(CreateOrderOfflineRequest request) {
         Map<Long, ProductDTO> productDetailsMap = new HashMap<>();
 
         for (OrderItemOfflineRequest item : request.getItems()) {
             try {
                 ApiResponseDTO<ProductDTO> response =
-                        productClient.getProductById(item.getProductId());
+                        productClient.getProductDetailById(item.getProductId());
 
                 if (response.isSuccess() && response.getData() != null) {
-                    ProductDTO productDTO = response.getData();
-                    productDetailsMap.put(item.getProductId(), productDTO);
-
-                    log.debug("Fetched product: id={}, name={}, ecoPointValue={}",
-                            productDTO.getId(),
-                            productDTO.getName(),
-                            productDTO.getEcoPointValue());
+                    productDetailsMap.put(item.getProductId(), response.getData());
                 } else {
-                    log.warn("Failed to fetch product details for productId: {}",
-                            item.getProductId());
-
-                    // Fallback: tạo ProductDTO với ecoPointValue = 0
-                    productDetailsMap.put(item.getProductId(),
-                            createFallbackProductDTO(item.getProductId()));
+                    log.warn("Failed to fetch product details for productId: {}", item.getProductId());
+                    productDetailsMap.put(item.getProductId(), createFallbackProductDTO(item.getProductId()));
                 }
             } catch (Exception e) {
-                log.error("Error fetching product details for productId: {}. Error: {}",
-                        item.getProductId(), e.getMessage());
-
-                // Fallback: ecoPointValue = 0
-                productDetailsMap.put(item.getProductId(),
-                        createFallbackProductDTO(item.getProductId()));
+                log.error("Error fetching product details for productId: {}", item.getProductId());
+                productDetailsMap.put(item.getProductId(), createFallbackProductDTO(item.getProductId()));
             }
         }
 
         return productDetailsMap;
     }
 
-    /**
-     * Tạo ProductDTO fallback khi không lấy được từ Product Service
-     */
     private ProductDTO createFallbackProductDTO(Long productId) {
         return ProductDTO.builder()
                 .id(productId)
@@ -183,47 +199,29 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .build();
     }
 
-    /**
-     * Lấy ecoPointValue từ ProductDTO, xử lý null safety
-     */
     private Integer getEcoPointFromProduct(ProductDTO productDTO) {
-        if (productDTO == null) {
+        if (productDTO == null || productDTO.getEcoPointValue() == null) {
             return 0;
         }
-
-        Integer ecoPointValue = productDTO.getEcoPointValue();
-        return ecoPointValue != null ? ecoPointValue : 0;
+        return productDTO.getEcoPointValue();
     }
 
-    /**
-     * Tính tổng eco points từ Product Service
-     * Chỉ tính cho customer (isGuestPurchase = false)
-     */
     private Integer calculateEcoPoints(
             CreateOrderOfflineRequest request,
             Map<Long, ProductDTO> productDetailsMap) {
 
-        // Guest không nhận điểm
         if (Boolean.TRUE.equals(request.getIsGuestPurchase())) {
-            log.debug("Guest purchase - no eco points earned");
             return 0;
         }
 
-        // Tính tổng điểm từ Product Service
-        Integer totalPoints = request.getItems().stream()
+        return request.getItems().stream()
                 .map(item -> {
                     ProductDTO productDTO = productDetailsMap.get(item.getProductId());
                     return getEcoPointFromProduct(productDTO);
                 })
                 .reduce(0, Integer::sum);
-
-        log.debug("Customer purchase - total eco points: {}", totalPoints);
-        return totalPoints;
     }
 
-    /**
-     * Publish event OrderOfflineCreated
-     */
     private void publishOrderOfflineCreatedEvent(Order order) {
         try {
             List<OrderOfflineCreatedEvent.ProductStatusChange> productStatusChanges =
@@ -248,18 +246,14 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
             streamBridge.send("orderOfflineCreated-out-0", event);
 
-            log.info("Published OrderOfflineCreatedEvent for order: {}, earnedEcoPoints: {}",
-                    order.getOrderCode(), order.getEarnedEcoPoints());
+            log.info("Published OrderOfflineCreatedEvent for order: {}", order.getOrderCode());
 
         } catch (Exception e) {
-            log.error("Failed to publish OrderOfflineCreatedEvent for order: {}. Error: {}",
-                    order.getOrderCode(), e.getMessage(), e);
+            log.error("Failed to publish OrderOfflineCreatedEvent for order: {}",
+                    order.getOrderCode());
         }
     }
 
-    /**
-     * Build response từ entity đã lưu
-     */
     private OrderOfflineResponse buildResponseFromEntity(
             Order order,
             VoucherDiscountResult voucherResult) {
@@ -287,15 +281,13 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .totalPrice(order.getTotalPrice())
                 .voucherCode(voucherResult.getVoucherCode())
                 .paymentMethod(order.getPaymentMethod().name())
+                .paymentProofImageUrl(order.getPaymentProofImageUrl())
                 .earnedEcoPoints(order.getEarnedEcoPoints())
                 .createdAt(order.getCreatedAt())
                 .createdBy(order.getCreatedBy())
                 .build();
     }
 
-    /**
-     * Validate products thuộc event
-     */
     private void validateProductsInEvent(CreateOrderOfflineRequest request) {
         List<Long> productIds = request.getItems().stream()
                 .map(OrderItemOfflineRequest::getProductId)
@@ -309,24 +301,17 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                             .build()
             );
         } catch (Exception e) {
-            log.error("Product validation failed for event {}: {}",
-                    request.getEventId(), e.getMessage());
+            log.error("Product validation failed for event {}", request.getEventId());
             throw new ProductValidationException();
         }
     }
 
-    /**
-     * Tính subtotal từ các items
-     */
     private BigDecimal calculateSubtotal(List<OrderItemOfflineRequest> items) {
         return items.stream()
                 .map(OrderItemOfflineRequest::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /**
-     * Lấy thông tin user đang tạo order
-     */
     private String getCreatedBy() {
         Authentication authentication = SecurityContextHolder
                 .getContext().getAuthentication();

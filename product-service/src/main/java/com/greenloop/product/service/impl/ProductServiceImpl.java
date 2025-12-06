@@ -412,59 +412,6 @@ public class ProductServiceImpl implements ProductService {
         return productResponses;
     }
 
-    @Override
-    public void validateProductsForOfflineOrder(Long eventId, List<Long> productIds) {
-        for (Long productId : productIds) {
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException(
-                            "Không tìm thấy sản phẩm với ID: " + productId));
-
-            if (product.getStatus() == ProductStatus.SOLD) {
-                throw new BusinessException(
-                        "Sản phẩm " + product.getName() + " đã được bán",
-                        ErrorCode.PRODUCT_ALREADY_SOLD
-                );
-            }
-
-            if (product.getStatus() != ProductStatus.AVAILABLE) {
-                throw new BusinessException(
-                        "Sản phẩm " + product.getName() + " không khả dụng. Trạng thái hiện tại: " + product.getStatus(),
-                        ErrorCode.PRODUCT_NOT_AVAILABLE
-                );
-            }
-
-            EventProductMapping mapping = eventProductMappingRepository
-                    .findByEventIdAndProductId(eventId, productId)
-                    .orElseThrow(() -> new BusinessException(
-                            "Sản phẩm " + product.getName() + " không được gán vào sự kiện này",
-                            ErrorCode.PRODUCT_NOT_IN_EVENT
-                    ));
-
-            LocalDateTime now = LocalDateTime.now();
-            if (mapping.getDisplayFrom() != null && now.isBefore(mapping.getDisplayFrom())) {
-                throw new BusinessException(
-                        "Sản phẩm " + product.getName() + " chưa đến thời gian hiển thị tại sự kiện",
-                        ErrorCode.PRODUCT_NOT_YET_DISPLAYABLE
-                );
-            }
-
-            if (mapping.getDisplayTo() != null && now.isAfter(mapping.getDisplayTo())) {
-                throw new BusinessException(
-                        "Sản phẩm " + product.getName() + " đã hết thời gian hiển thị tại sự kiện",
-                        ErrorCode.PRODUCT_DISPLAY_EXPIRED
-                );
-            }
-
-            if (mapping.getStatus() != EventMappingStatus.DISPLAYED) {
-                throw new BusinessException(
-                        "Sản phẩm " + product.getName() + " không được hiển thị tại sự kiện. Trạng thái: " + mapping.getStatus(),
-                        ErrorCode.PRODUCT_NOT_DISPLAYED
-                );
-            }
-        }
-    }
-
-
 
     private ProductAsset handleImageUpload(MultipartFile file) {
         try {

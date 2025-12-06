@@ -3,13 +3,9 @@ package com.greenloop.order.service.impl;
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ProductDTO;
-import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.request.AddToCartRequest;
 import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
-import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.response.CartItemResponse;
-import com.greenloop.order.dto.response.CartResponse;
-import com.greenloop.order.dto.response.ShippingEstimateResponse;
+import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.exception.*;
@@ -18,13 +14,10 @@ import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.service.CartService;
 import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

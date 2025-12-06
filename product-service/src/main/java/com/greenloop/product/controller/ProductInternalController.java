@@ -2,7 +2,8 @@ package com.greenloop.product.controller;
 
 import com.greenloop.product.dto.request.ProductValidationRequest;
 import com.greenloop.product.dto.response.ApiResponseDTO;
-import com.greenloop.product.service.ProductService;
+import com.greenloop.product.dto.response.ProductResponse;
+import com.greenloop.product.service.ProductInternalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class ProductInternalController {
 
-    private final ProductService productService;
+    private final ProductInternalService productInternalService;
 
     @PostMapping("/validate-for-offline-order")
     public ResponseEntity<ApiResponseDTO<Void>> validateProductsForOfflineOrder(
@@ -24,7 +25,7 @@ public class ProductInternalController {
         log.info("Validating products for offline order. Event: {}, Products: {}",
                 request.getEventId(), request.getProductIds());
 
-        productService.validateProductsForOfflineOrder(
+        productInternalService.validateProductsForOfflineOrder(
                 request.getEventId(),
                 request.getProductIds()
         );
@@ -33,6 +34,22 @@ public class ProductInternalController {
                 ApiResponseDTO.success(
                         "Sản phẩm hợp lệ cho đơn hàng offline",
                         null,
+                        HttpStatus.OK
+                )
+        );
+    }
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<ApiResponseDTO<ProductResponse>> getProductDetailById(
+            @PathVariable("id") Long id) {
+
+        log.info("Internal API Detail: Getting product with ecoPointValue for id: {}", id);
+
+        ProductResponse product = productInternalService.getProductById(id);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Lấy chi tiết sản phẩm thành công",
+                        product,
                         HttpStatus.OK
                 )
         );

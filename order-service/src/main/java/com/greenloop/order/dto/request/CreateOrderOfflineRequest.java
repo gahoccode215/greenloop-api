@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CreateOrderOfflineRequest {
 
-    @NotNull()
+    @NotNull(message = "Event ID không được để trống")
     private Long eventId;
 
     private Long customerId;
@@ -26,10 +26,11 @@ public class CreateOrderOfflineRequest {
 
     private Boolean isGuestPurchase;
 
-    @NotEmpty
+    @NotEmpty(message = "Danh sách sản phẩm không được rỗng")
     private List<OrderItemOfflineRequest> items;
 
-    private String paymentMethod;
+    @NotNull(message = "Phương thức thanh toán không được để trống")
+    private String paymentMethod; // CASH hoặc BANK_TRANSFER
 
-    private String note;
+    private String note; // Ghi chú chung của đơn hàng
 }

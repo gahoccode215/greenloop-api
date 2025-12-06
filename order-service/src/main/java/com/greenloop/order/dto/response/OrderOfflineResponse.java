@@ -34,4 +34,5 @@ public class OrderOfflineResponse {
     private LocalDateTime createdAt;
     private String createdBy;
     private Integer earnedEcoPoints;
+    private String paymentProofImageUrl;
 }

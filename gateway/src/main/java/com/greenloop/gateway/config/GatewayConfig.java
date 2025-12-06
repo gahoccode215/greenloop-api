@@ -43,7 +43,8 @@ public class GatewayConfig {
                                                 "/api/v1/products/**",
                                                 "/api/v1/categories/**",
                                                 "/api/v1/donations/**",
-                                                "/api/v1/warehouses/**")
+                                                "/api/v1/warehouses/**",
+                                                "/api/v1/internal/products/**")
                                         .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                                         .uri("lb://product-service"))
                 .route(

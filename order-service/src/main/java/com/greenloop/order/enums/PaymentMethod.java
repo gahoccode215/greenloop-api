@@ -5,8 +5,7 @@ public enum PaymentMethod {
     PAYOS("Thanh toán qua PayOS"),
 
     CASH("Tiền mặt"),
-    ECO_POINT("Thanh toán bằng điểm"),
-    MIXED("Tiền mặt + Điểm");
+    BANK_TRANSFER("Chuyển khoản ngân hàng");
 
 
     private final String description;

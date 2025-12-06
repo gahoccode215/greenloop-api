@@ -21,4 +21,7 @@ public interface ProductClient {
     @PostMapping("/validate-for-offline-order")
     ApiResponseDTO<Void> validateProductsForOfflineOrder(
             @RequestBody ProductValidationRequest request);
+
+    @GetMapping("/detail/{id}")
+    ApiResponseDTO<ProductDTO> getProductDetailById(@PathVariable("id") Long id);
 }

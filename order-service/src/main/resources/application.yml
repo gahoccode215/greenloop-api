@@ -15,6 +15,10 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
       show-sql: false
+  cloudinary:
+    cloudName: ${CLOUDINARY_NAME}
+    apiKey: ${CLOUDINARY_API_KEY}
+    apiSecret: ${CLOUDINARY_API_SECRET}
   cloud:
     stream:
       bindings:
@@ -80,3 +84,5 @@ payos:
   cancel-url-mobile: ${PAYOS_CANCEL_URL_MOBILE:greenloop://payment-failed}
 
 
+greenloop:
+  defaultImg: ${DEFAULT_IMAGE_URL:https://res.cloudinary.com/demo/image/upload/sample.jpg}
