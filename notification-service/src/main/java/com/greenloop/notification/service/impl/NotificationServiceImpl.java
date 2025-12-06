@@ -9,6 +9,7 @@ import com.greenloop.notification.repository.NotificationRepository;
 import com.greenloop.notification.repository.UserTokenRepository;
 import com.greenloop.notification.service.FirebaseNotificationService;
 import com.greenloop.notification.service.NotificationService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserTokenRepository userTokenRepository;
     private final FirebaseNotificationService firebase;
+
     @Override
     public void createAndSend(NotificationEvent notificationEvent) {
         log.info("Notification event received: {}", notificationEvent);
@@ -68,6 +70,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
     public void unregisterToken(String token) {
         log.info("Unregister token: {}", token);
         userTokenRepository.deleteByToken(token);
