@@ -29,23 +29,22 @@ public class NotificationController {
     @PostMapping("/register-token")
     @Operation(
             summary = "Register FCM Token",
-            description = "Save FCM token for a user",
-            tags = {"Notification"})
+            description = "Save FCM token for a user")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<String>> registerToken(@RequestBody @Valid TokenRequest request) {
         notificationService.registerToken(request);
         return ResponseEntity.ok(ApiResponseDTO.<String>builder()
                 .data("Token đã được đăng ký thành công")
-                        .success(true)
-                        .statusCode(HttpStatus.OK.value())
+                .success(true)
+                .statusCode(HttpStatus.OK.value())
                 .build());
     }
 
     @GetMapping
     @Operation(
             summary = "Get Notifications by User",
-            description = "Retrieve notifications for a user with pagination",
-            tags = {"Notification"})
+            description = "Retrieve notifications for a user with pagination")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<Page<NotificationResponse>>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -64,8 +63,7 @@ public class NotificationController {
     @PutMapping("/{id}/read")
     @Operation(
             summary = "Mark Notification as Read",
-            description = "Update notification status to read",
-            tags = {"Notification"})
+            description = "Update notification status to read")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<Void>> markAsRead(@PathVariable Long id) {
         notificationService.markAsRead(id);
@@ -80,8 +78,7 @@ public class NotificationController {
     @PutMapping
     @Operation(
             summary = "Mark All Notifications as Read",
-            description = "Update all notifications status to read for the user",
-            tags = {"Notification"})
+            description = "Update all notifications status to read for the user")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<Void>> markAllAsRead() {
         notificationService.markAllAsRead();
@@ -97,8 +94,7 @@ public class NotificationController {
     @DeleteMapping("/remove-token")
     @Operation(
             summary = "Remove FCM Token",
-            description = "Delete a token when user logs out",
-            tags = {"Notification"})
+            description = "Delete a token when user logs out")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO<String>> removeToken(@RequestParam String token) {
         notificationService.unregisterToken(token);
