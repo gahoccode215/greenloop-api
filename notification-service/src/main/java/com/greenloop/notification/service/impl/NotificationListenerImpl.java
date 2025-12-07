@@ -8,18 +8,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public  class NotificationListenerImpl implements NotificationListener {
-    private final NotificationService notificationService;
+public class NotificationListenerImpl implements NotificationListener {
+  private final NotificationService notificationService;
 
-    @Override
-    @RabbitListener(queues = "${rabbitmq.notification-queue}")
-    public void handleNotificationEvent(NotificationEvent notificationEvent) {
-        log.info("Handling notification event: {}", notificationEvent);
-        notificationService.createAndSend(notificationEvent);
-
-    }
+  @Override
+  @RabbitListener(queues = "${rabbitmq.notification-queue}")
+  public void handleNotificationEvent(NotificationEvent notificationEvent) {
+    log.info("Handling notification event: {}", notificationEvent);
+    notificationService.createAndSend(notificationEvent);
+  }
 }

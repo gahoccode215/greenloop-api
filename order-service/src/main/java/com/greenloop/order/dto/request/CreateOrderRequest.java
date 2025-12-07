@@ -44,4 +44,5 @@ public class CreateOrderRequest {
     private BigDecimal discountAmount;
     private Long voucherUserId;
     private String voucherCode;
+
 }

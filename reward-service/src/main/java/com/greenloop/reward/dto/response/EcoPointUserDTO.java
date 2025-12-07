@@ -8,6 +8,6 @@ import lombok.Setter;
 @Setter
 @Builder
 public class EcoPointUserDTO {
-    private Long userId;
-    private Long lifetimePoints;
+  private Long userId;
+  private Long lifetimePoints;
 }

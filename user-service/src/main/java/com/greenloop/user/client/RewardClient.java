@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "reward-service")
 public interface RewardClient {
 
-    @GetMapping("/api/v1/internal/eco-point-users/my-eco-points")
-    ApiResponseDTO<EcoPointResponse> getMyEcoPoints(@RequestParam("userId") Long userId);
+  @GetMapping("/api/v1/internal/eco-point-users/my-eco-points")
+  ApiResponseDTO<EcoPointResponse> getMyEcoPoints(@RequestParam("userId") Long userId);
 }

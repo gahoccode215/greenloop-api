@@ -6,5 +6,7 @@ public enum ProductStatus {
     RESERVED,     // Đã đặt (giữ chỗ cho đơn hàng)
     SOLD,         // Đã bán & giao thành công
     UNAVAILABLE,  // Không khả dụng
-    RETURNED      // Đã trả lại (từ đơn hàng thất bại)
+    RETURNED,
+    // Đã trả lại (từ đơn hàng thất bại),
+    IN_EVENT
 }

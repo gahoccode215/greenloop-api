@@ -1,11 +1,10 @@
 package com.greenloop.reward.dto.request;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -13,7 +12,7 @@ import java.math.BigDecimal;
 @Builder
 public class RedeemVoucherRequest {
 
-    private Long voucherUserId;
-    private Long orderId;
-    private BigDecimal discountValue;
+  private Long voucherUserId;
+  private Long orderId;
+  private BigDecimal discountValue;
 }

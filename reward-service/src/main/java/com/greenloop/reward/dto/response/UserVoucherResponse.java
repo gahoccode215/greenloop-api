@@ -23,5 +23,5 @@ public class UserVoucherResponse {
   private LocalDateTime expiryDate;
   private VoucherUserStatus voucherUserStatus;
   private Boolean active;
-    private VoucherType voucherType;
+  private VoucherType voucherType;
 }

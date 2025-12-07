@@ -31,7 +31,7 @@ public class OrderOfflineController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Create offline order",
-            description = "Tạo đơn hàng offline tại sự kiện. CASH không cần ảnh, BANK_TRANSFER bắt buộc có ảnh bill."
+            description = "Tạo đơn hàng offline tại sự kiện. CASH hoàn thành ngay, BANK_TRANSFER tạo link PayOS để khách quét QR."
     )
     @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponseDTO<OrderOfflineResponse>> createOrderOffline(
@@ -40,14 +40,13 @@ public class OrderOfflineController {
             HttpServletRequest httpRequest) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        log.info("Staff {} creating offline order. Event: {}, Customer: {}, PaymentMethod: {}, HasImage: {}",
+        log.info("Staff {} creating offline order. Event: {}, Customer: {}, PaymentMethod: {}",
                 auth.getName(),
                 request.getEventId(),
                 request.getCustomerId(),
-                request.getPaymentMethod(),
-                paymentProofImage != null);
+                request.getPaymentMethod());
 
-        // Validate payment method
+        // 1. Validate payment method
         if (!"CASH".equals(request.getPaymentMethod()) &&
                 !"BANK_TRANSFER".equals(request.getPaymentMethod())) {
             return ResponseEntity.badRequest().body(
@@ -59,53 +58,56 @@ public class OrderOfflineController {
             );
         }
 
-        // Validate BANK_TRANSFER bắt buộc có ảnh
+        // 2. BANK_TRANSFER không cần upload ảnh nữa (dùng PayOS)
+        if ("BANK_TRANSFER".equals(request.getPaymentMethod()) && paymentProofImage != null) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(
+                            "BANK_TRANSFER thanh toán qua PayOS, không cần upload ảnh bill",
+                            HttpStatus.BAD_REQUEST,
+                            httpRequest.getRequestURI()
+                    )
+            );
+        }
+
+        // 3. CASH không cần platform, BANK_TRANSFER cần platform cho returnUrl
         if ("BANK_TRANSFER".equals(request.getPaymentMethod())) {
-            if (paymentProofImage == null || paymentProofImage.isEmpty()) {
-                return ResponseEntity.badRequest().body(
-                        ApiResponseDTO.error(
-                                "Thanh toán chuyển khoản yêu cầu ảnh bill xác nhận",
-                                HttpStatus.BAD_REQUEST,
-                                httpRequest.getRequestURI()
-                        )
-                );
-            }
-
-            // Validate file type
-            String contentType = paymentProofImage.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                return ResponseEntity.badRequest().body(
-                        ApiResponseDTO.error(
-                                "File phải là ảnh (jpg, png, jpeg)",
-                                HttpStatus.BAD_REQUEST,
-                                httpRequest.getRequestURI()
-                        )
-                );
-            }
-
-            // Validate file size (max 5MB)
-            if (paymentProofImage.getSize() > 5 * 1024 * 1024) {
-                return ResponseEntity.badRequest().body(
-                        ApiResponseDTO.error(
-                                "Kích thước ảnh không được vượt quá 5MB",
-                                HttpStatus.BAD_REQUEST,
-                                httpRequest.getRequestURI()
-                        )
-                );
+            if (request.getPlatform() == null || request.getPlatform().isBlank()) {
+                // Default platform nếu không truyền
+                request.setPlatform("web");
+                log.info("Platform not provided, defaulting to 'web'");
             }
         }
 
+        // 4. Gọi service tạo đơn
         OrderOfflineResponse response = orderOfflineService.createOrderOffline(
                 request,
-                paymentProofImage
+                null  // Không truyền paymentProofImage nữa
         );
+
+        // 5. Trả response với message phù hợp
+        String successMessage = buildSuccessMessage(request.getPaymentMethod(), response);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponseDTO.success(
-                        "Tạo đơn hàng offline thành công",
+                        successMessage,
                         response,
                         HttpStatus.CREATED
                 )
         );
+    }
+
+    /**
+     * Tạo message phù hợp theo payment method
+     */
+    private String buildSuccessMessage(String paymentMethod, OrderOfflineResponse response) {
+        if ("CASH".equals(paymentMethod)) {
+            return String.format("Đơn hàng offline %s hoàn thành. Thanh toán tiền mặt: %,dđ",
+                    response.getOrderCode(),
+                    response.getTotalPrice().longValue());
+        } else {
+            return String.format("Đơn hàng offline %s đã tạo. Vui lòng quét mã QR để thanh toán %,dđ",
+                    response.getOrderCode(),
+                    response.getTotalPrice().longValue());
+        }
     }
 }

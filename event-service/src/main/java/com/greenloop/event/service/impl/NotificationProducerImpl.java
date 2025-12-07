@@ -12,16 +12,16 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationProducerImpl implements NotificationProducer {
-    private final RabbitTemplate rabbitTemplate;
+  private final RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.exchangeName}")
-    private String exchange;
+  @Value("${rabbitmq.exchangeName}")
+  private String exchange;
 
-    @Value("${rabbitmq.notification-routing-key}")
-    private String notificationRoutingKey;
+  @Value("${rabbitmq.notification-routing-key}")
+  private String notificationRoutingKey;
 
-    @Override
-    public void sendNotificationMessage(NotificationEvent notificationEvent) {
-        rabbitTemplate.convertAndSend(exchange, notificationRoutingKey, notificationEvent);
-    }
+  @Override
+  public void sendNotificationMessage(NotificationEvent notificationEvent) {
+    rabbitTemplate.convertAndSend(exchange, notificationRoutingKey, notificationEvent);
+  }
 }

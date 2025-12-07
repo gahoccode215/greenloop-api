@@ -35,4 +35,6 @@ public class OrderOfflineResponse {
     private String createdBy;
     private Integer earnedEcoPoints;
     private String paymentProofImageUrl;
+    private String paymentUrl;
+    private String message;
 }

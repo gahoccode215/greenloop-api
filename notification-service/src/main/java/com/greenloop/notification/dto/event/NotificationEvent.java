@@ -10,7 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class NotificationEvent {
-    private Long userId;
-    private String title;
-    private String message;
+  private Long userId;
+  private String title;
+  private String message;
 }

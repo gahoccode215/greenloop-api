@@ -7,10 +7,7 @@ import com.greenloop.order.dto.event.OrderOfflineCreatedEvent;
 import com.greenloop.order.dto.request.CreateOrderOfflineRequest;
 import com.greenloop.order.dto.request.OrderItemOfflineRequest;
 import com.greenloop.order.dto.request.ProductValidationRequest;
-import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.response.OrderItemResponse;
-import com.greenloop.order.dto.response.OrderOfflineResponse;
-import com.greenloop.order.dto.response.VoucherDiscountResult;
+import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.enums.OrderStatus;
@@ -21,6 +18,7 @@ import com.greenloop.order.exception.ProductValidationException;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.service.CloudinaryService;
 import com.greenloop.order.service.OrderOfflineService;
+import com.greenloop.order.service.PayOSPaymentService;
 import com.greenloop.order.service.VoucherDiscountService;
 import com.greenloop.order.util.OrderCodeGenerator;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +49,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     private final StreamBridge streamBridge;
     private final ProductClient productClient;
     private final CloudinaryService cloudinaryService;
+    private final PayOSPaymentService payOSPaymentService;
 
     @Override
     @Transactional
@@ -77,17 +76,10 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         // 5. Tính eco points
         Integer earnedEcoPoints = calculateEcoPoints(request, productDetailsMap);
 
-        // 6. Upload ảnh bill nếu là BANK_TRANSFER
-        String paymentProofImageUrl = null;
-        if ("BANK_TRANSFER".equals(request.getPaymentMethod()) && paymentProofImage != null) {
-            paymentProofImageUrl = handlePaymentProofUpload(paymentProofImage);
-        }
-
-        // 7. Tạo Order
         String orderId = UUID.randomUUID().toString();
         String orderCode = orderCodeGenerator.generateOrderOfflineCode();
 
-        Order order = Order.builder()
+        Order.OrderBuilder orderBuilder = Order.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
                 .customerId(request.getCustomerId())
@@ -102,16 +94,35 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .totalPrice(totalPrice)
                 .earnedEcoPoints(earnedEcoPoints)
                 .orderType(OrderType.OFFLINE)
-                .orderStatus(OrderStatus.COMPLETED)
-                .paymentStatus(PaymentStatus.PAID)
-                .paymentMethod(PaymentMethod.valueOf(request.getPaymentMethod()))
-                .paymentProofImageUrl(paymentProofImageUrl)
                 .note(request.getNote())
                 .createdAt(LocalDateTime.now())
-                .createdBy(getCreatedBy())
-                .build();
+                .createdBy(getCreatedBy());
 
-        // 8. Tạo OrderItems
+        PayOSPaymentResponse paymentResponse = null;
+
+        if ("CASH".equals(request.getPaymentMethod())) {
+            // CASH: Hoàn thành ngay
+            orderBuilder
+                    .orderStatus(OrderStatus.COMPLETED)
+                    .paymentStatus(PaymentStatus.PAID)
+                    .paymentMethod(PaymentMethod.CASH);
+
+        } else if ("BANK_TRANSFER".equals(request.getPaymentMethod())) {
+            // BANK_TRANSFER: Tạo link PayOS, để PENDING
+            String platform = request.getPlatform() != null ? request.getPlatform() : "web";
+            paymentResponse = payOSPaymentService.createPaymentUrl(
+                    orderId, totalPrice, platform);
+
+            orderBuilder
+                    .orderStatus(OrderStatus.PENDING) // Chờ thanh toán
+                    .paymentStatus(PaymentStatus.UNPAID)
+                    .paymentMethod(PaymentMethod.BANK_TRANSFER)
+                    .paymentOrderCode(paymentResponse.getPaymentOrderCode());
+        }
+
+        Order order = orderBuilder.build();
+
+        // Bước 7: Tạo OrderItems (giữ nguyên)
         List<OrderItem> orderItems = request.getItems().stream()
                 .map(item -> {
                     ProductDTO productDetail = productDetailsMap.get(item.getProductId());
@@ -130,14 +141,17 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
         order.setOrderItems(orderItems);
 
-        // 9. Lưu vào database
+        // Bước 8: Lưu DB
         Order savedOrder = orderRepository.save(order);
 
-        // 10. Publish event
-        publishOrderOfflineCreatedEvent(savedOrder);
+        // Bước 9: CHỈ PUBLISH EVENT NẾU LÀ CASH
+        if ("CASH".equals(request.getPaymentMethod())) {
+            publishOrderOfflineCreatedEvent(savedOrder);
+        }
+        // Nếu BANK_TRANSFER, chờ callback từ PayOS mới publish
 
-        // 11. Trả response
-        return buildResponseFromEntity(savedOrder, voucherResult);
+        // Bước 10: Trả response
+        return buildResponseFromEntity(savedOrder, voucherResult, paymentResponse);
     }
 
     private String handlePaymentProofUpload(MultipartFile file) {
@@ -245,10 +259,17 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                     order.getOrderCode());
         }
     }
+    @Override
+    public void publishOrderOfflineCreatedEventDelayed(Order order) {
+        publishOrderOfflineCreatedEvent(order);
+        log.info("Published delayed event for offline order after payment: {}",
+                order.getOrderCode());
+    }
 
     private OrderOfflineResponse buildResponseFromEntity(
             Order order,
-            VoucherDiscountResult voucherResult) {
+            VoucherDiscountResult voucherResult,
+            PayOSPaymentResponse paymentResponse) {
 
         List<OrderItemResponse> itemResponses = order.getOrderItems().stream()
                 .map(item -> OrderItemResponse.builder()
@@ -261,24 +282,38 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                         .build())
                 .collect(Collectors.toList());
 
-        return OrderOfflineResponse.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .eventId(order.getEventId())
-                .customerId(order.getCustomerId())
-                .isGuestPurchase(order.getIsGuestPurchase())
-                .items(itemResponses)
-                .subtotal(order.getSubTotal())
-                .discountAmount(voucherResult.getDiscountAmount())
-                .totalPrice(order.getTotalPrice())
-                .voucherCode(voucherResult.getVoucherCode())
-                .paymentMethod(order.getPaymentMethod().name())
-                .paymentProofImageUrl(order.getPaymentProofImageUrl())
-                .earnedEcoPoints(order.getEarnedEcoPoints())
-                .createdAt(order.getCreatedAt())
-                .createdBy(order.getCreatedBy())
-                .build();
+        OrderOfflineResponse.OrderOfflineResponseBuilder responseBuilder =
+                OrderOfflineResponse.builder()
+                        .orderId(order.getOrderId())
+                        .orderCode(order.getOrderCode())
+                        .eventId(order.getEventId())
+                        .customerId(order.getCustomerId())
+                        .isGuestPurchase(order.getIsGuestPurchase())
+                        .items(itemResponses)
+                        .subtotal(order.getSubTotal())
+                        .discountAmount(voucherResult.getDiscountAmount())
+                        .totalPrice(order.getTotalPrice())
+                        .voucherCode(voucherResult.getVoucherCode())
+                        .paymentMethod(order.getPaymentMethod().name())
+                        .earnedEcoPoints(order.getEarnedEcoPoints())
+                        .createdAt(order.getCreatedAt())
+                        .createdBy(order.getCreatedBy());
+
+        // Thêm payment URL nếu là BANK_TRANSFER
+        if (paymentResponse != null) {
+            responseBuilder
+                    .paymentUrl(paymentResponse.getCheckoutUrl())
+                    .message("Vui lòng quét mã QR để thanh toán " +
+                            order.getTotalPrice().longValue() + "đ");
+        } else {
+            responseBuilder
+                    .paymentUrl(null)
+                    .message("Đơn hàng đã hoàn thành");
+        }
+
+        return responseBuilder.build();
     }
+
 
     private void validateProductsInEvent(CreateOrderOfflineRequest request) {
         List<Long> productIds = request.getItems().stream()

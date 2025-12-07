@@ -41,8 +41,6 @@ public class RabbitMQConfig {
     return BindingBuilder.bind(ecoDonationQueue()).to(exchange()).with(ecoDonationRoutingKey);
   }
 
-
-
   @Bean
   public MessageConverter converter() {
     return new Jackson2JsonMessageConverter();

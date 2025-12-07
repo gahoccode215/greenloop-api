@@ -33,4 +33,5 @@ public class CreateOrderOfflineRequest {
     private String paymentMethod; // CASH hoặc BANK_TRANSFER
 
     private String note; // Ghi chú chung của đơn hàng
+    private String platform;
 }

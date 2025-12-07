@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TokenRequest {
-    private Long userId;
-    private  String token;
-    private Platform platform;
+  private Long userId;
+  private String token;
+  private Platform platform;
 }
