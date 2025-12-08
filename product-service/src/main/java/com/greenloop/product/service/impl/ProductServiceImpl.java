@@ -314,8 +314,8 @@ public class ProductServiceImpl implements ProductService {
         }
 
 
-        LocalDateTime displayFrom = request.getDisplayFrom();
-        LocalDateTime displayTo = request.getDisplayTo();
+        LocalDateTime displayFrom = eventInfo.getStartTime();
+        LocalDateTime displayTo = eventInfo.getEndTime();
 
         for (Long productId : request.getProductIds()) {
 

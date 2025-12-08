@@ -535,6 +535,34 @@ public class EventServiceImpl implements EventService {
                     .build());
         }
     }
+
+    if( status == EventStatus.ONGOING) {
+        List<Long> notifiedUserIds = new ArrayList<>();
+        notifiedUserIds.addAll(event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+        notifiedUserIds.addAll(event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+        for (Long userIdToNotify : notifiedUserIds) {
+            notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                    .userId(userIdToNotify)
+                    .title("Sự kiện đang diễn ra")
+                    .message("Sự kiện " + event.getName() + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ những trải nghiệm tuyệt vời!")
+                    .build());
+        }
+    }
+
+    if( status == EventStatus.PUBLISHED) {
+        List<Long> notifiedUserIds = new ArrayList<>();
+        notifiedUserIds.addAll(event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+        notifiedUserIds.addAll(event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+        for (Long userIdToNotify : notifiedUserIds) {
+            notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                    .userId(userIdToNotify)
+                    .title("Sự kiện đã được công bố")
+                    .message("Sự kiện " + event.getName() + " đã chính thức được công bố. Hãy chuẩn bị tham gia để không bỏ lỡ những trải nghiệm tuyệt vời!")
+                    .build());
+        }
+    }
     return event.getId();
   }
 
@@ -1038,7 +1066,13 @@ public class EventServiceImpl implements EventService {
     registration.updatedBy(userId);
     registrationRepository.save(registration);
     log.info("User {} successfully cancelled registration to event {}", userId, eventId);
-
+    notificationProducer.sendNotificationMessage(
+        NotificationEvent.builder()
+            .userId(userId)
+            .title("Hủy đăng ký sự kiện thành công")
+            .message("Bạn đã hủy đăng ký thành công cho sự kiện ID: " + eventId)
+            .build()
+    );
   }
 
   /**

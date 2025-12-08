@@ -1,5 +1,6 @@
 package com.greenloop.reward.worker;
 
+import com.greenloop.reward.dto.event.NotificationEvent;
 import com.greenloop.reward.entity.Voucher;
 import com.greenloop.reward.entity.VoucherUser;
 import com.greenloop.reward.enums.VoucherStatus;
@@ -8,6 +9,8 @@ import com.greenloop.reward.repository.VoucherRepository;
 import com.greenloop.reward.repository.VoucherUserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.greenloop.reward.service.NotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,30 +24,64 @@ public class VoucherStatusScheduler {
 
   private final VoucherRepository voucherRepository;
   private final VoucherUserRepository voucherUserRepository;
+  private final NotificationProducer notificationProducer;
 
-  @Scheduled(cron = "0 0 * * * *") // Chạy mỗi giờ vào phút 0
-  @Transactional
-  public void updateExpiredVouchers() {
-    log.info("Starting scheduled voucher expiry update");
 
-    LocalDateTime now = LocalDateTime.now();
+    @Scheduled(cron = "0 0 * * * *") // chạy mỗi giờ
+    @Transactional
+    public void updateExpiredVouchers() {
+        log.info("Starting scheduled voucher expiry update");
 
-    try {
-      int expiredVoucherCount = updateExpiredVouchers(now);
+        LocalDateTime now = LocalDateTime.now();
 
-      int expiredVoucherUserCount = updateExpiredVoucherUsers();
+        try {
+            int nearExpiryCount = notifyVoucherExpiringSoon(now);
 
-      log.info(
-          "Voucher expiry update completed - Expired Vouchers: {}, Expired VoucherUsers: {}",
-          expiredVoucherCount,
-          expiredVoucherUserCount);
+            int expiredVoucherCount = updateExpiredVouchers(now);
 
-    } catch (Exception e) {
-      log.error("Error updating expired vouchers: {}", e.getMessage(), e);
+            int expiredVoucherUserCount = updateExpiredVoucherUsers();
+
+            log.info("Voucher expiry update completed - {} vouchers notified for near expiry, {} vouchers expired, {} voucher users expired",
+                    nearExpiryCount, expiredVoucherCount, expiredVoucherUserCount);
+
+        } catch (Exception e) {
+            log.error("Error updating vouchers: {}", e.getMessage(), e);
+        }
     }
-  }
 
-  private int updateExpiredVouchers(LocalDateTime now) {
+    private int notifyVoucherExpiringSoon(LocalDateTime now) {
+
+        LocalDateTime tomorrow = now.plusDays(1);
+
+        List<VoucherUser> voucherUsers =
+                voucherUserRepository.findVoucherUsersExpiringInOneDay(
+                        VoucherUserStatus.AVAILABLE,
+                        now,
+                        tomorrow);
+
+        if (voucherUsers.isEmpty()) {
+            return 0;
+        }
+
+        voucherUsers.forEach(vu -> {
+            notificationProducer.sendNotificationMessage(
+                    NotificationEvent.builder()
+                            .userId(vu.getUserId())
+                            .title("Voucher sắp hết hạn")
+                            .message("Voucher " + vu.getVoucher().getName()
+                                    + " sẽ hết hạn vào ngày "
+                                    + vu.getVoucher().getExpiryDate()
+                                    + ". Hãy sử dụng ngay để tránh lãng phí.")
+                            .build()
+            );
+
+            log.info("Notify expiring soon → User {}, Voucher {}", vu.getUserId(), vu.getVoucher().getCode());
+        });
+
+        return voucherUsers.size();
+    }
+
+    private int updateExpiredVouchers(LocalDateTime now) {
     List<Voucher> expiredVouchers =
         voucherRepository.findActiveVouchersBeforeExpiryDate(VoucherStatus.ACTIVE, true, now);
 
@@ -88,6 +125,18 @@ public class VoucherStatusScheduler {
         });
 
     voucherUserRepository.saveAll(expiredVoucherUsers);
+    for (var vu : expiredVoucherUsers) {
+        notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                        .userId(vu.getUserId())
+                        .title("Voucher đã hết hạn")
+                        .message("Voucher " + vu.getVoucher().getName()
+                                + " của bạn đã hết hạn vào ngày "
+                                + vu.getVoucher().getExpiryDate()
+                                + ". Hãy kiểm tra các ưu đãi khác trên ứng dụng của chúng tôi.")
+                        .build()
+        );
+    }
     return expiredVoucherUsers.size();
   }
 

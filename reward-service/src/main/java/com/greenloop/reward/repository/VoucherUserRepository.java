@@ -3,6 +3,8 @@ package com.greenloop.reward.repository;
 import com.greenloop.reward.entity.VoucherUser;
 import com.greenloop.reward.enums.VoucherStatus;
 import com.greenloop.reward.enums.VoucherUserStatus;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -32,4 +34,11 @@ public interface VoucherUserRepository extends JpaRepository<VoucherUser, Long> 
   @Query(
       "SELECT vu.userId, COUNT(vu) FROM VoucherUser vu GROUP BY vu.userId ORDER BY COUNT(vu) DESC")
   List<Object[]> findTopUsers();
+
+
+    List<VoucherUser> findVoucherUsersExpiringInOneDay(
+            VoucherUserStatus status,
+            LocalDateTime from,
+            LocalDateTime to);
+
 }

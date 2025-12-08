@@ -1,5 +1,6 @@
 package com.greenloop.reward.service.impl;
 
+import com.greenloop.reward.dto.event.NotificationEvent;
 import com.greenloop.reward.dto.request.CreateVoucherCampaignRequest;
 import com.greenloop.reward.dto.request.CreateVoucherRequest;
 import com.greenloop.reward.dto.request.RedeemVoucherRequest;
@@ -10,6 +11,7 @@ import com.greenloop.reward.entity.*;
 import com.greenloop.reward.enums.*;
 import com.greenloop.reward.exception.BusinessException;
 import com.greenloop.reward.repository.*;
+import com.greenloop.reward.service.NotificationProducer;
 import com.greenloop.reward.service.VoucherService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final EcoPointTransactionRepository ecoPointTransactionRepository;
     private final VoucherUserRepository voucherUserRepository;
     private final VoucherRedemptionRepository voucherRedemptionRepository;
+    private final NotificationProducer notificationProducer;
 
     @Override
     public Long createVoucherCampaign(CreateVoucherCampaignRequest request) {
@@ -504,6 +507,20 @@ public class VoucherServiceImpl implements VoucherService {
         ecoPointUserRepository.save(ecoPointUser);
         ecoPointTransactionRepository.save(transaction);
         VoucherUser saved = voucherUserRepository.save(voucherUser);
+
+        notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                        .userId(userId)
+                        .title("Đổi voucher thành công")
+                        .message(
+                                "Bạn đã đổi thành công voucher: "
+                                        + voucher.getName()
+                                        + " với "
+                                        + voucher.getPointToRedeem()
+                                        + " điểm Eco Points.")
+                        .build()
+        );
+
 
         log.info("Voucher ID: {} redeemed successfully by user ID: {}", voucherId, userId);
         return saved.getId();

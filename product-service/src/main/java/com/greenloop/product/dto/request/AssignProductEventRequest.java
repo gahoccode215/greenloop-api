@@ -15,6 +15,4 @@ import java.util.List;
 public class AssignProductEventRequest {
     private Long eventId;
     private List<Long> productIds;
-    private LocalDateTime displayTo;
-    private LocalDateTime displayFrom;
 }
