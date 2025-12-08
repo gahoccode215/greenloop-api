@@ -49,7 +49,8 @@ public class SecurityConfig {
     "/oauth2/**",
     "/login/**",
     "/api/v1/users/*/**",
-    "/api/v1/blogs/**"
+    "/api/v1/blogs/**",
+          "/api/v1/internal/**"
   };
 
   private final HeaderAuthFilter headerAuthFilter;

@@ -116,7 +116,7 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 .name(product.getName())
                 .description(product.getDescription())
                 .price(product.getPrice())
-                .ecoPointValue(product.getEcoPointValue()) // ✅ Quan trọng: trả ecoPointValue
+                .ecoPointValue(product.getEcoPointValue())
                 .conditionGrade(product.getConditionGrade())
                 .status(product.getStatus())
                 .type(product.getType())

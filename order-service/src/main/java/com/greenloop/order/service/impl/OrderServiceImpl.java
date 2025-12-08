@@ -1,6 +1,7 @@
 package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.client.UserClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
@@ -62,6 +63,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderCodeGenerator orderCodeGenerator;
     private final PendingOrderCacheService pendingOrderCacheService;
     private final WarehouseSettingService warehouseSettingService;
+    private final UserClient userClient;
 
     @Override
     @Transactional
@@ -707,6 +709,10 @@ public class OrderServiceImpl implements OrderService {
                 .orderStatus(order.getOrderStatus())
                 .paymentStatus(order.getPaymentStatus())
                 .paymentMethod(order.getPaymentMethod())
+                .guestName(order.getGuestName())
+                .guestPhone(order.getGuestPhone())
+                .isGuestPurchase(order.getIsGuestPurchase())
+                .orderType(order.getOrderType())
                 .paymentOrderCode(order.getPaymentOrderCode())
                 .paymentTransactionId(order.getPaymentTransactionId())
                 .carrier(order.getCarrier())
@@ -717,7 +723,23 @@ public class OrderServiceImpl implements OrderService {
                 .goshipTrackingUrl(order.getGoshipTrackingUrl())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
+                .earnedEcoPoints(order.getEarnedEcoPoints())
+                .eventId(order.getEventId())
                 .build();
+
+        if (order.getCustomerId() != null) {
+            try {
+                ApiResponseDTO<UserProfileResponse> userResponse =
+                        userClient.getUserDetailById(order.getCustomerId());
+
+                if (userResponse.isSuccess() && userResponse.getData() != null) {
+                    response.setCustomerInfo(userResponse.getData());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to fetch customer info for customerId {}: {}",
+                        order.getCustomerId(), e.getMessage());
+            }
+        }
 
         if (order.getShippingAddress() != null) {
             ShippingAddressResponse addressDTO = ShippingAddressResponse.builder()
@@ -772,7 +794,7 @@ public class OrderServiceImpl implements OrderService {
                     OrderCheckedOutEvent.ProductStatusChange.builder()
                             .productId(item.getProductId())
                             .newStatus(ProductStatusConstant.RESERVED)
-                            .ecoPointValue(0) // Không cộng điểm lúc checkout
+                            .ecoPointValue(0)
                             .build()
             );
         }

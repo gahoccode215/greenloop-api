@@ -52,4 +52,5 @@ public class OrderResponse {
     private String voucherCode;
     private Integer earnedEcoPoints;
     private String note;
+    private UserProfileResponse customerInfo;
 }

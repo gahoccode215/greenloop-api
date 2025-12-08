@@ -154,25 +154,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         return buildResponseFromEntity(savedOrder, voucherResult, paymentResponse);
     }
 
-    private String handlePaymentProofUpload(MultipartFile file) {
-        try {
-            Map<String, String> uploadResult = cloudinaryService.uploadImage(
-                    file.getBytes(),
-                    "GreenLoop/Orders/PaymentProofs"
-            );
-
-            String imageUrl = cloudinaryService.getImageUrl(uploadResult.get("asset_id"));
-
-            log.info("Payment proof image uploaded successfully");
-
-            return imageUrl;
-
-        } catch (Exception e) {
-            log.error("Failed to upload payment proof image: {}", e.getMessage());
-            throw new RuntimeException("Không thể upload ảnh chứng từ thanh toán", e);
-        }
-    }
-
     private Map<Long, ProductDTO> fetchProductDetailsForOrder(CreateOrderOfflineRequest request) {
         Map<Long, ProductDTO> productDetailsMap = new HashMap<>();
 
