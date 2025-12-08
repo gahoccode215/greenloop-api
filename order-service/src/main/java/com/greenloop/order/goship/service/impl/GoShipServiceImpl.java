@@ -3,12 +3,13 @@ package com.greenloop.order.goship.service.impl;
 import com.greenloop.order.dto.request.CreateShipmentRequestDTO;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.ShippingAddress;
+import com.greenloop.order.entity.WarehouseSetting; // THÊM
 import com.greenloop.order.exception.OrderNotFoundException;
 import com.greenloop.order.goship.client.GoShipClient;
 import com.greenloop.order.goship.dto.*;
 import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.repository.OrderRepository;
-import com.greenloop.order.service.OrderService;
+import com.greenloop.order.service.WarehouseSettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class GoShipServiceImpl implements GoShipService {
 
     private final GoShipClient goShipClient;
     private final OrderRepository orderRepository;
+    private final WarehouseSettingService warehouseSettingService;
 
     @Override
     public List<RateResponse> calculateShippingRates(CalculateRateRequest request) {
@@ -40,16 +42,18 @@ public class GoShipServiceImpl implements GoShipService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getSelectedRateId() == null || order.getSelectedRateId().isBlank()) {
-            throw new IllegalArgumentException("Đơn hàng chưa có thông tin vận chuyển ");
+            throw new IllegalArgumentException("Đơn hàng chưa có thông tin vận chuyển");
         }
 
+        WarehouseSetting warehouse = warehouseSettingService.getWarehouse();
         ShippingAddress address = order.getShippingAddress();
 
         CreateShipmentRequest.AddressData warehouseAddr =
                 (staffRequest.getWarehouseAddress() != null)
                         ? buildAddressFromOverride(staffRequest.getWarehouseAddress())
-                        : buildWarehouseAddressFromOrder(address);
+                        : buildWarehouseAddressFromDB(warehouse);
 
+        // Build địa chỉ khách hàng
         CreateShipmentRequest.AddressData customerAddr =
                 (staffRequest.getCustomerAddress() != null)
                         ? buildAddressFromOverride(staffRequest.getCustomerAddress())
@@ -111,32 +115,23 @@ public class GoShipServiceImpl implements GoShipService {
     }
 
 
-    private CreateShipmentRequest.AddressData buildAddressFromOverride(
-            CreateShipmentRequestDTO.AddressOverrideDTO override) {
+    private CreateShipmentRequest.AddressData buildWarehouseAddressFromDB(
+            WarehouseSetting warehouse) {
 
         return CreateShipmentRequest.AddressData.builder()
-                .name(override.getName())
-                .phone(override.getPhone())
-                .street(override.getStreet())
-                .ward(override.getWardCode())
-                .district(override.getDistrictId())
-                .city(override.getCityId())
+                .name(warehouse.getName())
+                .phone(warehouse.getPhone())
+                .street(warehouse.getAddress())
+                .ward(String.valueOf(warehouse.getWardCode()))
+                .district(String.valueOf(warehouse.getDistrictId()))
+                .city(String.valueOf(warehouse.getCityId()))
                 .build();
     }
 
-    private CreateShipmentRequest.AddressData buildWarehouseAddressFromOrder(
-            ShippingAddress address) {
-
-        return CreateShipmentRequest.AddressData.builder()
-                .name(address.getWarehouseName())
-                .phone(address.getWarehousePhone())
-                .street(address.getWarehouseAddress())
-                .ward(String.valueOf(address.getWarehouseWardCode()))
-                .district(String.valueOf(address.getWarehouseDistrictId()))
-                .city(String.valueOf(address.getWarehouseCityId()))
-                .build();
-    }
-
+    
+    /**
+     * Build địa chỉ khách hàng từ ShippingAddress của order
+     */
     private CreateShipmentRequest.AddressData buildCustomerAddressFromOrder(
             ShippingAddress address) {
 
@@ -147,6 +142,22 @@ public class GoShipServiceImpl implements GoShipService {
                 .ward(String.valueOf(address.getReceiverWardCode()))
                 .district(String.valueOf(address.getReceiverDistrictId()))
                 .city(String.valueOf(address.getReceiverCityId()))
+                .build();
+    }
+
+    /**
+     * Build địa chỉ từ override của staff
+     */
+    private CreateShipmentRequest.AddressData buildAddressFromOverride(
+            CreateShipmentRequestDTO.AddressOverrideDTO override) {
+
+        return CreateShipmentRequest.AddressData.builder()
+                .name(override.getName())
+                .phone(override.getPhone())
+                .street(override.getStreet())
+                .ward(override.getWardCode())
+                .district(override.getDistrictId())
+                .city(override.getCityId())
                 .build();
     }
 }

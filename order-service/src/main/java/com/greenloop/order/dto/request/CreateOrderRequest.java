@@ -26,6 +26,7 @@ public class CreateOrderRequest {
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
+    private Long eventId;
 
     private List<OrderItemRequest> orderItems;
     private CheckoutShippingAddressRequest shippingAddress;
@@ -44,5 +45,12 @@ public class CreateOrderRequest {
     private BigDecimal discountAmount;
     private Long voucherUserId;
     private String voucherCode;
-
+    private String paymentTransactionId;
+    private Boolean isGuestPurchase;
+    private String guestName;
+    private String guestPhone;
+    private Integer earnedEcoPoints;
+    private String note;
+    private LocalDateTime createdAt;
+    private String createdBy;
 }

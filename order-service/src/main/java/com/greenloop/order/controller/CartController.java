@@ -33,13 +33,11 @@ public class CartController {
     private final OrderService orderService;
 
     @GetMapping
-    @Operation(summary = "Get customer cart")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<CartResponse>> getCart() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
         CartResponse cart = cartService.getCart(userId);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Lấy giỏ hàng thành công",
                 cart,
@@ -48,14 +46,12 @@ public class CartController {
     }
 
     @PostMapping("/items")
-    @Operation(summary = "Add product to cart")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<CartResponse>> addToCart(
             @Valid @RequestBody AddToCartRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
         CartResponse cart = cartService.addToCart(userId, request);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Thêm sản phẩm vào giỏ hàng thành công",
                 cart,
@@ -64,14 +60,12 @@ public class CartController {
     }
 
     @DeleteMapping("/items/{cartItemId}")
-    @Operation(summary = "Remove item from cart")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<CartResponse>> removeCartItem(
             @PathVariable Long cartItemId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
         CartResponse cart = cartService.removeCartItem(userId, cartItemId);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Xóa sản phẩm khỏi giỏ hàng thành công",
                 cart,
@@ -80,13 +74,11 @@ public class CartController {
     }
 
     @DeleteMapping
-    @Operation(summary = "Clear cart")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<Object>> clearCart() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
         cartService.clearCart(userId);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Xóa giỏ hàng thành công",
                 null,
@@ -95,14 +87,12 @@ public class CartController {
     }
 
     @PostMapping("/checkout")
-    @Operation(summary = "Checkout and create order")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<CheckoutResponse>> checkout(
             @Valid @RequestBody CheckoutRequest request)  {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
         CheckoutResponse response = orderService.checkout(userId, request);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 response.getMessage(),
                 response,
@@ -111,17 +101,12 @@ public class CartController {
     }
 
     @PostMapping("/estimate-shipping")
-    @Operation(summary = "Ước tính phí vận chuyển",
-            description = "Tính phí vận chuyển dựa trên giỏ hàng và địa chỉ giao hàng")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<ShippingEstimateResponse>> estimateShippingFee(
             @Valid @RequestBody EstimateShippingFeeRequest request) {
-
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = Long.valueOf(auth.getName());
-
         ShippingEstimateResponse response = cartService.estimateShippingFee(userId, request);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Ước tính phí vận chuyển thành công",
                 response,

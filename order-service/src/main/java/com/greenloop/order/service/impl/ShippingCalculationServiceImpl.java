@@ -3,13 +3,14 @@ package com.greenloop.order.service.impl;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.response.ShippingEstimateResponse;
 import com.greenloop.order.entity.CartItem;
+import com.greenloop.order.entity.WarehouseSetting; // THÊM
 import com.greenloop.order.goship.dto.CalculateRateRequest;
 import com.greenloop.order.goship.dto.RateResponse;
 import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.service.ShippingCalculationService;
+import com.greenloop.order.service.WarehouseSettingService; // THÊM
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,12 +23,7 @@ import java.util.stream.Collectors;
 public class ShippingCalculationServiceImpl implements ShippingCalculationService {
 
     private final GoShipService goShipService;
-
-    @Value("${goship.default-warehouse.city}")
-    private String defaultWarehouseCity;
-
-    @Value("${goship.default-warehouse.district}")
-    private String defaultWarehouseDistrict;
+    private final WarehouseSettingService warehouseSettingService;
 
     @Override
     public ShippingEstimateResponse calculateShippingFee(
@@ -81,15 +77,18 @@ public class ShippingCalculationServiceImpl implements ShippingCalculationServic
                 .build();
     }
 
+
     private CalculateRateRequest buildRateRequest(
             String cityCode,
             String districtCode,
             ParcelDimensionDTO parcel,
             BigDecimal orderTotal) {
 
+        WarehouseSetting warehouse = warehouseSettingService.getWarehouse();
+
         CalculateRateRequest.AddressInfo addressFrom = CalculateRateRequest.AddressInfo.builder()
-                .city(defaultWarehouseCity)
-                .district(defaultWarehouseDistrict)
+                .city(String.valueOf(warehouse.getCityId()))
+                .district(String.valueOf(warehouse.getDistrictId()))
                 .build();
 
         CalculateRateRequest.AddressInfo addressTo = CalculateRateRequest.AddressInfo.builder()
@@ -111,6 +110,9 @@ public class ShippingCalculationServiceImpl implements ShippingCalculationServic
                 .addressTo(addressTo)
                 .parcel(parcelInfo)
                 .build();
+
+        log.debug("Built rate request from warehouse: {} (City: {}, District: {})",
+                warehouse.getName(), warehouse.getCityId(), warehouse.getDistrictId());
 
         return CalculateRateRequest.builder()
                 .shipment(shipmentInfo)

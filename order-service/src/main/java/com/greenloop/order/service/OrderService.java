@@ -1,9 +1,6 @@
 package com.greenloop.order.service;
 
-import com.greenloop.order.dto.request.CheckoutRequest;
-import com.greenloop.order.dto.request.CreateShipmentRequestDTO;
-import com.greenloop.order.dto.request.OrderFilterRequest;
-import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
+import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.CheckoutResponse;
 import com.greenloop.order.dto.response.OrderResponse;
 import com.greenloop.order.dto.response.PageResponseDTO;
@@ -23,10 +20,10 @@ public interface OrderService {
     Order getOrderEntityById(String orderId);
     OrderResponse getOrderById(String orderId);
     PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter);
-    void cancelOrder(String orderId, String reason);
+    void cancelOrder(String orderId, String reason, Long requestingUserId, String userRole);;
     void confirmOrder(String orderId, String reason);
     void processOrder(String orderId, String reason);
     void completeOrder(String orderId, String reason);
     ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
-
+    Order buildAndSaveOrder(CreateOrderRequest request);
 }

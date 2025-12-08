@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -77,7 +78,7 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
     public ResponseEntity<ApiResponseDTO<OrderResponse>> getOrderDetail(
             @PathVariable String orderId) {
 
@@ -210,7 +211,14 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER', 'CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<Void>> cancelOrder(
             @PathVariable String orderId,
-            @RequestParam(required = false) String reason) {
+            @RequestParam(required = false) String reason,
+            Authentication authentication
+            ) {
+
+        Long userId = extractUserId(authentication);
+        String userRole = extractRole(authentication);
+
+        log.info("Staff {} (role: {}) cancelling order {}", userId, userRole, orderId);
 
         Order order = orderService.getOrderEntityById(orderId);
 
@@ -218,7 +226,7 @@ public class OrderController {
             goShipService.cancelShipment(order.getGoshipShipmentId());
         }
 
-        orderService.cancelOrder(orderId, reason);
+        orderService.cancelOrder(orderId, reason, userId, userRole);
 
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Hủy đơn hàng thành công", null, HttpStatus.OK)
@@ -266,5 +274,16 @@ public class OrderController {
         }
 
         return filter;
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        return Long.parseLong(authentication.getName());
+    }
+
+    private String extractRole(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .findFirst()
+                .orElse("ROLE_CUSTOMER");
     }
 }

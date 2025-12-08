@@ -19,6 +19,11 @@ spring:
     cloudName: ${CLOUDINARY_NAME}
     apiKey: ${CLOUDINARY_API_KEY}
     apiSecret: ${CLOUDINARY_API_SECRET}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     stream:
       bindings:
@@ -32,6 +37,10 @@ spring:
           destination: order-offline-created-reward
         orderCancelledProduct-out-0:
           destination: order-cancelled-product
+        orderCompletedReward-out-0:
+          destination: order-completed-reward
+        orderCompletedProduct-out-0:
+          destination: order-completed-product
   rabbitmq:
     host: ${RABBITMQ_HOST:35.198.237.130}
     port: ${RABBITMQ_PORT:5672}
@@ -66,18 +75,6 @@ goship:
   client-secret: ${GOSHIP_CLIENT_SECRET}
   access-token: ${GOSHIP_ACCESS_TOKEN}
   base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
-  default-warehouse:
-    city: "700000"
-    city-name: "Hồ Chí Minh"
-    district: "700100"
-    district-name: "Quận 1"
-    ward-name: "Phường Bến Nghé"
-    ward-code: 8955
-    district-id: 700100
-    city-id: 700000
-    address: "39 Bến Nghé"
-    name: "GreenLoop Warehouse"
-    phone: "0987654321"
 payos:
   client-id: ${PAYOS_CLIENT_ID}
   api-key: ${PAYOS_API_KEY}
@@ -90,3 +87,7 @@ payos:
 
 greenloop:
   defaultImg: ${DEFAULT_IMAGE_URL:https://res.cloudinary.com/demo/image/upload/sample.jpg}
+
+order:
+  redis:
+    pending-order-ttl: 900  # 15 phút (900 seconds)
