@@ -2,10 +2,7 @@ package com.greenloop.reward.service.impl;
 
 import com.greenloop.reward.dto.event.EcoPointTransactionDTO;
 import com.greenloop.reward.dto.event.NotificationEvent;
-import com.greenloop.reward.dto.response.EcoPointLeaderboardResponse;
-import com.greenloop.reward.dto.response.EcoPointUserDTO;
-import com.greenloop.reward.dto.response.EcoPointUserResponse;
-import com.greenloop.reward.dto.response.EcoPointUserTransactionResponse;
+import com.greenloop.reward.dto.response.*;
 import com.greenloop.reward.entity.EcoPointTransaction;
 import com.greenloop.reward.entity.EcoPointUser;
 import com.greenloop.reward.enums.EcoPointStatus;
@@ -18,6 +15,8 @@ import com.greenloop.reward.service.NotificationProducer;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import com.greenloop.reward.service.UserServiceFeign;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,6 +29,7 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
     private final EcoPointUserRepository ecoPointUserRepository;
     private final EcoPointTransactionRepository ecoPointTransactionRepository;
     private final NotificationProducer notificationProducer;
+    private final UserServiceFeign userServiceFeign;
 
     @Override
     public void updateEcoPointUserBalance(EcoPointTransactionDTO ecoPointTransactionDTO) {
@@ -188,12 +188,21 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
 
         List<EcoPointUserDTO> topUsers =
                 ecoPointUserRepository.findTopLifetimeUsers().stream()
-                        .map(row ->
-                                EcoPointUserDTO.builder()
-                                        .userId((Long) row[0])
-                                        .lifetimePoints(((Number) row[2]).longValue())
-                                        .build())
+                        .map(row -> {
+                            Long id = ((Number) row[0]).longValue();
+                            Long lifetimePoints = ((Number) row[2]).longValue();
+
+                            UserProfileResponse userInfo = userServiceFeign.getUserInfoById(id);
+                            String name = userInfo != null ? userInfo.getFullName() : "Unknown";
+
+                            return EcoPointUserDTO.builder()
+                                    .userId(id)
+                                    .name(name)
+                                    .lifetimePoints(lifetimePoints)
+                                    .build();
+                        })
                         .collect(Collectors.toList());
+
 
         if (userId != null) {
             Optional<EcoPointUser> currentUserOpt = ecoPointUserRepository.findByUserId(userId);

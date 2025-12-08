@@ -9,5 +9,6 @@ import lombok.Setter;
 @Builder
 public class EcoPointUserDTO {
   private Long userId;
+  private String name;
   private Long lifetimePoints;
 }

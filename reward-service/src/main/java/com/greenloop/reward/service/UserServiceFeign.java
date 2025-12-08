@@ -1,0 +1,13 @@
+package com.greenloop.reward.service;
+
+import com.greenloop.reward.dto.response.UserProfileResponse;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(name = "user-service")
+public interface UserServiceFeign {
+    @GetMapping(value = "/api/v1/users/{id}/info", headers = "API_SECRET_HEADER=greenloopsecret")
+    UserProfileResponse getUserInfoById(@PathVariable("id") Long id);
+}
+

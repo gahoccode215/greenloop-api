@@ -10,6 +10,7 @@ import lombok.Setter;
 @Builder
 public class EcoPointLeaderboardResponse {
   private Long currentUserId;
+  private String currentUserName;
   private Integer currentUserRank;
   private Integer currentUserPoints;
   private List<EcoPointUserDTO> topUsers;
