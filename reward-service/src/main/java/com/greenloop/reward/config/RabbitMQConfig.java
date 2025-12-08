@@ -23,6 +23,9 @@ public class RabbitMQConfig {
   @Value("${rabbitmq.eco-donation-routing-key}")
   private String ecoDonationRoutingKey;
 
+    @Value("${rabbitmq.notification-routing-key}")
+    private String notificationRoutingKey;
+
   @Bean
   public TopicExchange exchange() {
     return new TopicExchange(exchange);
