@@ -35,14 +35,18 @@ public class VoucherStatusScheduler {
         LocalDateTime now = LocalDateTime.now();
 
         try {
-            int nearExpiryCount = notifyVoucherExpiringSoon(now);
+            try {
+                int nearExpiryCount = notifyVoucherExpiringSoon(now);
+            } catch (Exception e) {
+                log.info("Exception in updateExpiredVouchers", e);
+            }
 
             int expiredVoucherCount = updateExpiredVouchers(now);
 
             int expiredVoucherUserCount = updateExpiredVoucherUsers();
 
-            log.info("Voucher expiry update completed - {} vouchers notified for near expiry, {} vouchers expired, {} voucher users expired",
-                    nearExpiryCount, expiredVoucherCount, expiredVoucherUserCount);
+           log.info("Voucher expiry update completed - {} vouchers expired, {} voucher users expired",
+                    expiredVoucherCount, expiredVoucherUserCount);
 
         } catch (Exception e) {
             log.error("Error updating vouchers: {}", e.getMessage(), e);

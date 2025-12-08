@@ -16,6 +16,7 @@ import com.greenloop.reward.repository.EcoPointUserRepository;
 import com.greenloop.reward.service.EcoPointUserService;
 import com.greenloop.reward.service.NotificationProducer;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -176,36 +177,49 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
         .build();
   }
 
-  @Override
-  public EcoPointLeaderboardResponse getEcoPointUserDTOByUser() {
-    Long userId = getCurrentUserId();
-    List<EcoPointUserDTO> topUsers =
-        ecoPointUserRepository.findTopLifetimeUsers().stream()
-            .map(
-                row ->
-                    EcoPointUserDTO.builder()
-                        .userId((Long) row[0])
-                        .lifetimePoints(((Number) row[2]).longValue())
-                        .build())
-            .collect(Collectors.toList());
+    @Override
+    public EcoPointLeaderboardResponse getEcoPointUserDTOByUser() {
+        Long userId;
+        try {
+            userId = getCurrentUserId();
+        } catch (Exception e) {
+            userId = null;
+        }
 
-    Long higherCount = ecoPointUserRepository.countUsersWithMoreLifetimePoints(userId);
-    int currentRank = higherCount.intValue() + 1;
+        List<EcoPointUserDTO> topUsers =
+                ecoPointUserRepository.findTopLifetimeUsers().stream()
+                        .map(row ->
+                                EcoPointUserDTO.builder()
+                                        .userId((Long) row[0])
+                                        .lifetimePoints(((Number) row[2]).longValue())
+                                        .build())
+                        .collect(Collectors.toList());
 
-    EcoPointUser currentUser =
-        ecoPointUserRepository
-            .findByUserId(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+        if (userId != null) {
+            Optional<EcoPointUser> currentUserOpt = ecoPointUserRepository.findByUserId(userId);
 
-    return EcoPointLeaderboardResponse.builder()
-        .currentUserId(userId)
-        .currentUserRank(currentRank)
-        .currentUserPoints(currentUser.getTotalPoints())
-        .topUsers(topUsers)
-        .build();
-  }
+            if (currentUserOpt.isPresent()) {
+                EcoPointUser currentUser = currentUserOpt.get();
 
-  @Override
+                Long higherCount = ecoPointUserRepository.countUsersWithMoreLifetimePoints(userId);
+                int currentRank = higherCount.intValue() + 1;
+
+                return EcoPointLeaderboardResponse.builder()
+                        .currentUserId(userId)
+                        .currentUserRank(currentRank)
+                        .currentUserPoints(currentUser.getTotalPoints())
+                        .topUsers(topUsers)
+                        .build();
+            }
+        }
+
+        return EcoPointLeaderboardResponse.builder()
+                .topUsers(topUsers)
+                .build();
+    }
+
+
+    @Override
   public void addEcoPointsForOfflineOrder(
       Long customerId, Integer points, String orderId, String orderCode) {
     EcoPointTransactionDTO transactionDTO =
