@@ -26,7 +26,8 @@ public class SecurityConfig {
     "/api/v1/eco-points/internal",
     "/api/v1/vouchers/customer",
     "/api/v1/vouchers/campaigns/customer",
-    "/api/v1/internal/**"
+    "/api/v1/internal/**",
+          "/api/v1/eco-point-users/leaderboard"
   };
 
   @Bean

@@ -36,11 +36,21 @@ public interface VoucherUserRepository extends JpaRepository<VoucherUser, Long> 
   List<Object[]> findTopUsers();
 
 
+    @Query("""
+        SELECT vu
+        FROM VoucherUser vu
+        JOIN vu.voucher v
+        WHERE vu.status = :status
+          AND v.status = 'ACTIVE'
+          AND v.isActive = true
+          AND v.expiryDate BETWEEN :from AND :to
+        """)
     List<VoucherUser> findVoucherUsersExpiringInOneDay(
-            VoucherUserStatus status,
-            LocalDateTime from,
-            LocalDateTime to);
+            @Param("status") VoucherUserStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
 
 
-  List<VoucherUser> findByUserId(Long userId);
+
+    List<VoucherUser> findByUserId(Long userId);
 }
