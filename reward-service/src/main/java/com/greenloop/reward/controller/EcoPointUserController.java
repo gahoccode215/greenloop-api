@@ -69,7 +69,6 @@ public class EcoPointUserController {
       summary = "Get eco point leaderboard",
       description = "Retrieve the eco point leaderboard showing top users.")
   @Tag(name = "Eco Point User Management")
-  @PreAuthorize("isAuthenticated()")
   public ResponseEntity<ApiResponseDTO<EcoPointLeaderboardResponse>> getEcoPointLeaderboard() {
     log.info("Fetching eco point leaderboard");
     EcoPointLeaderboardResponse leaderboardResponse =
