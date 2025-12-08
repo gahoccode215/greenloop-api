@@ -192,7 +192,12 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
                             Long id = ((Number) row[0]).longValue();
                             Long lifetimePoints = ((Number) row[2]).longValue();
 
-                            UserProfileResponse userInfo = userServiceFeign.getUserInfoById(id);
+                            UserProfileResponse userInfo;
+                            try {
+                                userInfo = userServiceFeign.getUserInfoById(id);
+                            } catch (Exception e) {
+                                userInfo = null;
+                            }
                             String name = userInfo != null ? userInfo.getFullName() : "Unknown";
 
                             return EcoPointUserDTO.builder()
