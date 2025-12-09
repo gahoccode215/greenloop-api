@@ -61,6 +61,17 @@ public class PaymentWebhookController {
                     webhookData.getCode(),
                     webhookData.getDesc());
 
+            if (webhookData.getOrderCode() == 123L) {
+                log.info("Received PayOS test webhook. Returning success response.");
+                return ResponseEntity.ok(
+                        ApiResponseDTO.success(
+                                "Webhook test nhận thành công",
+                                webhookData,
+                                HttpStatus.OK
+                        )
+                );
+            }
+
             // 2. TÌM ORDER TỪ REDIS TRƯỚC (cho PayOS orders)
             String orderId = pendingOrderCacheService.findOrderIdByPaymentCode(
                     webhookData.getOrderCode());

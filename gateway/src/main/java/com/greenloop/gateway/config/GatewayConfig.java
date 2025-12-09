@@ -90,6 +90,7 @@ public class GatewayConfig {
             r ->
                 r.path(
                         "/api/v1/orders/**",
+                                "/api/v1/orders/payment/**",
                         "/api/v1/carts/**",
                         "/api/v1/checkout/**",
                         "/api/v1/goship/**",
