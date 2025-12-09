@@ -555,6 +555,7 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
+
         log.info("Order {} ready to ship. Shipment ID: {}. Carrier: {}. Previous status: {}. Reason: {}",
                 orderId, shipmentResponse.getId(), shipmentResponse.getCarrier(), oldStatus, request.getReason());
 
@@ -565,6 +566,43 @@ public class OrderServiceImpl implements OrderService {
                 .fee(shipmentResponse.getFee())
                 .createdAt(shipmentResponse.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void handleLostOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        log.error("Processing LOST order: {} | PaymentMethod: {} | Reason: {}",
+                order.getOrderCode(), order.getPaymentMethod(), reason);
+
+        // Xử lý payment theo method
+        if (order.getPaymentMethod() == PaymentMethod.COD) {
+            log.info("Lost order {} is COD - No refund needed. Customer has not paid yet.",
+                    order.getOrderCode());
+            // COD: Khách chưa trả tiền, không cần hoàn tiền
+
+        } else if (order.getPaymentMethod() == PaymentMethod.PAYOS
+                && order.getPaymentStatus() == PaymentStatus.PAID) {
+            // TODO: Xử lý PayOS refund sau
+            log.warn("Lost order {} requires PayOS refund - Not implemented yet",
+                    order.getOrderCode());
+        }
+
+        // Product đã được update sang LOST ở GoShipWebhookService.handleProductStatusChange()
+        // Hàng thật sự bị mất, không trả về AVAILABLE
+
+        // Thông báo khách hàng
+//        notifyCustomerLostOrder(order, reason);
+
+        // Alert staff để khiếu nại GoShip
+//        alertStaffLostOrder(order, reason);
+
+        orderRepository.save(order);
+
+        log.warn("Lost order {} processed. Product marked as LOST in inventory.",
+                order.getOrderCode());
     }
 
 

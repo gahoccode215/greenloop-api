@@ -26,4 +26,5 @@ public interface OrderService {
     void completeOrder(String orderId, String reason);
     ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
     Order buildAndSaveOrder(CreateOrderRequest request);
+    void handleLostOrder(String orderId, String reason);
 }

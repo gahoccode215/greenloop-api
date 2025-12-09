@@ -24,7 +24,8 @@ public class SecurityConfig {
             "/api/v1/orders/ghn/master-data/**",
             "/api/v1/goship/addresses/**",
             "/api/v1/goship/shipments/**",
-            "/api/v1/simulator/shipments/**"
+            "/api/v1/simulator/shipments/**",
+            "/api/v1/orders/payment/payos-webhook"
     };
 
     private final HeaderAuthFilter headerAuthFilter;
