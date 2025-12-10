@@ -82,6 +82,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         if ("CASH".equals(request.getPaymentMethod())) {
             return handleCashPayment(
                     orderId, orderCode, request,
+                    productDetailsMap,
                     subtotal, totalPrice, discountAmount,
                     voucherResult, earnedEcoPoints
             );
@@ -89,6 +90,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         } else if ("BANK_TRANSFER".equals(request.getPaymentMethod())) {
             return handleBankTransferPayment(
                     orderId, orderCode, request,
+                    productDetailsMap,
                     subtotal, totalPrice, discountAmount,
                     voucherResult, earnedEcoPoints
             );
@@ -104,6 +106,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
             String orderId,
             String orderCode,
             CreateOrderOfflineRequest request,
+            Map<Long, ProductDTO> productDetailsMap,
             BigDecimal subtotal,
             BigDecimal totalPrice,
             BigDecimal discountAmount,
@@ -151,11 +154,13 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
     /**
      * Xử lý thanh toán BANK_TRANSFER - Lưu vào Redis, chờ webhook PayOS
+     * THAM KHẢO: OrderServiceImpl.handlePayOSCheckout()
      */
     private OrderOfflineResponse handleBankTransferPayment(
             String orderId,
             String orderCode,
             CreateOrderOfflineRequest request,
+            Map<Long, ProductDTO> productDetailsMap,
             BigDecimal subtotal,
             BigDecimal totalPrice,
             BigDecimal discountAmount,
@@ -204,15 +209,24 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 4. Lưu vào Redis, chờ webhook PayOS confirm
-        pendingOrderCacheService.savePendingOrder(pendingOrder);
+        // 4. Lưu vào Redis với retry logic (giống OrderServiceImpl)
+        try {
+            pendingOrderCacheService.savePendingOrder(pendingOrder);
+            log.info("BANK_TRANSFER offline order {} saved to Redis. Waiting for payment...",
+                    orderCode);
 
-        log.info("BANK_TRANSFER offline order {} saved to Redis. Waiting for payment...",
-                orderCode);
+        } catch (Exception e) {
+            // Redis failed, log CRITICAL nhưng không crash flow
+            log.error("CRITICAL: Failed to save pending order {} to Redis. " +
+                            "Order might need manual processing after payment webhook.",
+                    orderCode, e);
+
+            // TODO: Gửi alert tới admin/dev team qua Slack/Email
+        }
 
         // 5. KHÔNG publish event, vì đơn chưa thanh toán thành công
 
-        // 6. Trả response kèm paymentUrl
+        // 6. Trả response kèm paymentUrl (dù Redis fail vẫn trả về để user thanh toán)
         return OrderOfflineResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
