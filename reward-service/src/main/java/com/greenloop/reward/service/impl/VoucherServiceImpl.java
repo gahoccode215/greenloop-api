@@ -12,6 +12,7 @@ import com.greenloop.reward.enums.*;
 import com.greenloop.reward.exception.BusinessException;
 import com.greenloop.reward.repository.*;
 import com.greenloop.reward.service.NotificationProducer;
+import com.greenloop.reward.service.UserServiceFeign;
 import com.greenloop.reward.service.VoucherService;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
@@ -42,6 +43,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final VoucherUserRepository voucherUserRepository;
     private final VoucherRedemptionRepository voucherRedemptionRepository;
     private final NotificationProducer notificationProducer;
+    private final UserServiceFeign userServiceFeign;
 
   @Override
   public Long createVoucherCampaign(CreateVoucherCampaignRequest request) {
@@ -80,10 +82,33 @@ public class VoucherServiceImpl implements VoucherService {
     }
     VoucherCampaign newCampaign = voucherCampaignRepository.save(voucherCampaign);
     log.info("Voucher campaign created with ID: {}", voucherCampaign.getId());
+    notifyUsersAboutNewCampaign(newCampaign);
     return newCampaign.getId();
   }
 
-  @Override
+    private void notifyUsersAboutNewCampaign(VoucherCampaign campaign) {
+        try {
+            List<Long> allUsers = userServiceFeign.getAllUserIds();
+            String title = "Chiến dịch voucher mới đã ra mắt!";
+            String message = "Chiến dịch \"" + campaign.getName()
+                    + "\" đã được khởi tạo. Hãy khám phá ngay để nhận những ưu đãi hấp dẫn!";
+
+            for (Long user : allUsers) {
+                notificationProducer.sendNotificationMessage(
+                        NotificationEvent.builder()
+                                .userId(user)
+                                .title(title)
+                                .message(message)
+                                .build()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi thông báo cho người dùng về chiến dịch voucher mới: {}", e.getMessage());
+        }
+    }
+
+
+    @Override
   public Long createVoucher(CreateVoucherRequest request) {
     Long currentUserId = getCurrentUserId();
     log.info("Creating voucher for user ID: {}", currentUserId);
