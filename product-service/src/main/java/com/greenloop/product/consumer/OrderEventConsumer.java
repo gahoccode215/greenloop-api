@@ -22,27 +22,39 @@ public class OrderEventConsumer {
     @Bean
     public Consumer<OrderCheckedOutEvent> orderCheckedOutProductConsumer() {
         return event -> {
-            log.info("Received OrderCheckedOutEvent for orderId: {}, customerId: {}",
-                    event.getOrderId(), event.getCustomerId());
+            try {
+                log.info("=== START processing OrderCheckedOutEvent ===");
+                log.info("OrderId: {}, CustomerId: {}, Products: {}",
+                        event.getOrderId(),
+                        event.getCustomerId(),
+                        event.getProductStatusChanges().size());
 
-            if (event.getProductStatusChanges() == null || event.getProductStatusChanges().isEmpty()) {
-                log.warn("No product status changes to process for online order");
-                return;
-            }
+                if (event.getProductStatusChanges() == null || event.getProductStatusChanges().isEmpty()) {
+                    log.warn("No product status changes for orderId: {}", event.getOrderId());
+                    return;
+                }
 
-            event.getProductStatusChanges().forEach(change -> {
-                try {
+                // Process all products - throw exception if ANY fails
+                for (var change : event.getProductStatusChanges()) {
+                    log.info("Processing product {} -> status {}",
+                            change.getProductId(), change.getNewStatus());
+
                     productService.updateProductStatus(
                             change.getProductId(),
                             change.getNewStatus()
                     );
-                    log.info("Updated product {} to status: {} for online order",
-                            change.getProductId(), change.getNewStatus());
-                } catch (Exception e) {
-                    log.error("Failed to update product {} status: {}",
-                            change.getProductId(), e.getMessage(), e);
+
+                    log.info("✓ Product {} updated successfully", change.getProductId());
                 }
-            });
+
+                log.info("=== COMPLETED OrderCheckedOutEvent for orderId: {} ===", event.getOrderId());
+
+            } catch (Exception e) {
+                log.error("=== FAILED OrderCheckedOutEvent for orderId: {} - Error: {} ===",
+                        event.getOrderId(), e.getMessage(), e);
+                throw new RuntimeException("Failed to process OrderCheckedOutEvent: " + e.getMessage(), e);
+                // ✅ Throw exception → Message KHÔNG bị ACK → Sẽ retry
+            }
         };
     }
 

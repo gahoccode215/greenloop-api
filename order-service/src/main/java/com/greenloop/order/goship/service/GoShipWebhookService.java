@@ -4,6 +4,8 @@ import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.event.ProductStatusChangeEvent;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.PaymentMethod;
+import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.OrderNotFoundException;
 import com.greenloop.order.goship.dto.GoShipWebhookPayload;
 import com.greenloop.order.repository.OrderRepository;
@@ -49,6 +51,9 @@ public class GoShipWebhookService {
         if (targetOrderStatus != null && targetOrderStatus != oldOrderStatus) {
             order.setOrderStatus(targetOrderStatus);
         }
+        handlePaymentStatusForDelivered(order, newShippingStatus, payload);
+
+        order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
         handleProductStatusChange(order, newShippingStatus, payload);
@@ -61,7 +66,7 @@ public class GoShipWebhookService {
 
         switch (goshipStatus) {
             case 903: // Đã lấy hàng - xuất kho
-            case 919: // Đang vận chuyển
+            case 904: // Đang vận chuyển
                 oldProductStatus = ProductStatusConstant.RESERVED;
                 newProductStatus = ProductStatusConstant.IN_TRANSIT;
                 eventType = "IN_TRANSIT";
@@ -113,5 +118,22 @@ public class GoShipWebhookService {
 
         log.info("Published ProductStatusChangeEvent: {} -> {} for order {}",
                 oldStatus, newStatus, order.getOrderCode());
+    }
+
+    private void handlePaymentStatusForDelivered(Order order, Integer goshipStatus, GoShipWebhookPayload payload) {
+        // Status 905: Giao hàng thành công
+        if (goshipStatus == 905) {
+            // Nếu là COD và chưa thanh toán -> đánh dấu đã thanh toán
+            if (order.getPaymentMethod() == PaymentMethod.COD
+                    && order.getPaymentStatus() == PaymentStatus.UNPAID) {
+
+                order.setPaymentStatus(PaymentStatus.PAID);
+
+                log.info("COD Order {} marked as PAID after successful delivery. " +
+                                "Customer paid: {}đ",
+                        order.getOrderCode(),
+                        payload.getCod());
+            }
+        }
     }
 }

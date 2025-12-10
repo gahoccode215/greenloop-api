@@ -3,6 +3,7 @@ package com.greenloop.order.controller;
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.event.OrderCheckedOutEvent;
+import com.greenloop.order.dto.event.VoucherUsedEvent;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
 import com.greenloop.order.dto.request.CreateOrderRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
@@ -273,12 +274,36 @@ public class PaymentWebhookController {
                 .productStatusChanges(productStatusChanges)
                 .totalEcoPoints(0) // Không cộng điểm
                 .build();
+        log.info("Published OrderCheckedOutEvent (product reserve only)  {}", event);
 
-        // CHỈ gửi đến Product Service
+        // gửi đến Product Service
         streamBridge.send("orderCheckedOutProduct-out-0", event);
 
         log.info("Published OrderCheckedOutEvent (product reserve only) for order {}",
                 order.getOrderId());
+        if (order.getVoucherUserId() != null) {
+            publishVoucherUsedEventFromRedis(order);
+        }
+    }
+
+    private void publishVoucherUsedEventFromRedis(Order order) {
+        log.info("Publishing VoucherUsedEvent for order {} (from Redis) with voucherUserId {}",
+                order.getOrderId(), order.getVoucherUserId());
+
+        VoucherUsedEvent voucherEvent = VoucherUsedEvent.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .voucherUserId(order.getVoucherUserId())
+                .voucherCode(order.getVoucherCode())
+                .discountValue(order.getDiscountAmount())
+                .usedAt(order.getCreatedAt())
+                .build();
+
+        streamBridge.send("orderCheckoutVoucherUsed-out-0", voucherEvent);
+
+        log.info("Published VoucherUsedEvent for voucherUserId {} on order {} (PayOS flow)",
+                order.getVoucherUserId(), order.getOrderId());
     }
 
     /**

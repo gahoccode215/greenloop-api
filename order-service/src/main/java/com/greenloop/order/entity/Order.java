@@ -105,9 +105,6 @@ public class Order {
     @Column(name = "event_id")
     private Long eventId;
 
-    @Column(name = "eco_points_earned")
-    private Integer ecoPointsEarned;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type")
     private OrderType orderType = OrderType.ONLINE;

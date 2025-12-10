@@ -10,12 +10,14 @@ import com.greenloop.order.exception.VoucherException;
 import com.greenloop.order.service.VoucherDiscountService;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VoucherDiscountServiceImpl implements VoucherDiscountService {
@@ -55,6 +57,9 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
             validateVoucher(voucher, subtotal);
 
             BigDecimal discount = calculateDiscount(voucher, subtotal);
+
+            log.info("Offline voucher applied - Code: {}, Subtotal: {}, Discount: {}",
+                    voucher.getVoucherCode(), subtotal, discount);
 
             return VoucherDiscountResult.builder()
                     .voucherUserId(voucherUserId)
@@ -112,7 +117,15 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
             if (voucher.getVoucherType() == VoucherType.FREESHIP) {
                 shippingDiscount = shippingFee;
-                isFreeShip = true;
+
+                if (voucher.getMaxDiscount() != null
+                        && shippingDiscount.compareTo(voucher.getMaxDiscount()) > 0) {
+                    shippingDiscount = voucher.getMaxDiscount();
+                    log.info("FREESHIP capped by maxDiscount: {} -> {}",
+                            shippingFee, shippingDiscount);
+                }
+
+                isFreeShip = shippingDiscount.compareTo(shippingFee) == 0;
                 discountType = "SHIPPING";
 
             } else if (voucher.getVoucherType() == VoucherType.PERCENT) {
@@ -123,6 +136,9 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
                 if (voucher.getMaxDiscount() != null
                         && productDiscount.compareTo(voucher.getMaxDiscount()) > 0) {
                     productDiscount = voucher.getMaxDiscount();
+                    log.info("PERCENT capped by maxDiscount: {} -> {}",
+                            subtotal.multiply(voucher.getValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP),
+                            productDiscount);
                 }
 
                 if (productDiscount.compareTo(subtotal) > 0) {
@@ -132,6 +148,14 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
             } else if (voucher.getVoucherType() == VoucherType.AMOUNT) {
                 productDiscount = voucher.getValue();
+
+                if (voucher.getMaxDiscount() != null
+                        && productDiscount.compareTo(voucher.getMaxDiscount()) > 0) {
+                    productDiscount = voucher.getMaxDiscount();
+                    log.info("AMOUNT capped by maxDiscount: {} -> {}",
+                            voucher.getValue(), productDiscount);
+                }
+
                 if (productDiscount.compareTo(subtotal) > 0) {
                     productDiscount = subtotal;
                 }
@@ -143,6 +167,11 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
             BigDecimal finalAmount = subtotal.subtract(productDiscount)
                     .add(shippingFee.subtract(shippingDiscount));
+
+            log.info("Online voucher applied - Code: {}, Type: {}, Subtotal: {}, ShippingFee: {}, " +
+                            "ProductDiscount: {}, ShippingDiscount: {}, FinalAmount: {}",
+                    voucher.getVoucherCode(), voucher.getVoucherType(), subtotal, shippingFee,
+                    productDiscount, shippingDiscount, finalAmount);
 
             return VoucherDiscountResult.builder()
                     .voucherUserId(voucherUserId)
@@ -228,10 +257,20 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
                     && discount.compareTo(voucher.getMaxDiscount()) > 0) {
                 discount = voucher.getMaxDiscount();
             }
-        } else {
+
+        } else if (voucher.getVoucherType() == VoucherType.AMOUNT) {
             discount = value;
+
+            if (voucher.getMaxDiscount() != null
+                    && discount.compareTo(voucher.getMaxDiscount()) > 0) {
+                discount = voucher.getMaxDiscount();
+            }
+
+        } else {
+            throw new VoucherException("Loại voucher không được hỗ trợ cho đơn offline");
         }
 
+        // Không được vượt quá subtotal
         if (discount.compareTo(subtotal) > 0) {
             discount = subtotal;
         }
