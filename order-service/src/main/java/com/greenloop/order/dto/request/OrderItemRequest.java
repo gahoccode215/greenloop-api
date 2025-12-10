@@ -25,4 +25,5 @@ public class OrderItemRequest {
 
     private String productName;
     private String productImage;
+    private Integer ecoPoint;
 }

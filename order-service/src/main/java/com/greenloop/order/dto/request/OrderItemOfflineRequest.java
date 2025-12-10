@@ -26,4 +26,5 @@ public class OrderItemOfflineRequest {
 
     private String productName;
     private String productImage;
+    private Integer ecoPoint;
 }
