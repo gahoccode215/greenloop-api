@@ -5,7 +5,6 @@ import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.UserDashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,7 +20,6 @@ public class UserDashboardServiceImpl implements UserDashboardService {
     private final UserRepository userRepository;
 
     @Override
-    @Cacheable(value = "userDashboardOverview", unless = "#result == null")
     public UserDashboardOverviewResponse getDashboardOverview() {
         log.info("Fetching user dashboard overview");
 
