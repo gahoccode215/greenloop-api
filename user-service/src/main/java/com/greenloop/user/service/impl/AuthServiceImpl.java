@@ -15,6 +15,8 @@ import com.greenloop.user.service.AuthService;
 import com.greenloop.user.service.CacheService;
 import com.greenloop.user.util.JwtUtil;
 import com.greenloop.user.util.OtpUtil;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +62,8 @@ public class AuthServiceImpl implements AuthService {
     String accessToken = jwtUtil.generateToken(user);
     String refreshToken = jwtUtil.generateRefreshToken(user);
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
+      user.setLastLoginAt(LocalDateTime.now());
+      userRepository.save(user);
     return AuthResponse.builder()
         .accessToken(accessToken)
         .refreshToken(refreshToken)

@@ -261,6 +261,29 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
         "Added {} eco points for customer {} from offline order {}", points, customerId, orderCode);
   }
 
+    @Override
+    public void addEcoPointsForOnlineOrder(
+            Long customerId, Integer points, String orderId, String orderCode) {
+
+        EcoPointTransactionDTO transactionDTO =
+                EcoPointTransactionDTO.builder()
+                        .userId(customerId)
+                        .points(points)
+                        .type(EcoPointType.EARNED)
+                        .sourceType(SourceType.ORDER)
+                        .sourceId((long) Math.abs(orderId.hashCode()))
+                        .description("Hoàn thành đơn hàng online - " + orderCode)
+                        .build();
+
+        updateEcoPointUserBalance(transactionDTO);
+
+        log.info(
+                "Added {} eco points for customer {} from online order {}",
+                points,
+                customerId,
+                orderCode);
+    }
+
   private Long getCurrentUserId() {
     return Long.valueOf(
         SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString());

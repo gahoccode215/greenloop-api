@@ -8,6 +8,7 @@ import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.event.OrderCancelledEvent;
 import com.greenloop.order.dto.event.OrderCheckedOutEvent;
 import com.greenloop.order.dto.event.OrderCompletedEvent;
+import com.greenloop.order.dto.event.VoucherUsedEvent;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.*;
@@ -110,12 +111,17 @@ public class OrderServiceImpl implements OrderService {
                         throw new ProductNotAvailableException(product.getId());
                     }
 
+                    Integer ecoPoint = product.getEcoPointValue() != null
+                            ? product.getEcoPointValue()
+                            : 0;
+
                     // 2.4. Map từng item trong cart sang OrderItemRequest để dùng tiếp
                     return OrderItemRequest.builder()
                             .productId(cartItem.getProductId())
                             .price(cartItem.getPrice())
                             .productName(cartItem.getProductName())
                             .productImage(cartItem.getProductImage())
+                            .ecoPoint(ecoPoint)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -452,6 +458,7 @@ public class OrderServiceImpl implements OrderService {
                             .price(itemReq.getPrice())
                             .productName(itemReq.getProductName())
                             .productImage(itemReq.getProductImage())
+                            .ecoPoint(itemReq.getEcoPoint())
                             .order(order)
                             .build())
                     .collect(Collectors.toList());
@@ -552,6 +559,7 @@ public class OrderServiceImpl implements OrderService {
         order.setGoshipTrackingUrl(shipmentResponse.getTrackingNumber());
         order.setCarrier(shipmentResponse.getCarrier());
         order.setUpdatedAt(LocalDateTime.now());
+        order.setShippingStatus(901);
 
         orderRepository.save(order);
 
@@ -621,6 +629,11 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
+        int totalEcoPoints = order.getOrderItems().stream()
+                .mapToInt(item -> item.getEcoPoint() != null ? item.getEcoPoint() : 0)
+                .sum();
+
+        order.setEarnedEcoPoints(totalEcoPoints);
         order.setOrderStatus(OrderStatus.COMPLETED);
         order.setUpdatedAt(LocalDateTime.now());
 
@@ -629,10 +642,9 @@ public class OrderServiceImpl implements OrderService {
         // PUBLISH EVENT CỘNG ECO POINTS
         publishOrderCompletedEvent(order);
 
-        log.info("Order {} completed. Previous status: {}. Reason: {}",
-                orderId, oldStatus, reason);
+        log.info("Order {} completed. Previous status: {}. Reason: {}. Earned eco points: {}",
+                orderId, oldStatus, reason, totalEcoPoints);
     }
-
 
     @Override
     @Transactional
@@ -813,6 +825,7 @@ public class OrderServiceImpl implements OrderService {
                             .price(item.getPrice())
                             .productName(item.getProductName())
                             .productImage(item.getProductImage())
+                            .ecoPoint(item.getEcoPoint())
                             .build())
                     .collect(Collectors.toList());
 
@@ -843,16 +856,45 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalPrice())
                 .checkedOutAt(order.getCreatedAt())
                 .productStatusChanges(productStatusChanges)
-                .totalEcoPoints(0) // Không cộng điểm
+                .totalEcoPoints(0)
                 .build();
 
-        // CHỈ gửi đến Product Service
+        // Gửi đến Product Service
         streamBridge.send("orderCheckedOutProduct-out-0", event);
 
         log.info("Published OrderCheckedOutEvent (product reserve only) for order {} with {} products",
                 order.getOrderId(), productStatusChanges.size());
+
+        // Nếu có Voucher, publish event đến Reward Service
+        if (order.getVoucherUserId() != null) {
+            log.info("voucher used>>>>");
+            publishVoucherUsedEvent(order);
+        }
     }
 
+    private void publishVoucherUsedEvent(Order order) {
+        log.info("Publishing VoucherUsedEvent for order {} with voucherUserId {}",
+                order.getOrderId(), order.getVoucherUserId());
+
+        VoucherUsedEvent voucherEvent = VoucherUsedEvent.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .voucherUserId(order.getVoucherUserId())
+                .voucherCode(order.getVoucherCode())
+                .discountValue(order.getDiscountAmount())
+                .usedAt(order.getCreatedAt())
+                .build();
+
+        streamBridge.send("orderCheckoutVoucherUsed-out-0", voucherEvent);
+
+        log.info("Published VoucherUsedEvent for voucherUserId {} on order {}",
+                order.getVoucherUserId(), order.getOrderId());
+    }
+
+    /**
+     * Publish event khi order hoàn tất - CỘNG ECO POINTS
+     */
     /**
      * Publish event khi order hoàn tất - CỘNG ECO POINTS
      */
@@ -862,26 +904,22 @@ public class OrderServiceImpl implements OrderService {
         int totalEcoPoints = 0;
         List<OrderCompletedEvent.ProductEcoPoint> products = new ArrayList<>();
 
+
         for (OrderItem item : order.getOrderItems()) {
-            try {
-                ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(item.getProductId());
+            // Lấy ecoPoint từ OrderItem (đã lưu khi checkout)
+            Integer ecoPoint = item.getEcoPoint() != null ? item.getEcoPoint() : 0;
+            totalEcoPoints += ecoPoint;
 
-                if (response.isSuccess() && response.getData() != null) {
-                    ProductDTO product = response.getData();
-                    int ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
-                    totalEcoPoints += ecoPoint;
+            products.add(
+                    OrderCompletedEvent.ProductEcoPoint.builder()
+                            .productId(item.getProductId())
+                            .ecoPointValue(ecoPoint)
+                            .newStatus(ProductStatusConstant.SOLD)
+                            .build()
+            );
 
-                    products.add(
-                            OrderCompletedEvent.ProductEcoPoint.builder()
-                                    .productId(item.getProductId())
-                                    .ecoPointValue(ecoPoint)
-                                    .newStatus(ProductStatusConstant.SOLD)
-                                    .build()
-                    );
-                }
-            } catch (Exception e) {
-                log.error("Failed to fetch product {}: {}", item.getProductId(), e.getMessage());
-            }
+            log.debug("Order item: productId={}, ecoPoint={}",
+                    item.getProductId(), ecoPoint);
         }
 
         OrderCompletedEvent event = OrderCompletedEvent.builder()
@@ -900,9 +938,10 @@ public class OrderServiceImpl implements OrderService {
         // GỬI EVENT ĐẾN PRODUCT SERVICE (chuyển RESERVED → SOLD)
         streamBridge.send("orderCompletedProduct-out-0", event);
 
-        log.info("Published OrderCompletedEvent for order {} - Eco points: {}",
+        log.info("Published OrderCompletedEvent for order {} - Total eco points: {}",
                 order.getOrderId(), totalEcoPoints);
     }
+
 
     private void validateCancelPermission(Order order, OrderStatus currentStatus,
                                           Long requestingUserId, String userRole) {

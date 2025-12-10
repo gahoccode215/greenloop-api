@@ -9,7 +9,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -29,8 +29,14 @@ spring:
       bindings:
         orderCheckedOutReward-out-0:
           destination: order-checked-out-reward
+          producer:
+            required-groups: reward-service
         orderCheckedOutProduct-out-0:
           destination: order-checked-out-product
+          producer:
+            required-groups: product-service
+        orderCheckoutVoucherUsed-out-0:
+          destination: order-checkout-voucher-used
         orderOfflineCreatedProduct-out-0:
           destination: order-offline-created-product
         orderOfflineCreatedReward-out-0:
@@ -41,6 +47,11 @@ spring:
           destination: order-completed-reward
         orderCompletedProduct-out-0:
           destination: order-completed-product
+      rabbit:
+        bindings:
+          orderCheckedOutProduct-out-0:
+            producer:
+              delivery-mode: PERSISTENT  # Message không mất khi RabbitMQ restart
   rabbitmq:
     host: ${RABBITMQ_HOST:35.198.237.130}
     port: ${RABBITMQ_PORT:5672}
