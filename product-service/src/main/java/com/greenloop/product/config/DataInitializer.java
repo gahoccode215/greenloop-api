@@ -69,6 +69,42 @@ public class DataInitializer implements CommandLineRunner {
                         .name("Áo sơ mi")
                         .description("Áo sơ mi nam, nữ: sơ mi công sở, sơ mi flannel, sơ mi kẻ sọc")
                         .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Quần tây")
+                        .description("Quần tây, quần kaki, quần âu nam nữ: ống đứng, ống côn, baggy")
+                        .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Đồ thể thao")
+                        .description("Quần áo tập gym, yoga, chạy bộ, áo bra thể thao, đồ bơi")
+                        .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Giày dép")
+                        .description("Giày sneaker, giày cao gót, sandal, dép xỏ ngón, boots")
+                        .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Phụ kiện")
+                        .description("Túi xách, ví, mũ nón, khăn choàng, dây lưng, trang sức")
+                        .isActive(true)
+                        .build(),
+
+                Category.builder()
+                        .name("Thời trang công sở")
+                        .description("Vest, blazer, chân váy bút chì, áo vest nữ, quần tây công sở")
+                        .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Thời trang trẻ em")
+                        .description("Quần áo cho bé trai, bé gái từ 1-10 tuổi, đồ sơ sinh, đồ đi học")
+                        .isActive(true)
+                        .build(),
+                Category.builder()
+                        .name("Các loại đồ khác")
+                        .description("Các loại quần áo và phụ kiện thời trang khác")
+                        .isActive(true)
                         .build()
         );
 

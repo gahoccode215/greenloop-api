@@ -22,37 +22,37 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Reward Dashboard Controller", description = "APIs for reward dashboard statistics")
 public class DashboardController {
 
-  private final DashboardService dashboardService;
+    private final DashboardService dashboardService;
 
-  @GetMapping("/eco-points")
-  @Operation(
-      summary = "Get eco point statistics",
-      description = "Retrieves statistics related to eco points.")
-  @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
-  public ResponseEntity<ApiResponseDTO<EcoPointStatisticsResponse>> getEcoPointStatistics() {
-    log.info("Received request to get eco point statistics");
-    return ResponseEntity.ok(
-        ApiResponseDTO.<EcoPointStatisticsResponse>builder()
-            .data(dashboardService.getEcoPointStatistics())
-            .message("EcoPoint statistics fetched successfully")
-            .statusCode(HttpStatus.OK.value())
-            .success(true)
-            .build());
-  }
+    @GetMapping("/eco-points")
+    @Operation(
+            summary = "Get eco point statistics",
+            description = "Retrieves statistics related to eco points.")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<EcoPointStatisticsResponse>> getEcoPointStatistics() {
+        log.info("Received request to get eco point statistics");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<EcoPointStatisticsResponse>builder()
+                        .data(dashboardService.getEcoPointStatistics())
+                        .message("Thống kê Điểm Sinh Thái đã được truy xuất thành công.")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
 
-  @GetMapping("/vouchers")
-  @Operation(
-      summary = "Get voucher statistics",
-      description = "Retrieves statistics related to vouchers.")
-  @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
-  public ResponseEntity<ApiResponseDTO<VoucherStatisticsResponse>> getVoucherStatistics() {
-    log.info("Received request to get voucher statistics");
-    return ResponseEntity.ok(
-        ApiResponseDTO.<VoucherStatisticsResponse>builder()
-            .data(dashboardService.getVoucherStatistics())
-            .message("Voucher statistics fetched successfully")
-            .statusCode(HttpStatus.OK.value())
-            .success(true)
-            .build());
-  }
+    @GetMapping("/vouchers")
+    @Operation(
+            summary = "Get voucher statistics",
+            description = "Retrieves statistics related to vouchers.")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<VoucherStatisticsResponse>> getVoucherStatistics() {
+        log.info("Received request to get voucher statistics");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<VoucherStatisticsResponse>builder()
+                        .data(dashboardService.getVoucherStatistics())
+                        .message("Thống kê Phiếu Thưởng đã được truy xuất thành công.")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
 }

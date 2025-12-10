@@ -22,54 +22,54 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @Tag(name = "Dashboard Controller", description = "APIs for event dashboard statistics")
 public class DashboardController {
-  private final DashboardService dashboardService;
+    private final DashboardService dashboardService;
 
-  @GetMapping("/events")
-  @Operation(
-      summary = "Get event statistics",
-      description = "Retrieves various statistics related to events.")
-  @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
-  public ResponseEntity<ApiResponseDTO<EventStatisticsResponse>> getEventStatistics() {
-    log.info("Received request to get event statistics");
-    return ResponseEntity.ok(
-        ApiResponseDTO.<EventStatisticsResponse>builder()
-            .data(dashboardService.getEventStatistics())
-            .message("Event statistics fetched successfully")
-            .statusCode(HttpStatus.OK.value())
-            .success(true)
-            .build());
-  }
+    @GetMapping("/events")
+    @Operation(
+            summary = "Get event statistics",
+            description = "Retrieves various statistics related to events.")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<EventStatisticsResponse>> getEventStatistics() {
+        log.info("Received request to get event statistics");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<EventStatisticsResponse>builder()
+                        .data(dashboardService.getEventStatistics())
+                        .message("Thống kê sự kiện đã được truy xuất thành công.")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
 
-  @GetMapping("/registrations")
-  @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
-  @Operation(
-      summary = "Get event registration statistics",
-      description = "Retrieves various statistics related to event registrations.")
-  public ResponseEntity<ApiResponseDTO<EventRegistrationStatisticsResponse>>
-      getEventRegistrationStatistics() {
-    log.info("Received request to get event registration statistics");
-    return ResponseEntity.ok(
-        ApiResponseDTO.<EventRegistrationStatisticsResponse>builder()
-            .data(dashboardService.getEventRegistrationStatistics())
-            .message("Event registration statistics fetched successfully")
-            .statusCode(HttpStatus.OK.value())
-            .success(true)
-            .build());
-  }
+    @GetMapping("/registrations")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
+    @Operation(
+            summary = "Get event registration statistics",
+            description = "Retrieves various statistics related to event registrations.")
+    public ResponseEntity<ApiResponseDTO<EventRegistrationStatisticsResponse>>
+    getEventRegistrationStatistics() {
+        log.info("Received request to get event registration statistics");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<EventRegistrationStatisticsResponse>builder()
+                        .data(dashboardService.getEventRegistrationStatistics())
+                        .message("Thống kê đăng ký sự kiện đã được truy xuất thành công.")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
 
-  @GetMapping("/staff")
-  @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
-  @Operation(
-      summary = "Get event staff statistics",
-      description = "Retrieves various statistics related to event staff.")
-  public ResponseEntity<ApiResponseDTO<EventStaffStatisticsResponse>> getEventStaffStatistics() {
-    log.info("Received request to get event staff statistics");
-    return ResponseEntity.ok(
-        ApiResponseDTO.<EventStaffStatisticsResponse>builder()
-            .data(dashboardService.getEventStaffStatistics())
-            .message("Event staff statistics fetched successfully")
-            .statusCode(HttpStatus.OK.value())
-            .success(true)
-            .build());
-  }
+    @GetMapping("/staff")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_MANAGER')")
+    @Operation(
+            summary = "Get event staff statistics",
+            description = "Retrieves various statistics related to event staff.")
+    public ResponseEntity<ApiResponseDTO<EventStaffStatisticsResponse>> getEventStaffStatistics() {
+        log.info("Received request to get event staff statistics");
+        return ResponseEntity.ok(
+                ApiResponseDTO.<EventStaffStatisticsResponse>builder()
+                        .data(dashboardService.getEventStaffStatistics())
+                        .message("Thống kê nhân sự sự kiện đã được truy xuất thành công.")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
 }
