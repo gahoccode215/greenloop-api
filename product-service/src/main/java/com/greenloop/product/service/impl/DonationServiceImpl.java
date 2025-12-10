@@ -104,8 +104,15 @@ public class DonationServiceImpl implements DonationService {
                 .type(EcoPointType.EARNED)
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
-        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+//        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        try {
+            Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+        }
+        catch (Exception e) {
+            log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.ECO_POINT_UPDATE_FAILED);
+        }
+//        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 

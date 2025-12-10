@@ -35,27 +35,31 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
     public void updateEcoPointUserBalance(EcoPointTransactionDTO ecoPointTransactionDTO) {
         var ecoPointUserOpt = ecoPointUserRepository.findByUserId(ecoPointTransactionDTO.getUserId());
         Integer finalPoints;
+
         if (ecoPointUserOpt.isPresent()) {
+            var ecoPointUser = ecoPointUserOpt.get();
+
             EcoPointTransaction ecoPointTransaction =
                     EcoPointTransaction.builder()
-                            .ecoPointUser(ecoPointUserOpt.get())
                             .points(ecoPointTransactionDTO.getPoints())
                             .type(ecoPointTransactionDTO.getType())
-                            .points(ecoPointTransactionDTO.getPoints())
                             .userId(ecoPointTransactionDTO.getUserId())
                             .sourceId(ecoPointTransactionDTO.getSourceId())
                             .sourceType(ecoPointTransactionDTO.getSourceType())
                             .description(ecoPointTransactionDTO.getDescription())
                             .build();
-            ecoPointTransactionRepository.save(ecoPointTransaction);
-            var ecoPointUser = ecoPointUserOpt.get();
+
+            ecoPointUser.addEcoPointTransaction(ecoPointTransaction);
+
             ecoPointUser.setTotalPoints(
                     ecoPointUser.getTotalPoints() + ecoPointTransactionDTO.getPoints());
             ecoPointUser.setLifetimePoints(
                     ecoPointUser.getLifetimePoints() + ecoPointTransactionDTO.getPoints());
+
             ecoPointUserRepository.save(ecoPointUser);
-            log.info("EcoPointUser save success.");
+
             finalPoints = ecoPointUser.getTotalPoints();
+            log.info("EcoPointUser update success.");
         } else {
             EcoPointUser ecoPointUser =
                     EcoPointUser.builder()
@@ -64,23 +68,29 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
                             .lifetimePoints(ecoPointTransactionDTO.getPoints())
                             .status(EcoPointStatus.ACTIVE)
                             .build();
-            ecoPointUser.addEcoPointTransaction(
+
+            EcoPointTransaction ecoPointTransaction =
                     EcoPointTransaction.builder()
-                            .ecoPointUser(ecoPointUser)
                             .points(ecoPointTransactionDTO.getPoints())
                             .type(ecoPointTransactionDTO.getType())
                             .userId(ecoPointTransactionDTO.getUserId())
                             .sourceId(ecoPointTransactionDTO.getSourceId())
                             .sourceType(ecoPointTransactionDTO.getSourceType())
                             .description(ecoPointTransactionDTO.getDescription())
-                            .build());
+                            .build();
+
+            ecoPointUser.addEcoPointTransaction(ecoPointTransaction);
+
             ecoPointUserRepository.save(ecoPointUser);
+
             finalPoints = ecoPointUser.getTotalPoints();
             log.info("EcoPointUser created and save success.");
         }
+
         NotificationEvent notificationEvent = buildNotificationEvent(ecoPointTransactionDTO, finalPoints);
         notificationProducer.sendNotificationMessage(notificationEvent);
     }
+
 
     private NotificationEvent buildNotificationEvent(EcoPointTransactionDTO dto, Integer totalPoints) {
 

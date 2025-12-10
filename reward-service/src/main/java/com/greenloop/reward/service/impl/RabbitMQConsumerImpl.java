@@ -25,15 +25,15 @@ public class RabbitMQConsumerImpl implements RabbitMQConsumer {
       maxAttempts = 3,
       backoff = @Backoff(delay = 8000))
   public void consumeEcoPointTransactionMessage(EcoPointTransactionDTO ecoPointTransactionDTO) {
-    log.info("Consuming eco point transaction for userId: " + ecoPointTransactionDTO.getUserId());
-    try {
-      ecoPointUserService.updateEcoPointUserBalance(ecoPointTransactionDTO);
-    } catch (Exception e) {
-      log.error(
-          "Failed to process eco point transaction for userId: "
-              + ecoPointTransactionDTO.getUserId(),
-          e);
-      throw new BusinessException(ErrorCode.INVALID_ECO_POINT_TRANSACTION);
-    }
+//    log.info("Consuming eco point transaction for userId: " + ecoPointTransactionDTO.getUserId());
+//    try {
+////      ecoPointUserService.updateEcoPointUserBalance(ecoPointTransactionDTO);
+//    } catch (Exception e) {
+//      log.error(
+//          "Failed to process eco point transaction for userId: "
+//              + ecoPointTransactionDTO.getUserId(),
+//          e);
+//      throw new BusinessException(ErrorCode.INVALID_ECO_POINT_TRANSACTION);
+//    }
   }
 }
