@@ -4,11 +4,12 @@ import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;
 import jakarta.persistence.*;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "products", indexes = {
@@ -58,17 +59,29 @@ public class Product extends BaseEntity {
     @Column(name = "type", length = 20, nullable = false)
     private ProductType type;
 
+    @Column(name = "weight")
+    private int weight;
+
+    @Column(name = "length")
+    private int length;
+
+    @Column(name = "width")
+    private int width;
+
+    @Column(name = "height")
+    private int height;
+
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ProductAsset> assets = new HashSet<>();
 
-    public void addAsset(ProductAsset asset) {
+    @OneToMany(mappedBy = "product", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<EventProductMapping> eventMappings = new HashSet<>();
+
+    public void addProductAsset(ProductAsset asset) {
         assets.add(asset);
         asset.setProduct(this);
     }
 
-    public void removeAsset(ProductAsset asset) {
-        assets.remove(asset);
-        asset.setProduct(null);
-    }
 }

@@ -4,8 +4,6 @@ import com.greenloop.user.dto.request.CreateEmployeeRequest;
 import com.greenloop.user.dto.request.UpdateEmployeeRequest;
 import com.greenloop.user.dto.response.*;
 import com.greenloop.user.service.AdminEmployeeService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,41 +29,18 @@ public class AdminEmployeeController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-  @Operation(
-      summary = "Get employee list",
-      description =
-          "Retrieve paginated list of employees. ADMIN can view STAFF and MANAGER, MANAGER can only view STAFF")
   public ResponseEntity<ApiResponseDTO<PageResponseDTO<EmployeeResponse>>> getEmployees(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
-      @Parameter(description = "Search by email, full name, or phone number")
-          @RequestParam(required = false)
-          String search,
-      @Parameter(description = "Filter by active status (true/false)")
-          @RequestParam(required = false)
-          String status,
-      @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt")
-          String sortBy,
-      @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC")
-          String sortDir) {
-
-    log.info(
-        "Getting employees - page: {}, size: {}, search: {}, status: {}",
-        page,
-        size,
-        search,
-        status);
-
+      @RequestParam(required = false) String search,
+      @RequestParam(required = false) String status,
+      @RequestParam(defaultValue = "createdAt") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDir) {
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
 
     PageResponseDTO<EmployeeResponse> employees =
         adminEmployeeService.getEmployees(search, status, pageable);
-
-    log.info(
-        "Retrieved {} employees out of {} total",
-        employees.getContent().size(),
-        employees.getTotalElements());
 
     return ResponseEntity.ok(
         ApiResponseDTO.success("Lấy danh sách nhân viên thành công", employees, HttpStatus.OK));
@@ -73,25 +48,17 @@ public class AdminEmployeeController {
 
   @GetMapping("/{id}")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-  @Operation(
-      summary = "Get employee detail",
-      description = "Retrieve detail information of an employee by id")
   public ResponseEntity<ApiResponseDTO<EmployeeResponse>> getEmployeeDetail(@PathVariable Long id) {
-    log.info("Getting employee detail for id: {}", id);
     EmployeeResponse employee = adminEmployeeService.getEmployeeDetail(id);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Lấy chi tiết nhân viên thành công", employee, HttpStatus.OK));
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-      @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-  @Operation(
-      summary = "Create new employee",
-      description = "Create new employee account with optional avatar")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
   public ResponseEntity<ApiResponseDTO<CreateEmployeeResponse>> createEmployee(
       @Valid @RequestPart("request") CreateEmployeeRequest request,
       @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
-    log.info("Creating new employee with role: {}", request.getRole());
     CreateEmployeeResponse response = adminEmployeeService.createEmployee(request, avatar);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
@@ -101,14 +68,10 @@ public class AdminEmployeeController {
 
   @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-  @Operation(
-      summary = "Update employee",
-      description = "Update employee information with optional avatar")
   public ResponseEntity<ApiResponseDTO<EmployeeResponse>> updateEmployee(
       @PathVariable Long id,
       @Valid @RequestPart("request") UpdateEmployeeRequest request,
       @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
-    log.info("Updating employee with id: {}", id);
     EmployeeResponse response = adminEmployeeService.updateEmployee(id, request, avatar);
     return ResponseEntity.ok(
         ApiResponseDTO.success("Cập nhật thông tin nhân viên thành công", response, HttpStatus.OK));
@@ -116,13 +79,8 @@ public class AdminEmployeeController {
 
   @PatchMapping("/{id}/status")
   @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-  @Operation(
-      summary = "Change employee status",
-      description =
-          "Activate or deactivate employee account. ADMIN can change STAFF and MANAGER status, MANAGER can only change STAFF status")
   public ResponseEntity<ApiResponseDTO<EmployeeResponse>> changeEmployeeStatus(
       @PathVariable Long id, @RequestParam Boolean isActive) {
-    log.info("Changing status for employee with id: {} to: {}", id, isActive);
     EmployeeResponse response = adminEmployeeService.changeEmployeeStatus(id, isActive);
     String message =
         response.getIsActive()
@@ -131,20 +89,14 @@ public class AdminEmployeeController {
     return ResponseEntity.ok(ApiResponseDTO.success(message, response, HttpStatus.OK));
   }
 
-    @PostMapping("/{id}/reset-password")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(
-            summary = "Reset employee password",
-            description = "Generate new temporary password for employee who forgot password")
-    public ResponseEntity<ApiResponseDTO<ResetPasswordResponse>> resetEmployeePassword(
-            @PathVariable Long id) {
+  @PostMapping("/{id}/reset-password")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  public ResponseEntity<ApiResponseDTO<ResetPasswordResponse>> resetEmployeePassword(
+      @PathVariable Long id) {
 
-        log.info("Resetting password for employee id: {}", id);
+    ResetPasswordResponse response = adminEmployeeService.resetEmployeePassword(id);
 
-        ResetPasswordResponse response = adminEmployeeService.resetEmployeePassword(id);
-
-        return ResponseEntity.ok(
-                ApiResponseDTO.success(
-                        "Cấp lại mật khẩu thành công", response, HttpStatus.OK));
-    }
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Cấp lại mật khẩu thành công", response, HttpStatus.OK));
+  }
 }

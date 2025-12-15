@@ -6,10 +6,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "cart_items", indexes = {
-        @Index(name = "idx_cart_item_cart", columnList = "cart_id"),
-        @Index(name = "idx_cart_item_product", columnList = "product_id")
-})
+@Table(name = "cart_items",
+        indexes = {
+                @Index(name = "idx_cart_item_cart", columnList = "cart_id"),
+                @Index(name = "idx_cart_item_product", columnList = "product_id")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_cart_product", columnNames = {"cart_id", "product_id"})
+        }
+)
 @Getter
 @Setter
 @Builder
@@ -37,11 +42,17 @@ public class CartItem {
     @Column(name = "price", precision = 10, scale = 2, nullable = false)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false)
-    private Integer quantity;
+    @Column(name = "weight")
+    private int weight;
 
-    @Column(name = "subtotal", precision = 10, scale = 2, nullable = false)
-    private BigDecimal subtotal;
+    @Column(name = "length")
+    private int length;
+
+    @Column(name = "width")
+    private int width;
+
+    @Column(name = "height")
+    private int height;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -49,15 +60,5 @@ public class CartItem {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        calculateSubtotal();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        calculateSubtotal();
-    }
-
-    public void calculateSubtotal() {
-        this.subtotal = this.price.multiply(BigDecimal.valueOf(this.quantity));
     }
 }

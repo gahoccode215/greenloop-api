@@ -4,10 +4,27 @@ server:
 spring:
   application:
     name: reward-service
+  cloud:
+    function:
+      definition: ecoPointDonationConsumer;orderOfflineCreatedRewardConsumer;orderCompletedRewardConsumer;orderCheckoutVoucherUsedConsumer
+    stream:
+      bindings:
+        ecoPointDonation-int-0:
+          destination: ecopoint-donation
+          group: ${spring.application.name}
+        orderOfflineCreatedRewardConsumer-in-0:
+          destination: order-offline-created-reward
+          group: ${spring.application.name}
+        orderCompletedRewardConsumer-in-0:
+          destination: order-completed-reward
+          group: ${spring.application.name}
+        orderCheckoutVoucherUsedConsumer-in-0:
+          destination: order-checkout-voucher-used
+          group: ${spring.application.name}
   datasource:
-    url: jdbc:mysql://${DB_HOST}:3306/greenloop_reward_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_reward_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:12345}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -24,6 +41,17 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       database: 1
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+rabbitmq:
+  exchangeName: greenloop.exchange
+  eco-donation-queue: ecoDonationQueue
+  eco-donation-routing-key: ecoDonationQueueRoutingKey
+  notification-routing-key: notificationQueueRoutingKey
 
 eureka:
   client:

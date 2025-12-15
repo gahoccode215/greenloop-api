@@ -21,7 +21,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/v1/orders/ghn/master-data/**"
+            "/api/v1/orders/ghn/master-data/**",
+            "/api/v1/goship/addresses/**",
+            "/api/v1/goship/shipments/**",
+            "/api/v1/simulator/shipments/**",
+            "/api/v1/orders/payment/payos-webhook",
+            "/api/v1/goship/webhooks"
     };
 
     private final HeaderAuthFilter headerAuthFilter;
@@ -29,6 +34,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

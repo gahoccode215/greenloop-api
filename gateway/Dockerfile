@@ -16,3 +16,4 @@ COPY --from=build /app/target/gateway-*.jar gateway.jar
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "gateway.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "gateway.jar"]

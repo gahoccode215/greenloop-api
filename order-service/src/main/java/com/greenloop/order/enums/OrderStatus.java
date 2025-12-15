@@ -4,10 +4,20 @@ public enum OrderStatus {
     PENDING("Chờ xử lý"),
     CONFIRMED("Đã xác nhận"),
     PROCESSING("Đang xử lý"),
-    SHIPPED("Đã giao vận chuyển"),
-    DELIVERED("Đã giao hàng"),
-    DONE("Hoàn thành"),
-    CANCELLED("Đã hủy");
+    READY_TO_SHIP("Chờ lấy hàng"),
+
+    SHIPPING("Đã lấy hàng"),             // GoShip status 903
+    DELIVERING("Đang giao hàng"),            // GoShip status 904
+
+    DELIVERED("Đã giao hàng"),               // GoShip status 905
+    COMPLETED("Hoàn thành"),                 // Đã đối soát, kết thúc
+
+    DELIVERY_FAILED("Giao thất bại"),        // GoShip status 906
+    RETURNING("Đang hoàn trả"),              // GoShip status 907
+    RETURNED("Đã hoàn trả"),                 // GoShip status 908
+
+    CANCELLED("Đã hủy"),                     // Customer/Staff hủy hoặc GoShip 914
+    LOST("Thất lạc");                        // GoShip status 917
 
     private final String description;
 
@@ -19,32 +29,38 @@ public enum OrderStatus {
         return description;
     }
 
-    /**
-     * Kiểm tra trạng thái có thể chuyển đổi không
-     */
     public boolean canTransitionTo(OrderStatus newStatus) {
-        switch (this) {
-            case PENDING:
-                return newStatus == CONFIRMED || newStatus == CANCELLED;
+        return switch (this) {
+            case PENDING ->  newStatus == CONFIRMED
+                    || newStatus == CANCELLED;
 
-            case CONFIRMED:
-                return newStatus == PROCESSING || newStatus == DONE || newStatus == CANCELLED;
+            case CONFIRMED -> newStatus == PROCESSING
+                    || newStatus == CANCELLED;
 
-            case PROCESSING:
-                return newStatus == SHIPPED || newStatus == DONE || newStatus == CANCELLED;
+            case PROCESSING -> newStatus == READY_TO_SHIP
+                    || newStatus == CANCELLED;
 
-            case SHIPPED:
-                return newStatus == DELIVERED || newStatus == CANCELLED;
+            case READY_TO_SHIP -> newStatus == SHIPPING
+                    || newStatus == CANCELLED;
 
-            case DELIVERED:
-                return newStatus == DONE;
+            case SHIPPING -> newStatus == DELIVERING
+                    || newStatus == DELIVERED
+                    || newStatus == DELIVERY_FAILED
+                    || newStatus == LOST;
 
-            case DONE:
-            case CANCELLED:
-                return false; // Trạng thái cuối, không thể chuyển tiếp
+            case DELIVERING -> newStatus == DELIVERED
+                    || newStatus == DELIVERY_FAILED;
 
-            default:
-                return false;
-        }
+            case DELIVERED -> newStatus == COMPLETED
+                    || newStatus == RETURNING;
+
+            case DELIVERY_FAILED -> newStatus == SHIPPING
+                    || newStatus == RETURNING;
+
+            case RETURNING -> newStatus == RETURNED;
+
+            case COMPLETED, RETURNED, CANCELLED, LOST -> false;
+        };
     }
+
 }

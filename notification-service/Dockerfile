@@ -16,3 +16,4 @@ COPY --from=build /app/target/notification-service-*.jar notification-service.ja
 EXPOSE 8084
 
 ENTRYPOINT ["java", "-jar", "notification-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "notification-service.jar"]

@@ -15,7 +15,7 @@ public class LoginRequest {
       defaultValue = "admin@greenloop.com")
   private String email;
 
-  @Schema(description = "Mật khẩu người dùng", example = "123456", defaultValue = "Admin123")
+  @Schema(description = "Mật khẩu người dùng", example = "123456", defaultValue = "Admin@123")
   @NotBlank(message = "Mật khẩu không được để trống")
   private String password;
 }

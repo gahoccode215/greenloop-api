@@ -23,7 +23,8 @@ public class SecurityConfig {
     "/swagger-ui.html",
     "/actuator/health",
     "/api/v1/events/customers/**",
-    "/api/v1/events/internal/**"
+    "/api/v1/events/internal/**",
+    "/api/v1/vouchers/internal/**"
   };
 
   @Bean

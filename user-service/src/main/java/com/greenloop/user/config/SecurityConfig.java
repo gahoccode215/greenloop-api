@@ -48,7 +48,9 @@ public class SecurityConfig {
     "/api/v1/auth/oauth2/exchange",
     "/oauth2/**",
     "/login/**",
-    "/api/v1/users/*/**"
+    "/api/v1/users/*/**",
+    "/api/v1/blogs/**",
+          "/api/v1/internal/**"
   };
 
   private final HeaderAuthFilter headerAuthFilter;
@@ -63,6 +65,7 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     return http.csrf(AbstractHttpConfigurer::disable)
+        .cors(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -101,12 +104,6 @@ public class SecurityConfig {
       String email = user.getAttribute("email");
       if (email != null) {
         authorities.add(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
-
-        if (email.endsWith("@admin.greenloop.com")) {
-          authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        } else if (email.endsWith("@staff.greenloop.com")) {
-          authorities.add(new SimpleGrantedAuthority("ROLE_STAFF"));
-        }
       }
 
       return new DefaultOAuth2User(authorities, user.getAttributes(), "email");

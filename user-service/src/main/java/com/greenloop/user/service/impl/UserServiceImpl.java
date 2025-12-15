@@ -1,6 +1,9 @@
 package com.greenloop.user.service.impl;
 
+import com.greenloop.user.client.RewardClient;
 import com.greenloop.user.dto.request.UpdateProfileRequest;
+import com.greenloop.user.dto.response.ApiResponseDTO;
+import com.greenloop.user.dto.response.EcoPointResponse;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.entity.Role;
 import com.greenloop.user.entity.User;
@@ -9,9 +12,10 @@ import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,11 +31,11 @@ public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
   private final CloudinaryService cloudinaryService;
+  private final RewardClient rewardClient;
 
   @Override
   @Transactional(readOnly = true)
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-    log.debug("Loading user by email: {}", email);
     return userRepository
         .findByEmail(email)
         .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
@@ -39,31 +43,38 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  //  @Cacheable(value = "user_profile", key = "#userId")
   public UserProfileResponse getMyProfile(Long userId) {
-    log.info("Retrieving profile for user: {}", userId);
-
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+    UserProfileResponse profile = mapUserToProfileResponse(user);
+    try {
+      log.info("Fetching eco points for user: {}", userId);
 
-    return mapUserToProfileResponse(user);
+      ApiResponseDTO<EcoPointResponse> response = rewardClient.getMyEcoPoints(userId);
+
+      if (response != null && response.getData() != null) {
+        profile.setTotalEcoPoints(response.getData().getTotalPoints());
+        profile.setLifetimeEcoPoints(response.getData().getLifetimePoints());
+      }
+    } catch (Exception e) {
+      log.warn("Failed to fetch eco points for user {}: {}", userId, e.getMessage());
+      profile.setTotalEcoPoints(0);
+      profile.setLifetimeEcoPoints(0);
+    }
+    return profile;
   }
 
   @Override
   @Transactional
-  //  @CacheEvict(value = "user_profile", key = "#userId")
-  public UserProfileResponse updateProfile(Long userId, UpdateProfileRequest request, MultipartFile avatar) {
-    log.info("Updating profile for user: {}", userId);
-
+  public UserProfileResponse updateProfile(
+      Long userId, UpdateProfileRequest request, MultipartFile avatar) {
     User user =
         userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-
     if (request.getPhoneNumber() != null
         && !request.getPhoneNumber().equals(user.getPhone())
         && userRepository.existsByPhone(request.getPhoneNumber())) {
       throw new PhoneNumberAlreadyExistsException(request.getPhoneNumber());
     }
-
     if (request.getFullName() != null) {
       user.setFullName(request.getFullName());
     }
@@ -76,18 +87,24 @@ public class UserServiceImpl implements UserService {
     if (request.getPhoneNumber() != null) {
       user.setPhone(request.getPhoneNumber());
     }
-
-      if (avatar != null && !avatar.isEmpty()) {
-          handleAvatarUpload(user, avatar);
-      }
-
+    if (avatar != null && !avatar.isEmpty()) {
+      handleAvatarUpload(user, avatar);
+    }
     User updatedUser = userRepository.save(user);
-    log.info("Profile updated successfully for user: {}", userId);
-
     return mapUserToProfileResponse(updatedUser);
   }
 
-  private UserProfileResponse mapUserToProfileResponse(User user) {
+    @Override
+    public List<Long> getAllUserIds() {
+      List<Long> userIds = new ArrayList<>();
+        List<User> users = userRepository.findAll();
+        for (User user : users) {
+            userIds.add(user.getId());
+        }
+        return userIds;
+    }
+
+    private UserProfileResponse mapUserToProfileResponse(User user) {
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
 
     return UserProfileResponse.builder()
@@ -107,26 +124,17 @@ public class UserServiceImpl implements UserService {
         .build();
   }
 
-    private void handleAvatarUpload(User user, MultipartFile file) {
-        try {
-            // Xóa ảnh cũ nếu có
-            if (user.getMediaKey() != null) {
-                cloudinaryService.deleteImage(user.getMediaKey());
-            }
-
-            // Upload ảnh mới
-            String AVATAR_FOLDER = "GreenLoop/Users/Avatars";
-            Map<String, String> uploadResult =
-                    cloudinaryService.uploadImage(file.getBytes(), AVATAR_FOLDER);
-
-            // Cập nhật URL và media key
-            user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
-            user.setMediaKey(uploadResult.get("public_id"));
-
-            log.info("Avatar uploaded successfully for user: {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
-            throw new RuntimeException("Failed to upload avatar", e);
-        }
+  private void handleAvatarUpload(User user, MultipartFile file) {
+    try {
+      if (user.getMediaKey() != null) {
+        cloudinaryService.deleteImage(user.getMediaKey());
+      }
+      Map<String, String> uploadResult =
+          cloudinaryService.uploadImage(file.getBytes(), "GreenLoop/Users/Avatars");
+      user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
+      user.setMediaKey(uploadResult.get("public_id"));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to upload avatar", e);
     }
+  }
 }

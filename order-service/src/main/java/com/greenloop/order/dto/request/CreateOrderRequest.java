@@ -1,13 +1,15 @@
 package com.greenloop.order.dto.request;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.PaymentMethod;
+import com.greenloop.order.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -15,20 +17,40 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderRequest {
-
-    @NotNull(message = "ID khách hàng không được để trống")
+    private String orderId;
+    private String orderCode;
     private Long customerId;
-
-    @NotNull(message = "Tổng giá trị đơn hàng không được để trống")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Tổng giá trị phải lớn hơn 0")
     private BigDecimal totalPrice;
+    private BigDecimal shippingFee;
+    private OrderStatus orderStatus;
+    private PaymentStatus paymentStatus;
+    private PaymentMethod paymentMethod;
+    private Long paymentOrderCode;
+    private Long eventId;
 
-    @NotNull(message = "Danh sách sản phẩm không được để trống")
-    @Size(min = 1, message = "Đơn hàng phải có ít nhất 1 sản phẩm")
-    @Valid
     private List<OrderItemRequest> orderItems;
+    private CheckoutShippingAddressRequest shippingAddress;
 
-    @NotNull(message = "Địa chỉ giao hàng không được để trống")
-    @Valid
-    private ShippingAddressRequest shippingAddress;
+    private String selectedRateId;
+    private String carrier;
+    private LocalDateTime expectedDeliveryTime;
+    private Integer shippingStatus;
+
+    private String parcelWeight;
+    private String parcelWidth;
+    private String parcelHeight;
+    private String parcelLength;
+
+    private BigDecimal subTotal;
+    private BigDecimal discountAmount;
+    private Long voucherUserId;
+    private String voucherCode;
+    private String paymentTransactionId;
+    private Boolean isGuestPurchase;
+    private String guestName;
+    private String guestPhone;
+    private Integer earnedEcoPoints;
+    private String note;
+    private LocalDateTime createdAt;
+    private String createdBy;
 }

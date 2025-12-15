@@ -37,6 +37,8 @@ public class UserProfileResponse implements Serializable {
 
   private Boolean isEmailVerified;
 
+  private Integer ecoPoints;
+
   private String provider;
 
   @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -44,4 +46,7 @@ public class UserProfileResponse implements Serializable {
 
   @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
   private LocalDateTime updatedAt;
+
+  private Integer totalEcoPoints;
+  private Integer lifetimeEcoPoints;
 }

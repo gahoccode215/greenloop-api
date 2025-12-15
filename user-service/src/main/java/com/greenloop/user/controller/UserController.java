@@ -5,7 +5,6 @@ import com.greenloop.user.dto.response.ApiResponseDTO;
 import com.greenloop.user.dto.response.UserProfileResponse;
 import com.greenloop.user.service.UserService;
 import io.swagger.v3.oas.annotations.Hidden;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,40 +22,30 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "User Controller", description = "User API")
+@Tag(name = "User Management", description = "User API")
 public class UserController {
 
   private final UserService userService;
 
   @GetMapping("/profile")
   @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Get current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> getMyProfile() {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
-
-    log.info("Getting profile for user: {}", userId);
-
     UserProfileResponse response = userService.getMyProfile(userId);
-
     return ResponseEntity.ok(
         ApiResponseDTO.success("Lấy thông tin cá nhân thành công", response, HttpStatus.OK));
   }
 
   @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("isAuthenticated()")
-  @Operation(summary = "Update current user profile")
   public ResponseEntity<ApiResponseDTO<UserProfileResponse>> updateProfile(
-      @Valid @RequestBody UpdateProfileRequest request,
+      @RequestPart("request") @Valid UpdateProfileRequest request,
       @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Long userId = Long.valueOf(auth.getName());
-
-    log.info("Updating profile for user: {}", userId);
-
     UserProfileResponse response = userService.updateProfile(userId, request, avatar);
-
     return ResponseEntity.ok(
         ApiResponseDTO.success("Cập nhật thông tin cá nhân thành công", response, HttpStatus.OK));
   }

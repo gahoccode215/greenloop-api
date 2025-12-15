@@ -16,3 +16,4 @@ COPY --from=build /app/target/event-service-*.jar event-service.jar
 EXPOSE 8085
 
 ENTRYPOINT ["java", "-jar", "event-service.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "event-service.jar"]

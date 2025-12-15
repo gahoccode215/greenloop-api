@@ -1,9 +1,39 @@
 server:
   port: 8082
-
 spring:
   application:
     name: product-service
+  cloud:
+    function:
+      definition: orderCheckedOutProductConsumer;orderOfflineCreatedProductConsumer;orderCancelledProductConsumer
+    stream:
+      bindings:
+        ecoPointDonation-out-0:
+          destination: ecopoint-donation
+        orderCheckedOutProductConsumer-in-0:
+          destination: order-checked-out-product
+          group: ${spring.application.name}
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-multiplier: 2.0
+            back-off-max-interval: 10000
+        orderOfflineCreatedProductConsumer-in-0:
+          destination: order-offline-created-product
+          group: ${spring.application.name}
+        orderCancelledProductConsumer-in-0:
+          destination: order-cancelled-product
+          group: ${spring.application.name}
+      rabbit:
+        bindings:
+          orderCheckedOutProductConsumer-in-0:
+            consumer:
+              auto-bind-dlq: true  # Tạo Dead Letter Queue tự động
+              republish-to-dlq: true  # Gửi failed message vào DLQ
+              requeue-rejected: false  # Không requeue vô hạn
+              durableSubscription: true  # Queue persistent
+              prefetch: 1  # Xử lý từng message một
+              acknowledge-mode: AUTO
 
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_product_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
@@ -16,21 +46,18 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-
   cloudinary:
     cloudName: ${CLOUDINARY_NAME}
     apiKey: ${CLOUDINARY_API_KEY}
     apiSecret: ${CLOUDINARY_API_SECRET}
-
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -43,7 +70,19 @@ spring:
           max-wait: 1000ms
       timeout: 2000ms
       database: 1
-
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+rabbitmq:
+  exchangeName: greenloop.exchange
+  eco-donation-queue: ecoDonationQueue
+  eco-donation-routing-key: ecoDonationQueueRoutingKey
 eureka:
   client:
     service-url:
@@ -58,7 +97,6 @@ springdoc:
   api-docs:
     enabled: true
     path: /v3/api-docs
-
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
@@ -69,7 +107,5 @@ springdoc:
         url: http://${GATEWAY_HOST:localhost}:8080/product-service/v3/api-docs
       - name: Direct (Internal)
         url: http://${PRODUCT_HOST:localhost}:${server.port}/v3/api-docs
-
-
 greenloop:
   defaultImg: "https://www.innovationintextiles.com/uploads/12158/Zerocarbon-544x408-boxed.jpeg"

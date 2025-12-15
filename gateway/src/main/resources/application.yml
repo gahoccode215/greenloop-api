@@ -11,21 +11,6 @@ spring:
     jwt:
       secret: ${JWT_SECRET}
 
-  cloud:
-    gateway:
-      defaultFilters:
-        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
-      global-cors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedHeaders: "*"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - PATCH
-              - DELETE
 server:
   port: 8080
 
@@ -57,3 +42,5 @@ springdoc:
         url: /product-service/v3/api-docs
       - name: Order Service
         url: /order-service/v3/api-docs
+      - name: Notification Service
+        url: /notification-service/v3/api-docs

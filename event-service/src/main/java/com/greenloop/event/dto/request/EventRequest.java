@@ -41,6 +41,5 @@ public class EventRequest {
   @NotBlank(message = "Longitude is required")
   private String longitude;
 
-  @NotBlank(message = "Note is required")
   private String note;
 }

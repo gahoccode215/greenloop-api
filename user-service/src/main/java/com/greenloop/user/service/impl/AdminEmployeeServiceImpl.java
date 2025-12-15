@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -47,7 +45,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   private final CloudinaryService cloudinaryService;
 
   @Override
-//  @Cacheable(value = "employees_list", key = "#pageable.pageNumber + '-' + #search + '-' + #status")
   public PageResponseDTO<EmployeeResponse> getEmployees(
       String search, String status, Pageable pageable) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -92,7 +89,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
   }
 
   @Override
-//  @Cacheable(value = "employee_detail", key = "#id")
   public EmployeeResponse getEmployeeDetail(Long id) {
     User user =
         userRepository
@@ -122,10 +118,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-//  @CacheEvict(value = "employees_list", allEntries = true)
   public CreateEmployeeResponse createEmployee(
       CreateEmployeeRequest request, MultipartFile avatar) {
-    log.info("Creating employee with email: {}", request.getEmail());
 
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     boolean isAdmin =
@@ -146,7 +140,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       throw new PhoneNumberAlreadyExistsException(request.getPhone());
     }
 
-    String temporaryPassword = passwordGeneratorUtil.generateSecurePassword();
+    String temporaryPassword = passwordGeneratorUtil.generatePassword();
 
     Role role =
         roleRepository
@@ -161,7 +155,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
             .phone(request.getPhone())
             .isEmailVerified(true)
             .isActive(true)
-            .isFirstLogin(true)
             .roles(List.of(role))
             .build();
 
@@ -171,8 +164,6 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
     }
 
     User savedUser = userRepository.save(user);
-
-    log.info("Employee created successfully with id: {}", savedUser.getId());
 
     return CreateEmployeeResponse.builder()
         .id(savedUser.getId())
@@ -188,12 +179,8 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
   @Override
   @Transactional
-//  @CacheEvict(
-//      value = {"employee_detail", "employees_list"},
-//      allEntries = true)
   public EmployeeResponse updateEmployee(
       Long id, UpdateEmployeeRequest request, MultipartFile avatar) {
-    log.info("Updating employee with id: {}", id);
 
     User employee =
         userRepository
@@ -273,18 +260,12 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-    log.info("Employee updated successfully with id: {}", updatedEmployee.getId());
-
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
   @Override
   @Transactional
-//  @CacheEvict(
-//      value = {"employee_detail", "employees_list"},
-//      allEntries = true)
   public EmployeeResponse changeEmployeeStatus(Long id, Boolean isActive) {
-    log.info("Changing employee status for id: {} to: {}", id, isActive);
 
     // Tìm employee
     User employee =
@@ -328,67 +309,53 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
     User updatedEmployee = userRepository.save(employee);
 
-    log.info(
-        "Employee status changed successfully for id: {}. New status: {}",
-        id,
-        isActive ? "ACTIVE" : "INACTIVE");
-
     return mapUserToEmployeeResponse(updatedEmployee);
   }
 
-    @Override
-    @Transactional
-//  @CacheEvict(value = "employee_detail", allEntries = true)
-    public ResetPasswordResponse resetEmployeePassword(Long id) {
-        log.info("Resetting password for employee id: {}", id);
+  @Override
+  @Transactional
+  public ResetPasswordResponse resetEmployeePassword(Long id) {
 
-        User employee =
-                userRepository
-                        .findById(id)
-                        .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
+    User employee =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EmployeeNotFoundException("Không tìm thấy nhân viên"));
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin =
-                auth.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    boolean isAdmin =
+        auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_" + RoleConstants.ADMIN));
 
-        List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
+    List<String> currentRoles = employee.getRoles().stream().map(Role::getName).toList();
 
-        boolean isStaffOrManager =
-                currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
+    boolean isStaffOrManager =
+        currentRoles.contains(RoleConstants.STAFF) || currentRoles.contains(RoleConstants.MANAGER);
 
-        if (!isStaffOrManager) {
-            throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
-        }
-
-        if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
-            throw new InvalidCredentialsException();
-        }
-
-        String newTemporaryPassword = passwordGeneratorUtil.generateSecurePassword();
-        employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
-        employee.setIsFirstLogin(true);
-
-        String currentUserId = auth.getPrincipal().toString();
-        employee.setUpdatedBy(Long.parseLong(currentUserId));
-
-        User updatedEmployee = userRepository.save(employee);
-
-        log.info("Password reset successfully for employee id: {}", id);
-
-        return ResetPasswordResponse.builder()
-                .id(updatedEmployee.getId())
-                .email(updatedEmployee.getEmail())
-                .fullName(updatedEmployee.getFullName())
-                .temporaryPassword(newTemporaryPassword)
-                .message("Mật khẩu tạm thời đã được tạo. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.")
-                .build();
+    if (!isStaffOrManager) {
+      throw new EmployeeNotFoundException("Không tìm thấy nhân viên");
     }
 
+    if (!isAdmin && currentRoles.contains(RoleConstants.MANAGER)) {
+      throw new InvalidCredentialsException();
+    }
 
-    /**
-   * Xử lý upload avatar cho nhân viên. Nếu đã có avatar cũ, xóa ảnh cũ trước khi upload ảnh mới.
-   */
+    String newTemporaryPassword = passwordGeneratorUtil.generatePassword();
+    employee.setPassword(passwordEncoder.encode(newTemporaryPassword));
+
+    String currentUserId = auth.getPrincipal().toString();
+    employee.setUpdatedBy(Long.parseLong(currentUserId));
+
+    User updatedEmployee = userRepository.save(employee);
+
+    return ResetPasswordResponse.builder()
+        .id(updatedEmployee.getId())
+        .email(updatedEmployee.getEmail())
+        .fullName(updatedEmployee.getFullName())
+        .temporaryPassword(newTemporaryPassword)
+        .message("Mật khẩu tạm thời đã được tạo. Nhân viên cần đổi mật khẩu khi đăng nhập lần đầu.")
+        .build();
+  }
+
   private void handleAvatarUpload(User user, MultipartFile file) {
     try {
       // Xóa ảnh cũ nếu có
@@ -405,9 +372,7 @@ public class AdminEmployeeServiceImpl implements AdminEmployeeService {
       user.setAvatarUrl(cloudinaryService.getImageUrl(uploadResult.get("asset_id")));
       user.setMediaKey(uploadResult.get("public_id"));
 
-      log.info("Avatar uploaded successfully for user: {}", user.getEmail());
     } catch (Exception e) {
-      log.error("Error uploading avatar for user {}: {}", user.getEmail(), e.getMessage(), e);
       throw new RuntimeException("Failed to upload avatar", e);
     }
   }

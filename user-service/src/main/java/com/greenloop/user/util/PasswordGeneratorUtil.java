@@ -7,23 +7,24 @@ import org.springframework.stereotype.Component;
 public class PasswordGeneratorUtil {
 
   private static final SecureRandom RANDOM = new SecureRandom();
-  private static final String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
-  private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  private static final String DIGITS = "0123456789";
-  private static final String SPECIAL_CHARS = "!@#$%^&*";
-  private static final String ALL_CHARS = LOWERCASE + UPPERCASE + DIGITS + SPECIAL_CHARS;
-  private static final int PASSWORD_LENGTH = 10;
 
-  public String generateSecurePassword() {
-    StringBuilder password = new StringBuilder(PASSWORD_LENGTH);
+  public String generatePassword() {
+    final int length = 8;
+    String lowercase = "abcdefghijklmnopqrstuvwxyz";
+    String uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    String digits = "0123456789";
+    String allChars = lowercase + uppercase + digits;
 
-    password.append(LOWERCASE.charAt(RANDOM.nextInt(LOWERCASE.length())));
-    password.append(UPPERCASE.charAt(RANDOM.nextInt(UPPERCASE.length())));
-    password.append(DIGITS.charAt(RANDOM.nextInt(DIGITS.length())));
-    password.append(SPECIAL_CHARS.charAt(RANDOM.nextInt(SPECIAL_CHARS.length())));
+    StringBuilder password = new StringBuilder(length);
 
-    for (int i = 4; i < PASSWORD_LENGTH; i++) {
-      password.append(ALL_CHARS.charAt(RANDOM.nextInt(ALL_CHARS.length())));
+    // Bắt buộc 1 ký tự chữ thường, chữ hoa, số
+    password.append(lowercase.charAt(RANDOM.nextInt(lowercase.length())));
+    password.append(uppercase.charAt(RANDOM.nextInt(uppercase.length())));
+    password.append(digits.charAt(RANDOM.nextInt(digits.length())));
+
+    // Phần còn lại
+    for (int i = 3; i < length; i++) {
+      password.append(allChars.charAt(RANDOM.nextInt(allChars.length())));
     }
 
     return shuffleString(password.toString());

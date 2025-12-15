@@ -11,7 +11,6 @@ spring:
           destination: user-registration
         passwordReset-out-0:
           destination: password-reset
-
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_user_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -43,15 +42,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-#      database: 0
-#      timeout: 60000ms
-#      lettuce:
-#        pool:
-#          max-active: 8
-#          max-idle: 8
-#          min-idle: 0
-#          max-wait: -1ms
-#      password: ${REDIS_PASSWORD:}
+
 
   security:
     oauth2:
@@ -82,13 +73,13 @@ eureka:
 
 app:
   oauth2:
-    frontend-redirect-url: http://localhost:5173/auth/callback
+    frontend-redirect-url: ${GOOGLE_REDIRECT:http://localhost:5173/auth/callback}
   otp:
     length: 6
     expiry-in-minutes: 5
     redis:
-      email-verification-prefix: "otp:email_verification:"
-      password-reset-prefix: "otp:password_reset:"
+      email-verify-prefix: "otp:verify:"
+      password-reset-prefix: "otp:reset:"
 springdoc:
   api-docs:
     enabled: true

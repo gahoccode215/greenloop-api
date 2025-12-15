@@ -20,6 +20,8 @@ public class EventResponse {
   private LocalDateTime startTime;
   private LocalDateTime endTime;
   private EventStatus status;
+  private Integer totalParticipants;
+  private Integer totalStaffs;
   private String latitude;
   private String longitude;
   private Boolean isRegistered;

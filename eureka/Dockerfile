@@ -16,3 +16,4 @@ COPY --from=build /app/target/eureka-*.jar eureka-server.jar
 EXPOSE 8761
 
 ENTRYPOINT ["java", "-jar", "eureka-server.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "eureka-server.jar"]

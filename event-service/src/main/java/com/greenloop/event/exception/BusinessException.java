@@ -18,4 +18,11 @@ public class BusinessException extends RuntimeException {
     this.message = errorCode.getMessage();
     this.status = errorCode.getStatus();
   }
+
+  public BusinessException(String customMessage, ErrorCode errorCode) {
+    super(errorCode.name());
+    this.errorCode = errorCode.getCode();
+    this.message = customMessage;
+    this.status = errorCode.getStatus();
+  }
 }

@@ -3,6 +3,10 @@ package com.greenloop.product.enums;
 public enum ProductStatus {
     PENDING,      // Đang chờ xử lý
     AVAILABLE,    // Sẵn sàng bán
-    SOLD,         // Đã bán
-    UNAVAILABLE   // Không khả dụng
+    RESERVED,     // Đã đặt (giữ chỗ cho đơn hàng)
+    SOLD,         // Đã bán & giao thành công
+    UNAVAILABLE,  // Không khả dụng
+    RETURNED,
+    // Đã trả lại (từ đơn hàng thất bại),
+    IN_EVENT
 }

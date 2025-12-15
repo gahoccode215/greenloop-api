@@ -1,16 +1,15 @@
 package com.greenloop.product.service.impl;
 
+import com.greenloop.product.dto.event.EcoPointTransactionDTO;
 import com.greenloop.product.dto.request.DonationCreateRequest;
-import com.greenloop.product.dto.request.DonationItemCodeRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
+import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
 import com.greenloop.product.dto.response.*;
 import com.greenloop.product.entity.Category;
 import com.greenloop.product.entity.Donation;
 import com.greenloop.product.entity.DonationItem;
-import com.greenloop.product.enums.DonationItemStatus;
-import com.greenloop.product.enums.EcoActionType;
-import com.greenloop.product.enums.ErrorCode;
+import com.greenloop.product.enums.*;
 import com.greenloop.product.exception.BusinessException;
 import com.greenloop.product.repository.CategoryRepository;
 import com.greenloop.product.repository.DonationItemRepository;
@@ -44,6 +43,9 @@ public class DonationServiceImpl implements DonationService {
     private final DonationItemRepository donationItemRepository;
     private final String localImagePath = "GreenLoop/Donations";
     private final String ecoPointRedisKey = "eco_point_rule_";
+    private final EcoPointDonationProducer ecoPointDonationProducer;
+
+    private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
     @Override
     public Long createDonation(DonationCreateRequest request, List<MultipartFile> files) {
@@ -79,7 +81,7 @@ public class DonationServiceImpl implements DonationService {
                     .name(itemReq.getName())
                     .description(itemReq.getDescription())
                     .conditionGrade(itemReq.getConditionGrade())
-                    .status(DonationItemStatus.AT_STORE)
+                    .status(DonationItemStatus.AT_EVENT)
                     .ecoPointValue(itemReq.getEcoPointValue())
                     .category(category)
                     .donation(donation)
@@ -93,6 +95,17 @@ public class DonationServiceImpl implements DonationService {
         donation.setDonationItems(items);
         Donation savedDonation = donationRepository.save(donation);
         log.info("Save Donation success with Code and ID: {}, {}", savedDonation.getCode(), savedDonation.getId());
+        EcoPointTransactionDTO ecoPointTransaction = EcoPointTransactionDTO.builder()
+                .userId(request.getUserId())
+                .points(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
+                .description("Eco points for donation ID: " + savedDonation.getId())
+                .sourceType(SourceType.DONATION)
+                .sourceId(savedDonation.getId())
+                .type(EcoPointType.EARNED)
+                .build();
+        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 
@@ -197,38 +210,57 @@ public class DonationServiceImpl implements DonationService {
 
     @Override
     @Transactional
-    public void updateDonationItemStatus(DonationItemCodeRequest donationItemCodeRequest) {
-        Long currentUserId = getCurrentUserId();
-        log.info("Update Donation Item Status to IN_WAREHOUSE by User ID: {}", currentUserId);
-        try {
-            List<DonationItem> items = donationItemRepository.findAllByCodeIn(donationItemCodeRequest.getCodes());
-            for (DonationItem item : items) {
-                item.setStatus(donationItemCodeRequest.getStatus());
-                item.setUpdatedBy(currentUserId);
-            }
-            donationItemRepository.saveAll(items);
-            log.info("Updated {} Donation Items to status {}", items.size(), donationItemCodeRequest.getStatus());
-        } catch (Exception e) {
-            log.error("Error updating donation item statuses: {}", e.getMessage(), e);
-            throw new BusinessException(ErrorCode.DONATION_ITEM_STATUS_UPDATE_FAILED);
-        }
+    public UpdateDonationItemStatusResponse changeStatusDonationItems(UpdateDonationItemStatusRequest request) {
 
+        List<String> codes = request.getDonationItemCodes();
+        DonationItemStatus newStatus = request.getDonationItemStatus();
+
+        log.info("Updating donation items status. Codes: {}, New status: {}", codes, newStatus);
+
+        List<DonationItem> items = donationItemRepository.findAllByCodeIn(codes);
+
+        Set<String> foundCodes = items.stream()
+                .map(DonationItem::getCode)
+                .collect(Collectors.toSet());
+
+        List<String> notFoundCodes = codes.stream()
+                .filter(code -> !foundCodes.contains(code))
+                .toList();
+
+        items.forEach(item -> item.setStatus(newStatus));
+        donationItemRepository.saveAll(items);
+
+        List<String> updatedCodes = items.stream()
+                .map(DonationItem::getCode)
+                .toList();
+
+        log.info("Updated {} items. Not found: {}", updatedCodes.size(), notFoundCodes);
+
+        return UpdateDonationItemStatusResponse.builder()
+                .updatedCodes(updatedCodes)
+                .notFoundCodes(notFoundCodes)
+                .build();
     }
 
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
-        String redisKey = ecoPointRedisKey + EcoActionType.DONATION + "_" + itemReq.getCategoryId();
-        EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
-        if (ecoPointRule == null) {
-            ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.DONATION).categoryId(itemReq.getCategoryId()).build());
-        }
+        try {
+            String redisKey = ecoPointRedisKey + EcoActionType.DONATION + "_" + itemReq.getCategoryId();
+            EcoPointResponse ecoPointRule = cacheService.get(redisKey, EcoPointResponse.class);
+            if (ecoPointRule == null) {
+                ecoPointRule = rewardServiceFeign.getEcoPoint(EcoPointInfoRequest.builder().ecoActionType(EcoActionType.DONATION).categoryId(itemReq.getCategoryId()).build());
+            }
 
-        if (ecoPointRule == null) {
-            log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
-        }
+            if (ecoPointRule == null) {
+                log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
+            }
 
-        if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
-            log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
-            throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
+                log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
+                throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
+            }
+        } catch (Exception e) {
+            log.error("Error validating eco point rule: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.ECO_POINT_RULE_NOT_FOUND);
         }
     }
 

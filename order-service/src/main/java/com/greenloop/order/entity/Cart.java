@@ -17,7 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Cart {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,7 +24,7 @@ public class Cart {
     @Column(name = "customer_id", nullable = false, unique = true)
     private Long customerId;
 
-    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<CartItem> items = new ArrayList<>();
 
@@ -66,10 +65,8 @@ public class Cart {
 
     public void recalculateTotal() {
         this.totalAmount = items.stream()
-                .map(CartItem::getSubtotal)
+                .map(CartItem::getPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        this.totalItems = items.stream()
-                .mapToInt(CartItem::getQuantity)
-                .sum();
+        this.totalItems = items.size();
     }
 }

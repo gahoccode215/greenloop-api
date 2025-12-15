@@ -1,20 +1,19 @@
 package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.request.AddToCartRequest;
-import com.greenloop.order.dto.request.UpdateCartItemRequest;
-import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.response.CartItemResponse;
-import com.greenloop.order.dto.response.CartResponse;
+import com.greenloop.order.dto.request.EstimateShippingFeeRequest;
+import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Cart;
 import com.greenloop.order.entity.CartItem;
 import com.greenloop.order.exception.*;
 import com.greenloop.order.repository.CartItemRepository;
 import com.greenloop.order.repository.CartRepository;
 import com.greenloop.order.service.CartService;
+import com.greenloop.order.service.ShippingCalculationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +23,29 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
+    private final ShippingCalculationService shippingCalculationService;
+
+    @Override
+    public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CartNotFoundException(customerId));
+
+        if (cart.getItems().isEmpty()) {
+            throw new EmptyCartException();
+        }
+
+        return shippingCalculationService.calculateShippingFee(
+                cart.getItems(),
+                cart.getTotalAmount(),
+                request.getCityCode(),
+                request.getDistrictCode()
+        );
+    }
 
     @Override
     public CartResponse getCart(Long customerId) {
@@ -42,14 +58,10 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponse addToCart(Long customerId, AddToCartRequest request) {
-        log.info("Adding product {} to cart for customer {}", request.getProductId(), customerId);
-
-        // 1. Get or create cart
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseGet(() -> createNewCart(customerId));
 
-        // 2. Get product info from Product Service
-        ApiResponseDTO<ProductDTO> response = productClient.getProductById(request.getProductId());
+        ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(request.getProductId());
 
         if (!response.isSuccess() || response.getData() == null) {
             throw new ProductNotFoundException(request.getProductId());
@@ -57,63 +69,40 @@ public class CartServiceImpl implements CartService {
 
         ProductDTO product = response.getData();
 
-        if (!"AVAILABLE".equals(product.getStatus())) {
+        if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
             throw new ProductNotAvailableException(product.getId());
         }
 
-        // 3. Check if product already in cart
-        CartItem existingItem = cartItemRepository
+        boolean existsInCart = cartItemRepository
                 .findByCartIdAndProductId(cart.getId(), request.getProductId())
-                .orElse(null);
+                .isPresent();
 
-        if (existingItem != null) {
-            // Update quantity
-            existingItem.setQuantity(existingItem.getQuantity() + request.getQuantity());
-            existingItem.calculateSubtotal();
-            cartItemRepository.save(existingItem);
-        } else {
-            // Add new item
-
-            String imageUrl = (product.getImageUrls() != null && !product.getImageUrls().isEmpty())
-                    ? product.getImageUrls().get(0)
-                    : null;
-            CartItem newItem = CartItem.builder()
-                    .cart(cart)
-                    .productId(product.getId())
-                    .productName(product.getName())
-                    .productImage(imageUrl)
-                    .price(product.getPrice())
-                    .quantity(request.getQuantity())
-                    .build();
-            newItem.calculateSubtotal();
-            cart.addItem(newItem);
+        if (existsInCart) {
+            throw new ProductAlreadyInCartException();
         }
 
-        cart.recalculateTotal();
-        cartRepository.save(cart);
+        String imageUrl = (product.getImageUrls() != null && !product.getImageUrls().isEmpty())
+                ? product.getImageUrls().get(0).getProductAssetUrl()
+                : null;
 
-        log.info("Cart updated successfully for customer {}", customerId);
-        return mapToCartResponse(cart);
-    }
+        int weight = (product.getWeight() > 0) ? product.getWeight() : 200;
+        int length = (product.getLength() > 0) ? product.getLength() : 20;
+        int width = (product.getWidth() > 0) ? product.getWidth() : 15;
+        int height = (product.getHeight() > 0) ? product.getHeight() : 5;
 
-    @Override
-    @Transactional
-    public CartResponse updateCartItem(Long customerId, Long cartItemId, UpdateCartItemRequest request) {
-        Cart cart = cartRepository.findByCustomerId(customerId)
-                .orElseThrow(() -> new CartNotFoundException(customerId));
+        CartItem newItem = CartItem.builder()
+                .cart(cart)
+                .productId(product.getId())
+                .productName(product.getName())
+                .productImage(imageUrl)
+                .price(product.getPrice())
+                .weight(weight)
+                .length(length)
+                .width(width)
+                .height(height)
+                .build();
 
-        CartItem item = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new CartItemNotFoundException(cartItemId));
-
-        // Check ownership
-        if (!item.getCart().getId().equals(cart.getId())) {
-            throw new UnauthorizedCartAccessException();
-        }
-
-        item.setQuantity(request.getQuantity());
-        item.calculateSubtotal();
-        cartItemRepository.save(item);
-
+        cart.addItem(newItem);
         cart.recalculateTotal();
         cartRepository.save(cart);
 
@@ -149,6 +138,7 @@ public class CartServiceImpl implements CartService {
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);
+
     }
 
     private Cart createNewCart(Long customerId) {
@@ -183,9 +173,11 @@ public class CartServiceImpl implements CartService {
                 .productName(item.getProductName())
                 .productImage(item.getProductImage())
                 .price(item.getPrice())
-                .quantity(item.getQuantity())
-                .subtotal(item.getSubtotal())
                 .createdAt(item.getCreatedAt())
+                .weight(item.getWeight())
+                .length(item.getLength())
+                .width(item.getWidth())
+                .height(item.getHeight())
                 .build();
     }
 }

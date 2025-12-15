@@ -17,21 +17,57 @@ public class ShippingAddress {
     @Column(name = "receiver_name", length = 100)
     private String receiverName;
 
-    @Column(name = "receiver_phone", length = 20)
+    @Column(name = "receiver_phone")
     private String receiverPhone;
 
-    @Column(name = "shipping_address", length = 500)
+    @Column(name = "receiver_address")
     private String receiverAddress;
 
-    @Column(name = "ward_code", length = 20)
-    private String receiverWardCode;
+    @Column(name = "receiver_ward_code")
+    private Long receiverWardCode;
 
-    @Column(name = "district_id")
+    @Column(name = "receiver_ward_name")
+    private String receiverWardName;
+
+    @Column(name = "receiver_district_name")
+    private String receiverDistrictName;
+
+    @Column(name = "receiver_district_id")
     private Integer receiverDistrictId;
 
-    @Column(name = "province_id")
-    private Integer receiverProvinceId;
+    @Column(name = "receiver_city_name")
+    private String receiverCityName;
 
-    @Column(name = "shipping_note", length = 500)
+    @Column(name = "receiver_city_id")
+    private Integer receiverCityId;
+
+    @Column(name = "shipping_note")
     private String note;
+
+    @Column(name = "warehouse_name")
+    private String warehouseName;
+
+    @Column(name = "warehouse_phone")
+    private String warehousePhone;
+
+    @Column(name = "warehouse_address")
+    private String warehouseAddress;
+
+    @Column(name = "warehouse_ward_code")
+    private Long warehouseWardCode;
+
+    @Column(name = "warehouse_ward_name")
+    private String warehouseWardName;
+
+    @Column(name = "warehouse_district_id")
+    private Integer warehouseDistrictId;
+
+    @Column(name = "warehouse_district_name")
+    private String warehouseDistrictName;
+
+    @Column(name = "warehouse_city_id")
+    private Integer warehouseCityId;
+
+    @Column(name = "warehouse_city_name")
+    private String warehouseCityName;
 }

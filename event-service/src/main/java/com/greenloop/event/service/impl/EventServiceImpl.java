@@ -1,21 +1,18 @@
 package com.greenloop.event.service.impl;
 
 import com.greenloop.event.constraint.RoleConstants;
+import com.greenloop.event.dto.event.NotificationEvent;
 import com.greenloop.event.dto.request.*;
 import com.greenloop.event.dto.response.*;
 import com.greenloop.event.entity.Event;
 import com.greenloop.event.entity.EventRegistration;
 import com.greenloop.event.entity.EventStaffAssignment;
-import com.greenloop.event.enums.ErrorCode;
-import com.greenloop.event.enums.EventStatus;
-import com.greenloop.event.enums.RegistrationStatus;
+import com.greenloop.event.enums.*;
 import com.greenloop.event.exception.BusinessException;
 import com.greenloop.event.repository.EventRegistrationRepository;
 import com.greenloop.event.repository.EventRepository;
 import com.greenloop.event.repository.EventStaffAssignmentRepository;
-import com.greenloop.event.service.CloudinaryService;
-import com.greenloop.event.service.EventService;
-import com.greenloop.event.service.UserServiceFeign;
+import com.greenloop.event.service.*;
 import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -41,6 +38,8 @@ public class EventServiceImpl implements EventService {
   private final CloudinaryService cloudinaryService;
   private final String localImagePath = "GreenLoop/Events";
   private final UserServiceFeign userServiceFeign;
+  private final EcoPointCheckInProducer ecoPointCheckInProducer;
+  private final NotificationProducer notificationProducer;
 
   /**
    * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -182,6 +181,8 @@ public class EventServiceImpl implements EventService {
                 .location(event.getLocationDetail())
                 .startTime(event.getStartTime())
                 .endTime(event.getEndTime())
+                .totalParticipants(event.getRegistrations().size())
+                .totalStaffs(event.getStaffAssignments().size())
                 .imageUrl(event.getImageUrl())
                 .status(event.getStatus())
                 .latitude(event.getLatitude())
@@ -257,6 +258,8 @@ public class EventServiceImpl implements EventService {
                 .startTime(event.getStartTime())
                 .endTime(event.getEndTime())
                 .imageUrl(event.getImageUrl())
+                .totalParticipants(event.getRegistrations().size())
+                .totalStaffs(event.getStaffAssignments().size())
                 .status(event.getStatus())
                 .latitude(event.getLatitude())
                 .longitude(event.getLongitude())
@@ -276,7 +279,10 @@ public class EventServiceImpl implements EventService {
     Event event =
         eventRepository
             .findById(id)
-            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND));
 
     return fromEntityToDetailResponse(event, false);
   }
@@ -294,14 +300,18 @@ public class EventServiceImpl implements EventService {
     Event event =
         eventRepository
             .findById(id)
-            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND));
 
     List<EventStatus> allowedStatuses =
         List.of(EventStatus.PUBLISHED, EventStatus.UPCOMING, EventStatus.ONGOING);
 
     if (!allowedStatuses.contains(event.getStatus())
         || event.getEndTime().isBefore(LocalDateTime.now())) {
-      throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+      throw new BusinessException(
+          "Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND);
     }
 
     boolean isRegistered = false;
@@ -359,7 +369,7 @@ public class EventServiceImpl implements EventService {
       log.info("Event updated successfully with ID: {}", event.getId());
       return event.getId();
     }
-    throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+    throw new BusinessException("Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND);
   }
 
   /**
@@ -387,7 +397,7 @@ public class EventServiceImpl implements EventService {
       log.info("Event activation status changed successfully for ID: {}", event.getId());
       return event.getId();
     }
-    throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+    throw new BusinessException("Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND);
   }
 
   /**
@@ -416,7 +426,7 @@ public class EventServiceImpl implements EventService {
       log.info("Event thumbnail uploaded successfully for ID: {}", event.getId());
       return event.getId();
     }
-    throw new BusinessException(ErrorCode.EVENT_NOT_FOUND);
+    throw new BusinessException("Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND);
   }
 
   /**
@@ -448,7 +458,10 @@ public class EventServiceImpl implements EventService {
     Event event =
         eventRepository
             .findById(id)
-            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + id, ErrorCode.EVENT_NOT_FOUND));
 
     LocalDateTime now = LocalDateTime.now();
     LocalDateTime start = event.getStartTime();
@@ -473,14 +486,112 @@ public class EventServiceImpl implements EventService {
       case CANCELED -> {
         // always allowed
       }
-      default -> throw new BusinessException(ErrorCode.INVALID_EVENT_STATUS);
+      default ->
+          throw new BusinessException(
+              "Trạng thái sự kiện không hợp lệ", ErrorCode.INVALID_EVENT_STATUS);
     }
 
     event.setStatus(status);
     event.updatedBy(userId);
     eventRepository.save(event);
     log.info("Event status updated successfully for ID: {}", event.getId());
-    return event.getId();
+
+    if (status == EventStatus.CLOSED) {
+      List<Long> notifiedUserIds = new ArrayList<>();
+      notifiedUserIds.addAll(
+          event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+      notifiedUserIds.addAll(
+          event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+      for (Long userIdToNotify : notifiedUserIds) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder()
+                .userId(userIdToNotify)
+                .title("Sự kiện đã kết thúc")
+                .message(
+                    "Sự kiện "
+                        + event.getName()
+                        + " đã chính thức kết thúc. Cảm ơn bạn đã tham gia!")
+                .build());
+      }
+    }
+    if (status == EventStatus.CANCELED) {
+      List<Long> notifiedUserIds = new ArrayList<>();
+      notifiedUserIds.addAll(
+          event.getStaffAssignments().stream().map(EventStaffAssignment::getStaffId).toList());
+      notifiedUserIds.addAll(
+          event.getRegistrations().stream().map(EventRegistration::getUserId).toList());
+      for (Long userIdToNotify : notifiedUserIds) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder()
+                .userId(userIdToNotify)
+                .title("Sự kiện đã bị hủy")
+                .message(
+                    "Sự kiện "
+                        + event.getName()
+                        + " đã bị hủy bỏ. Chúng tôi xin lỗi vì sự bất tiện này.")
+                .build());
+      }
+    }
+
+      if (status == EventStatus.UPCOMING
+              || status == EventStatus.ONGOING
+              || status == EventStatus.PUBLISHED) {
+
+          List<Long> notifiedUserIds = new ArrayList<>();
+//          notifiedUserIds.addAll(
+//                  event.getStaffAssignments().stream()
+//                          .map(EventStaffAssignment::getStaffId)
+//                          .toList()
+//          );
+//          notifiedUserIds.addAll(
+//                  event.getRegistrations().stream()
+//                          .map(EventRegistration::getUserId)
+//                          .toList()
+//          );
+          try {
+              notifiedUserIds = userServiceFeign.getAllUserIds();
+          } catch (Exception e) {
+                log.error("Failed to fetch all user IDs for notifications: {}", e.getMessage());
+          }
+
+          String title = "";
+          String message = "";
+
+          switch (status) {
+              case UPCOMING -> {
+                  title = "Sự kiện sắp diễn ra";
+                  message = "Sự kiện " + event.getName()
+                          + " sẽ diễn ra vào ngày "
+                          + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                          + ". Hãy chuẩn bị tham gia nhé!";
+              }
+              case ONGOING -> {
+                  title = "Sự kiện đang diễn ra";
+                  message = "Sự kiện " + event.getName()
+                          + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ!";
+              }
+              case PUBLISHED -> {
+                  title = "Sự kiện đã được công bố";
+                  message = "Sự kiện " + event.getName()
+                          + " đã chính thức được công bố. Hãy theo dõi để không bỏ lỡ!";
+              }
+              default -> {
+              }
+          }
+
+          for (Long idU : notifiedUserIds) {
+              notificationProducer.sendNotificationMessage(
+                      NotificationEvent.builder()
+                              .userId(idU)
+                              .title(title)
+                              .message(message)
+                              .build()
+              );
+          }
+      }
+
+
+      return event.getId();
   }
 
   private EventDetailResponse fromEntityToDetailResponse(Event event, boolean isRegistered) {
@@ -596,7 +707,11 @@ public class EventServiceImpl implements EventService {
     Event event =
         eventRepository
             .findById(request.getEventId())
-            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + request.getEventId(),
+                        ErrorCode.EVENT_NOT_FOUND));
 
     boolean hasStoreManager =
         assignmentRepository.existsByEventIdAndIsStoreManagerTrue(event.getId());
@@ -605,24 +720,37 @@ public class EventServiceImpl implements EventService {
     for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
       UserProfileResponse user = userServiceFeign.getUserInfoById(dto.getStaffId());
       if (user == null || Boolean.FALSE.equals(user.getIsActive())) {
-        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        throw new BusinessException(
+            "Không tìm thấy người dùng hoặc người dùng chưa kích hoạt", ErrorCode.USER_NOT_FOUND);
       }
 
       if (assignmentRepository.existsByEventIdAndStaffId(event.getId(), dto.getStaffId())) {
-        throw new BusinessException(ErrorCode.STAFF_ALREADY_ASSIGNED);
+        throw new BusinessException(
+            "Nhân viên đã được phân công cho sự kiện này", ErrorCode.STAFF_ALREADY_ASSIGNED);
+      }
+
+      List<Event> assignedEvents = assignmentRepository.findEventsByStaffId(dto.getStaffId());
+      for (Event assignedEvent : assignedEvents) {
+        boolean overlap =
+            !(event.getEndTime().isBefore(assignedEvent.getStartTime())
+                || event.getStartTime().isAfter(assignedEvent.getEndTime()));
+        if (overlap) {
+          throw new BusinessException(
+              "Nhân viên có sự kiện khác trùng thời gian với sự kiện này",
+              ErrorCode.STAFF_EVENT_TIME_CONFLICT);
+        }
       }
 
       if (dto.isStoreManager()) {
-        if (!user.getRoles().contains(RoleConstants.STORE_MANAGER)) {
-          throw new BusinessException(ErrorCode.INVALID_ROLE);
-        }
         if (hasStoreManager) {
-          throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
+          throw new BusinessException(
+              "Đã có quản lý cửa hàng được phân công cho sự kiện này",
+              ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
         }
         hasStoreManager = true;
       } else {
         if (!user.getRoles().contains(RoleConstants.STAFF)) {
-          throw new BusinessException(ErrorCode.INVALID_ROLE);
+          throw new BusinessException("Người dùng không có vai trò hợp lệ", ErrorCode.INVALID_ROLE);
         }
       }
 
@@ -636,6 +764,18 @@ public class EventServiceImpl implements EventService {
       assignments.add(assignment);
     }
     assignmentRepository.saveAll(assignments);
+    for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
+      notificationProducer.sendNotificationMessage(
+          NotificationEvent.builder()
+              .userId(dto.getStaffId())
+              .title("Phân công công việc")
+              .message(
+                  "Bạn đã được phân công làm "
+                      + (dto.isStoreManager() ? "quản lý cửa hàng " : "nhân viên ")
+                      + "cho sự kiện: "
+                      + event.getName())
+              .build());
+    }
     log.info(
         "User {} successfully assigned staff to event {}", currentUserId, request.getEventId());
   }
@@ -648,6 +788,7 @@ public class EventServiceImpl implements EventService {
    * @throws BusinessException if the event is not found or store manager already assigned
    */
   @Transactional
+  @Override
   public void updateStaffAssignments(Long eventId, AssignStaffListRequest request) {
     Long currentUserId =
         Long.valueOf(
@@ -657,7 +798,10 @@ public class EventServiceImpl implements EventService {
     Event event =
         eventRepository
             .findById(eventId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + eventId, ErrorCode.EVENT_NOT_FOUND));
 
     List<EventStaffAssignment> currentAssignments =
         assignmentRepository.findByEventIdAndIsActiveTrue(eventId);
@@ -686,12 +830,34 @@ public class EventServiceImpl implements EventService {
         newAssignments.entrySet().stream()
             .filter(e -> !currentStaffIds.contains(e.getKey()))
             .map(
-                e ->
-                    EventStaffAssignment.builder()
-                        .event(event)
-                        .staffId(e.getKey())
-                        .isStoreManager(e.getValue())
-                        .build())
+                e -> {
+                  // validate user
+                  UserProfileResponse user = userServiceFeign.getUserInfoById(e.getKey());
+                  if (user == null || Boolean.FALSE.equals(user.getIsActive())) {
+                    throw new BusinessException(
+                        "Không tìm thấy người dùng hoặc người dùng chưa kích hoạt",
+                        ErrorCode.USER_NOT_FOUND);
+                  }
+
+                  // validate trùng lịch
+                  List<Event> assignedEvents = assignmentRepository.findEventsByStaffId(e.getKey());
+                  for (Event assignedEvent : assignedEvents) {
+                    boolean overlap =
+                        !(event.getEndTime().isBefore(assignedEvent.getStartTime())
+                            || event.getStartTime().isAfter(assignedEvent.getEndTime()));
+                    if (overlap && !assignedEvent.getId().equals(eventId)) {
+                      throw new BusinessException(
+                          "Nhân viên có sự kiện khác trùng thời gian với sự kiện này",
+                          ErrorCode.STAFF_EVENT_TIME_CONFLICT);
+                    }
+                  }
+
+                  return EventStaffAssignment.builder()
+                      .event(event)
+                      .staffId(e.getKey())
+                      .isStoreManager(e.getValue())
+                      .build();
+                })
             .toList();
     assignmentRepository.saveAll(toAdd);
 
@@ -718,6 +884,19 @@ public class EventServiceImpl implements EventService {
     if (storeManagerCount > 1) {
       throw new BusinessException(ErrorCode.STORE_MANAGER_ALREADY_ASSIGNED);
     }
+    for (AssignStaffListRequest.StaffAssignmentDTO dto : request.getStaffAssignments()) {
+      notificationProducer.sendNotificationMessage(
+          NotificationEvent.builder()
+              .userId(dto.getStaffId())
+              .title("Cập nhật phân công công việc")
+              .message(
+                  "Phân công của bạn đã được cập nhật cho sự kiện: "
+                      + event.getName()
+                      + ". Vai trò mới của bạn là "
+                      + (dto.isStoreManager() ? "quản lý cửa hàng " : "nhân viên "))
+              .build());
+    }
+    log.info("User {} successfully updated staff assignments for event {}", currentUserId, eventId);
   }
 
   /**
@@ -769,6 +948,14 @@ public class EventServiceImpl implements EventService {
                   return new BusinessException(ErrorCode.EVENT_NOT_FOUND);
                 });
 
+    if (event.getStatus() == EventStatus.CREATED
+        || event.getStatus() == EventStatus.CLOSED
+        || event.getStatus() == EventStatus.CANCELED) {
+      throw new BusinessException(
+          "Sự kiện không mở đăng ký (status: " + event.getStatus() + ")",
+          ErrorCode.INVALID_EVENT_STATUS);
+    }
+
     Optional<EventRegistration> existingRegistrationOpt =
         registrationRepository.findByEventIdAndUserId(eventId, userId);
 
@@ -776,7 +963,8 @@ public class EventServiceImpl implements EventService {
       EventRegistration existingRegistration = existingRegistrationOpt.get();
       if (existingRegistration.isActive()) {
         log.warn("User {} is already registered to event {}", userId, eventId);
-        throw new BusinessException(ErrorCode.ALREADY_REGISTERED);
+        throw new BusinessException(
+            "Người dùng đã đăng ký sự kiện này", ErrorCode.ALREADY_REGISTERED);
       } else {
         String qrCode = randomCodeCustomerCode(event.getStartTime());
         existingRegistration.setActive(true);
@@ -816,21 +1004,59 @@ public class EventServiceImpl implements EventService {
   public void checkInByTicketCode(String ticketCode) {
     Long userId = getCurrentUserId();
     log.info("Checking in staff {} with ticket code {}", userId, ticketCode);
+
     EventRegistration registration =
         registrationRepository
             .findByQrCodeAndIsActiveTrue(ticketCode)
             .orElseThrow(
                 () -> {
                   log.warn(
-                      "No active registration found for user {} with ticket code {}",
+                      "Không tìm thấy đăng ký hoạt động cho user {} với mã vé {}",
                       userId,
                       ticketCode);
-                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                  return new BusinessException(
+                      "Không tìm thấy đăng ký sự kiện với mã vé: " + ticketCode,
+                      ErrorCode.REGISTRATION_NOT_FOUND);
                 });
+
+    Event event = registration.getEvent();
+    LocalDateTime now = LocalDateTime.now();
+
+    if (now.isBefore(event.getStartTime())) {
+      log.warn(
+          "User {} attempted to check in before event start time. Event starts at {}",
+          userId,
+          event.getStartTime());
+      throw new BusinessException(
+          "Sự kiện chưa bắt đầu. Thời gian bắt đầu: " + event.getStartTime(),
+          ErrorCode.EVENT_NOT_STARTED);
+    }
+
     registration.setStatus(RegistrationStatus.ATTENDED);
-    registration.setCheckinTime(LocalDateTime.now());
+    registration.setCheckinTime(now);
     registration.updatedBy(userId);
     registrationRepository.save(registration);
+    EcoPointTransactionDTO ecoPointTransaction =
+        EcoPointTransactionDTO.builder()
+            .userId(registration.getUserId())
+            .points(5)
+            .description("Eco points for Checkin code: " + ticketCode)
+            .sourceType(SourceType.EVENT)
+            .sourceId(registration.getId())
+            .type(EcoPointType.EARNED)
+            .build();
+    ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+
+    notificationProducer.sendNotificationMessage(
+        NotificationEvent.builder()
+            .userId(registration.getUserId())
+            .title("Check-in sự kiện thành công")
+            .message(
+                "Bạn đã check-in thành công cho sự kiện: "
+                    + event.getName()
+                    + ". Bạn nhận được 5 điểm Eco Point.")
+            .build());
+
     log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
   }
 
@@ -850,14 +1076,29 @@ public class EventServiceImpl implements EventService {
             .orElseThrow(
                 () -> {
                   log.warn(
-                      "No active registration found for user {} and event {}", userId, eventId);
-                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                      "Không tìm thấy đăng ký hoạt động cho user {} và sự kiện {}",
+                      userId,
+                      eventId);
+                  return new BusinessException(
+                      "Không tìm thấy đăng ký sự kiện cho User ID: "
+                          + userId
+                          + ", Event ID: "
+                          + eventId,
+                      ErrorCode.REGISTRATION_NOT_FOUND);
                 });
+
     registration.setActive(false);
     registration.setStatus(RegistrationStatus.CANCELED);
     registration.updatedBy(userId);
     registrationRepository.save(registration);
     log.info("User {} successfully cancelled registration to event {}", userId, eventId);
+    notificationProducer.sendNotificationMessage(
+        NotificationEvent.builder()
+            .userId(userId)
+            .title("Hủy đăng ký sự kiện thành công")
+            .message("Bạn đã hủy đăng ký thành công cho sự kiện ID: " + eventId)
+            .build()
+    );
   }
 
   /**
@@ -882,11 +1123,17 @@ public class EventServiceImpl implements EventService {
             .orElseThrow(
                 () -> {
                   log.warn(
-                      "No active registration found for user {} and event {}",
+                      "Không tìm thấy đăng ký cho user {} và sự kiện {}",
                       updateRegistrationStatusRequest.getUserId(),
                       eventId);
-                  return new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+                  return new BusinessException(
+                      "Không tìm thấy đăng ký sự kiện cho User ID: "
+                          + updateRegistrationStatusRequest.getUserId()
+                          + ", Event ID: "
+                          + eventId,
+                      ErrorCode.REGISTRATION_NOT_FOUND);
                 });
+
     registration.setStatus(updateRegistrationStatusRequest.getRegistrationStatus());
     registration.updatedBy(currentUserId);
     registrationRepository.save(registration);
@@ -911,6 +1158,7 @@ public class EventServiceImpl implements EventService {
             reg -> {
               Event event = reg.getEvent();
               return UserEventResponse.builder()
+                  .registerId(reg.getId())
                   .eventId(event.getId())
                   .eventName(event.getName())
                   .eventCode(event.getCode())
@@ -924,47 +1172,50 @@ public class EventServiceImpl implements EventService {
   }
 
   /**
-   * Retrieves detailed information about a user's registration for a specific event.
+   * Retrieves detailed information about a user's event registration by registration ID.
    *
-   * @param eventId the ID of the event
-   * @return a UserEventDetailResponse containing detailed registration information
-   * @throws BusinessException if no active registration is found for the user and event
+   * @param registrationId the ID of the event registration
+   * @return a UserEventDetailResponse containing detailed information about the registration
+   * @throws BusinessException if no registration is found for the given ID
    */
   @Override
-  public List<UserEventDetailResponse> getUserEventDetail(Long eventId) {
-    log.info("Fetching user event detail for event {} and current user", eventId);
+  public UserEventDetailResponse getUserEventDetail(Long registrationId) {
+    log.info("Fetching event registration detail for registration ID {}", registrationId);
+    Long currentUserId = getCurrentUserId();
+    EventRegistration registration =
+        registrationRepository
+            .findById(registrationId)
+            .orElseThrow(
+                () -> {
+                  log.warn("Không tìm thấy đăng ký với ID {}", registrationId);
+                  return new BusinessException(
+                      "Không tìm thấy đăng ký sự kiện với ID: " + registrationId,
+                      ErrorCode.REGISTRATION_NOT_FOUND);
+                });
 
-    Long userId = getCurrentUserId();
-
-    List<EventRegistration> registrations = registrationRepository.findByUserId(userId);
-
-    if (registrations.isEmpty()) {
-      log.warn("No active registration found for user {} and event {}", userId, eventId);
-      throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+    if (!registration.getUserId().equals(currentUserId)) {
+      log.warn(
+          "User {} is not authorized to access registration ID {}", currentUserId, registrationId);
+      throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
     }
-
-    return registrations.stream()
-        .map(
-            registration -> {
-              Event event = registration.getEvent();
-              return UserEventDetailResponse.builder()
-                  .eventId(event.getId())
-                  .registrationId(registration.getId())
-                  .ticketCode(registration.getQrCode())
-                  .eventCode(event.getCode())
-                  .eventName(event.getName())
-                  .location(event.getLocationDetail())
-                  .startTime(event.getStartTime())
-                  .endTime(event.getEndTime())
-                  .imageUrl(event.getImageUrl())
-                  .latitude(event.getLatitude())
-                  .longitude(event.getLongitude())
-                  .checkInTime(registration.getCheckinTime())
-                  .registrationStatus(registration.getStatus())
-                  .isActive(registration.isActive())
-                  .build();
-            })
-        .toList();
+    Event event = registration.getEvent();
+    return UserEventDetailResponse.builder()
+        .registerId(registration.getId())
+        .eventId(event.getId())
+        .registrationId(registration.getId())
+        .ticketCode(registration.getQrCode())
+        .eventCode(event.getCode())
+        .eventName(event.getName())
+        .location(event.getLocationDetail())
+        .startTime(event.getStartTime())
+        .endTime(event.getEndTime())
+        .imageUrl(event.getImageUrl())
+        .latitude(event.getLatitude())
+        .longitude(event.getLongitude())
+        .checkInTime(registration.getCheckinTime())
+        .registrationStatus(registration.getStatus())
+        .isActive(registration.isActive())
+        .build();
   }
 
   /**
@@ -998,6 +1249,7 @@ public class EventServiceImpl implements EventService {
               .checkInTime(reg.getCheckinTime())
               .isActive(reg.isActive())
               .createdAt(reg.getCreatedAt())
+              .note(reg.getNote())
               .build();
         });
   }
@@ -1010,6 +1262,96 @@ public class EventServiceImpl implements EventService {
       return true;
     }
     return false;
+  }
+
+  @Override
+  public List<EventStaffScheduleResponse> getStaffSchedules() {
+
+    Long staffId = getCurrentUserId();
+
+    List<EventStaffAssignment> staffAssignment =
+        assignmentRepository.findByStaffIdAndIsActiveTrue(staffId);
+    if (staffAssignment != null && !staffAssignment.isEmpty()) {
+      return staffAssignment.stream()
+          .map(
+              assignment -> {
+                Event event = assignment.getEvent();
+                return EventStaffScheduleResponse.builder()
+                    .staffId(assignment.getStaffId())
+                    .isStoreManager(assignment.isStoreManager())
+                    .eventId(event.getId())
+                    .code(event.getCode())
+                    .name(event.getName())
+                    .location(event.getLocationDetail())
+                    .imageUrl(event.getImageUrl())
+                    .startTime(event.getStartTime())
+                    .endTime(event.getEndTime())
+                    .status(event.getStatus())
+                    .latitude(event.getLatitude())
+                    .longitude(event.getLongitude())
+                    .build();
+              })
+          .toList();
+    }
+    return List.of();
+  }
+
+  @Override
+  public EventUserRegistrationResponse getUserRegistrationByTicketCode(String ticketCode) {
+    EventRegistration registration =
+        registrationRepository
+            .findByQrCodeAndIsActiveTrue(ticketCode)
+            .orElseThrow(
+                () -> {
+                  log.warn("Không tìm thấy đăng ký hoạt động với mã vé {}", ticketCode);
+                  return new BusinessException(
+                      "Không tìm thấy đăng ký sự kiện với mã vé: " + ticketCode,
+                      ErrorCode.REGISTRATION_NOT_FOUND);
+                });
+
+    UserProfileResponse user = null;
+    try {
+      user = userServiceFeign.getUserInfoById(registration.getUserId());
+
+    } catch (Exception e) {
+      log.error(
+          "Failed to get user info for userId {}: {}", registration.getUserId(), e.getMessage());
+    }
+    return EventUserRegistrationResponse.builder()
+        .userId(registration.getUserId())
+        .fullName(user.getFullName() != null ? user.getFullName() : null)
+        .email(user.getEmail() != null ? user.getEmail() : null)
+        .registrationStatus(registration.getStatus())
+        .checkInTime(registration.getCheckinTime())
+        .isActive(registration.isActive())
+        .createdAt(registration.getCreatedAt())
+        .note(registration.getNote())
+        .build();
+  }
+
+  @Override
+  public EventResponse getInfoEvent(Long eventId) {
+    Event event =
+        eventRepository
+            .findById(eventId)
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        "Không tìm thấy sự kiện với ID: " + eventId, ErrorCode.EVENT_NOT_FOUND));
+
+    return EventResponse.builder()
+        .id(event.getId())
+        .code(event.getCode())
+        .name(event.getName())
+        .location(event.getLocationDetail())
+        .startTime(event.getStartTime())
+        .endTime(event.getEndTime())
+        .imageUrl(event.getImageUrl())
+        .status(event.getStatus())
+        .latitude(event.getLatitude())
+        .longitude(event.getLongitude())
+        .isActive(event.isActive())
+        .build();
   }
 
   private Long getCurrentUserId() {
@@ -1033,13 +1375,17 @@ public class EventServiceImpl implements EventService {
    */
   private void validateTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
     if (startTime.isAfter(endTime)) {
-      throw new BusinessException(ErrorCode.EVENT_END_TIME_BEFORE_START);
+      throw new BusinessException(
+          "Thời gian kết thúc của sự kiện không được trước thời gian bắt đầu",
+          ErrorCode.EVENT_END_TIME_BEFORE_START);
     }
     if (startTime.isBefore(LocalDateTime.now())) {
-      throw new BusinessException(ErrorCode.EVENT_START_TIME_PAST);
+      throw new BusinessException(
+          "Thời gian bắt đầu của sự kiện không được ở quá khứ", ErrorCode.EVENT_START_TIME_PAST);
     }
     if (endTime.isBefore(LocalDateTime.now())) {
-      throw new BusinessException(ErrorCode.EVENT_END_TIME_PAST);
+      throw new BusinessException(
+          "Thời gian kết thúc của sự kiện không được ở quá khứ", ErrorCode.EVENT_END_TIME_PAST);
     }
   }
 }

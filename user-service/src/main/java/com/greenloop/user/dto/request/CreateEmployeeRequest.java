@@ -15,12 +15,10 @@ public class CreateEmployeeRequest {
   @NotBlank(message = "Họ và tên không được để trống")
   private String fullName;
 
-  @Pattern(regexp = "^[0-9]{10,20}$", message = "Số điện thoại không hợp lệ")
+  @Pattern(regexp = "^\\+?[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
   private String phone;
 
   @NotBlank(message = "Role không được để trống")
-  @Pattern(
-      regexp = "^(STAFF|MANAGER|STORE_MANAGER)$",
-      message = "Role chỉ được là STAFF, MANAGER hoặc STORE_MANAGER")
+  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF, MANAGER")
   private String role;
 }

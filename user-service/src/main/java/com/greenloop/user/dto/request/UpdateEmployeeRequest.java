@@ -14,14 +14,14 @@ public class UpdateEmployeeRequest {
 
   private String fullName;
 
-  @Pattern(regexp = "^[0-9]{10,20}$", message = "Số điện thoại không hợp lệ")
+  @Pattern(regexp = "^\\+?[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
   private String phone;
 
   private LocalDate dateOfBirth;
 
   private Gender gender;
 
-  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF hoặc MANAGER")
+  @Pattern(regexp = "^(STAFF|MANAGER)$", message = "Role chỉ được là STAFF, MANAGER")
   private String role;
 
   private Boolean isActive;

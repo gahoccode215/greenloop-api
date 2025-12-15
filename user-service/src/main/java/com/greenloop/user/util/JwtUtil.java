@@ -11,14 +11,15 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class JwtUtil {
 
   private final RedisTemplate<String, String> redisTemplate;
@@ -31,11 +32,6 @@ public class JwtUtil {
 
   @Value("${spring.security.jwt.refresh-expiration}")
   private Long refreshExpiration;
-
-  public JwtUtil(
-      @Qualifier("customStringRedisTemplate") RedisTemplate<String, String> redisTemplate) {
-    this.redisTemplate = redisTemplate;
-  }
 
   private SecretKey getSigningKey() {
     return Keys.hmacShaKeyFor(secret.getBytes());
@@ -115,10 +111,6 @@ public class JwtUtil {
 
   public Long getRefreshExpirationTime() {
     return refreshExpiration;
-  }
-
-  public String getJti(String token) {
-    return extractClaim(token, claims -> claims.get(JwtConstants.CLAIM_JTI, String.class));
   }
 
   public boolean isRefreshToken(String token) {

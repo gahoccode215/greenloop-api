@@ -65,3 +65,7 @@ hs_err_pid*
 /.env.user
 /.env.product
 /.env.order
+/*.reward
+/*.event
+/.env.event
+/.env.reward
