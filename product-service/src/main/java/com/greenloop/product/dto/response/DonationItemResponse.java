@@ -1,6 +1,7 @@
 package com.greenloop.product.dto.response;
 
 import com.greenloop.product.enums.ConditionGrade;
+import com.greenloop.product.enums.DonationItemStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,4 +20,5 @@ public class DonationItemResponse {
     private Long categoryId;
     private ConditionGrade conditionGrade;
     private String imageUrl;
+    private DonationItemStatus status;
 }
