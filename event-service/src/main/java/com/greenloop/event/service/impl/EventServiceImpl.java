@@ -40,6 +40,7 @@ public class EventServiceImpl implements EventService {
   private final UserServiceFeign userServiceFeign;
   private final EcoPointCheckInProducer ecoPointCheckInProducer;
   private final NotificationProducer notificationProducer;
+  private final RewardServiceFeign rewardServiceFeign;
 
   /**
    * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -1045,7 +1046,17 @@ public class EventServiceImpl implements EventService {
             .sourceId(registration.getId())
             .type(EcoPointType.EARNED)
             .build();
-    ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+
+    try {
+        Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+        if (result == null || !result) {
+            ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        }
+        log.info("Eco points updated successfully via Reward Service for user {}", registration.getUserId());
+    } catch (Exception e) {
+        ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        log.info("Failed to update eco points via Reward Service, queued for retry: {}", e.getMessage());
+    }
 
     notificationProducer.sendNotificationMessage(
         NotificationEvent.builder()

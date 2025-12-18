@@ -105,7 +105,17 @@ public class DonationServiceImpl implements DonationService {
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+        try {
+            Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+            if(!result) {
+                ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+            }
+        }
+        catch (Exception e) {
+            log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
+            ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        }
+//        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 
@@ -201,6 +211,7 @@ public class DonationServiceImpl implements DonationService {
                                                 .conditionGrade(item.getConditionGrade())
                                                 .ecoPoints(item.getEcoPointValue())
                                                 .imageUrl(item.getImageUrl())
+                                                .status(item.getStatus())
                                                 .build())
                                         .collect(Collectors.toList())
                                 : Collections.emptyList()

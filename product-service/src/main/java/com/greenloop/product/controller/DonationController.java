@@ -2,10 +2,7 @@ package com.greenloop.product.controller;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
-import com.greenloop.product.dto.response.ApiResponseDTO;
-import com.greenloop.product.dto.response.DonationDetailResponse;
-import com.greenloop.product.dto.response.DonationResponse;
-import com.greenloop.product.dto.response.UpdateDonationItemStatusResponse;
+import com.greenloop.product.dto.response.*;
 import com.greenloop.product.service.DonationService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
