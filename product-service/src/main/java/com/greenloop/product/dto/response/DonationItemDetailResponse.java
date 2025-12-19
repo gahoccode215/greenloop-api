@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Getter
 @Builder
-public class DonationItemResponse {
+public class DonationItemDetailResponse {
     private Long id;
     private String code;
     private String name;
@@ -21,4 +21,6 @@ public class DonationItemResponse {
     private ConditionGrade conditionGrade;
     private String imageUrl;
     private DonationItemStatus status;
+    private Long eventId;
+    private String eventName;
 }

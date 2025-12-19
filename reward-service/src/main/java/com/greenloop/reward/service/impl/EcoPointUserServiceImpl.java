@@ -12,10 +12,11 @@ import com.greenloop.reward.repository.EcoPointTransactionRepository;
 import com.greenloop.reward.repository.EcoPointUserRepository;
 import com.greenloop.reward.service.EcoPointUserService;
 import com.greenloop.reward.service.NotificationProducer;
-import com.greenloop.reward.service.UserServiceFeign;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import com.greenloop.reward.service.UserServiceFeign;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,65 +26,73 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class EcoPointUserServiceImpl implements EcoPointUserService {
-  private final EcoPointUserRepository ecoPointUserRepository;
-  private final EcoPointTransactionRepository ecoPointTransactionRepository;
-  private final NotificationProducer notificationProducer;
-  private final UserServiceFeign userServiceFeign;
+    private final EcoPointUserRepository ecoPointUserRepository;
+    private final EcoPointTransactionRepository ecoPointTransactionRepository;
+    private final NotificationProducer notificationProducer;
+    private final UserServiceFeign userServiceFeign;
 
-  @Override
-  public void updateEcoPointUserBalance(EcoPointTransactionDTO ecoPointTransactionDTO) {
-    var ecoPointUserOpt = ecoPointUserRepository.findByUserId(ecoPointTransactionDTO.getUserId());
-    Integer finalPoints;
-    if (ecoPointUserOpt.isPresent()) {
-      EcoPointTransaction ecoPointTransaction =
-          EcoPointTransaction.builder()
-              .ecoPointUser(ecoPointUserOpt.get())
-              .points(ecoPointTransactionDTO.getPoints())
-              .type(ecoPointTransactionDTO.getType())
-              .points(ecoPointTransactionDTO.getPoints())
-              .userId(ecoPointTransactionDTO.getUserId())
-              .sourceId(ecoPointTransactionDTO.getSourceId())
-              .sourceType(ecoPointTransactionDTO.getSourceType())
-              .description(ecoPointTransactionDTO.getDescription())
-              .build();
-      ecoPointTransactionRepository.save(ecoPointTransaction);
-      var ecoPointUser = ecoPointUserOpt.get();
-      ecoPointUser.setTotalPoints(
-          ecoPointUser.getTotalPoints() + ecoPointTransactionDTO.getPoints());
-      ecoPointUser.setLifetimePoints(
-          ecoPointUser.getLifetimePoints() + ecoPointTransactionDTO.getPoints());
-      ecoPointUserRepository.save(ecoPointUser);
-      log.info("EcoPointUser save success.");
-      finalPoints = ecoPointUser.getTotalPoints();
-    } else {
-      EcoPointUser ecoPointUser =
-          EcoPointUser.builder()
-              .userId(ecoPointTransactionDTO.getUserId())
-              .totalPoints(ecoPointTransactionDTO.getPoints())
-              .lifetimePoints(ecoPointTransactionDTO.getPoints())
-              .status(EcoPointStatus.ACTIVE)
-              .build();
-      ecoPointUser.addEcoPointTransaction(
-          EcoPointTransaction.builder()
-              .ecoPointUser(ecoPointUser)
-              .points(ecoPointTransactionDTO.getPoints())
-              .type(ecoPointTransactionDTO.getType())
-              .userId(ecoPointTransactionDTO.getUserId())
-              .sourceId(ecoPointTransactionDTO.getSourceId())
-              .sourceType(ecoPointTransactionDTO.getSourceType())
-              .description(ecoPointTransactionDTO.getDescription())
-              .build());
-      ecoPointUserRepository.save(ecoPointUser);
-      finalPoints = ecoPointUser.getTotalPoints();
-      log.info("EcoPointUser created and save success.");
+    @Override
+    public void updateEcoPointUserBalance(EcoPointTransactionDTO ecoPointTransactionDTO) {
+        var ecoPointUserOpt = ecoPointUserRepository.findByUserId(ecoPointTransactionDTO.getUserId());
+        Integer finalPoints;
+
+        if (ecoPointUserOpt.isPresent()) {
+            var ecoPointUser = ecoPointUserOpt.get();
+
+            EcoPointTransaction ecoPointTransaction =
+                    EcoPointTransaction.builder()
+                            .points(ecoPointTransactionDTO.getPoints())
+                            .type(ecoPointTransactionDTO.getType())
+                            .userId(ecoPointTransactionDTO.getUserId())
+                            .sourceId(ecoPointTransactionDTO.getSourceId())
+                            .sourceType(ecoPointTransactionDTO.getSourceType())
+                            .description(ecoPointTransactionDTO.getDescription())
+                            .build();
+
+            ecoPointUser.addEcoPointTransaction(ecoPointTransaction);
+
+            ecoPointUser.setTotalPoints(
+                    ecoPointUser.getTotalPoints() + ecoPointTransactionDTO.getPoints());
+            ecoPointUser.setLifetimePoints(
+                    ecoPointUser.getLifetimePoints() + ecoPointTransactionDTO.getPoints());
+
+            ecoPointUserRepository.save(ecoPointUser);
+
+            finalPoints = ecoPointUser.getTotalPoints();
+            log.info("EcoPointUser update success.");
+        } else {
+            EcoPointUser ecoPointUser =
+                    EcoPointUser.builder()
+                            .userId(ecoPointTransactionDTO.getUserId())
+                            .totalPoints(ecoPointTransactionDTO.getPoints())
+                            .lifetimePoints(ecoPointTransactionDTO.getPoints())
+                            .status(EcoPointStatus.ACTIVE)
+                            .build();
+
+            EcoPointTransaction ecoPointTransaction =
+                    EcoPointTransaction.builder()
+                            .points(ecoPointTransactionDTO.getPoints())
+                            .type(ecoPointTransactionDTO.getType())
+                            .userId(ecoPointTransactionDTO.getUserId())
+                            .sourceId(ecoPointTransactionDTO.getSourceId())
+                            .sourceType(ecoPointTransactionDTO.getSourceType())
+                            .description(ecoPointTransactionDTO.getDescription())
+                            .build();
+
+            ecoPointUser.addEcoPointTransaction(ecoPointTransaction);
+
+            ecoPointUserRepository.save(ecoPointUser);
+
+            finalPoints = ecoPointUser.getTotalPoints();
+            log.info("EcoPointUser created and save success.");
+        }
+
+        NotificationEvent notificationEvent = buildNotificationEvent(ecoPointTransactionDTO, finalPoints);
+        notificationProducer.sendNotificationMessage(notificationEvent);
     }
-    NotificationEvent notificationEvent =
-        buildNotificationEvent(ecoPointTransactionDTO, finalPoints);
-    notificationProducer.sendNotificationMessage(notificationEvent);
-  }
 
-  private NotificationEvent buildNotificationEvent(
-      EcoPointTransactionDTO dto, Integer totalPoints) {
+
+    private NotificationEvent buildNotificationEvent(EcoPointTransactionDTO dto, Integer totalPoints) {
 
     String sourceText =
         switch (dto.getSourceType()) {

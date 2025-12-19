@@ -33,7 +33,9 @@ public enum ErrorCode {
     PRODUCT_NOT_IN_EVENT("PROD_019", "Product not assigned to this event", HttpStatus.BAD_REQUEST),
     PRODUCT_NOT_YET_DISPLAYABLE("PROD_020", "Product display time not yet started", HttpStatus.BAD_REQUEST),
     PRODUCT_DISPLAY_EXPIRED("PROD_021", "Product display time expired", HttpStatus.BAD_REQUEST),
-    PRODUCT_NOT_DISPLAYED("PROD_022", "Product not in displayed status", HttpStatus.BAD_REQUEST);
+    PRODUCT_NOT_DISPLAYED("PROD_022", "Product not in displayed status", HttpStatus.BAD_REQUEST),
+
+    ECO_POINT_UPDATE_FAILED("PROD_023", "Lỗi trong quá trình cộng điểm", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;

@@ -15,9 +15,14 @@ import com.greenloop.product.repository.CategoryRepository;
 import com.greenloop.product.repository.DonationItemRepository;
 import com.greenloop.product.repository.DonationRepository;
 import com.greenloop.product.service.*;
+import com.greenloop.product.utils.PageResponseUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +50,8 @@ public class DonationServiceImpl implements DonationService {
     private final String localImagePath = "GreenLoop/Donations";
     private final String ecoPointRedisKey = "eco_point_rule_";
     private final EcoPointDonationProducer ecoPointDonationProducer;
+    private final Map<Long, String> eventNameCache = new ConcurrentHashMap<>();
+
 
     private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
@@ -105,7 +113,17 @@ public class DonationServiceImpl implements DonationService {
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+        try {
+            Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+            if(!result) {
+                ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+            }
+        }
+        catch (Exception e) {
+            log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
+            ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        }
+//        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 
@@ -201,6 +219,7 @@ public class DonationServiceImpl implements DonationService {
                                                 .conditionGrade(item.getConditionGrade())
                                                 .ecoPoints(item.getEcoPointValue())
                                                 .imageUrl(item.getImageUrl())
+                                                .status(item.getStatus())
                                                 .build())
                                         .collect(Collectors.toList())
                                 : Collections.emptyList()
@@ -241,6 +260,88 @@ public class DonationServiceImpl implements DonationService {
                 .notFoundCodes(notFoundCodes)
                 .build();
     }
+
+    @Override
+    public PageResponseDTO<DonationItemDetailResponse> getDonationItems(
+            String code,
+            String name,
+            Long donationId,
+            DonationItemStatus status,
+            Long eventId,
+            Pageable pageable) {
+
+        Specification<DonationItem> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (code != null && !code.isEmpty()) {
+                String codePattern = "%" + code.toLowerCase() + "%";
+                predicates.add(cb.like(cb.lower(root.get("code")), codePattern));
+            }
+
+            if (name != null && !name.isEmpty()) {
+                String namePattern = "%" + name.toLowerCase() + "%";
+                predicates.add(cb.like(cb.lower(root.get("name")), namePattern));
+            }
+
+            if (donationId != null) {
+                predicates.add(cb.equal(root.get("donation").get("id"), donationId));
+            }
+
+            // Filter by status
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            // Filter by eventId (join sang Donation)
+            if (eventId != null) {
+                predicates.add(cb.equal(root.get("donation").get("eventId"), eventId));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<DonationItem> page = donationItemRepository.findAll(spec, pageable);
+
+        Page<DonationItemDetailResponse> donationItemPage = page.map(this::mapDonationItemToDetailResponse);
+
+        return PageResponseUtil.toPageResponse(donationItemPage);
+    }
+
+    private DonationItemDetailResponse mapDonationItemToDetailResponse(DonationItem item) {
+        Long eventId = item.getDonation().getEventId();
+        String eventName = "";
+
+        if (eventId != null) {
+            if (eventNameCache.containsKey(eventId)) {
+                eventName = eventNameCache.get(eventId);
+            } else {
+                try {
+                    EventResponse event = eventServiceFeign.getInfoEventId(eventId);
+                    if (event != null) {
+                        eventName = event.getName();
+                        eventNameCache.put(eventId, eventName);
+                    }
+                } catch (Exception e) {
+                    log.error("Error fetching event name for event ID {}: {}", eventId, e.getMessage());
+                }
+            }
+        }
+
+        return DonationItemDetailResponse.builder()
+                .id(item.getId())
+                .code(item.getCode())
+                .name(item.getName())
+                .ecoPoints(item.getEcoPointValue())
+                .categoryId(item.getCategory() != null ? item.getCategory().getId() : null)
+                .categoryName(item.getCategory() != null ? item.getCategory().getName() : null)
+                .conditionGrade(item.getConditionGrade())
+                .imageUrl(item.getImageUrl())
+                .status(item.getStatus())
+                .eventId(eventId)
+                .eventName(eventName)
+                .build();
+    }
+
 
     private void validateEcoPointRule(DonationItemCreateRequest itemReq) {
         try {

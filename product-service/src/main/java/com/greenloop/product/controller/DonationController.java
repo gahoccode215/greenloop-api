@@ -2,15 +2,17 @@ package com.greenloop.product.controller;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
-import com.greenloop.product.dto.response.ApiResponseDTO;
-import com.greenloop.product.dto.response.DonationDetailResponse;
-import com.greenloop.product.dto.response.DonationResponse;
-import com.greenloop.product.dto.response.UpdateDonationItemStatusResponse;
+import com.greenloop.product.dto.response.*;
+import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.service.DonationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -86,7 +88,7 @@ public class DonationController {
                         .build());
     }
 
-    @PostMapping("/update-status")
+    @PostMapping("/update-status-items")
     @Operation(summary = "Update donation item status",
             description = "Updates the status of donation items based on provided codes.")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
@@ -98,6 +100,43 @@ public class DonationController {
                 ApiResponseDTO.<UpdateDonationItemStatusResponse>builder()
                         .data(response)
                         .message("Donation item statuses updated successfully")
+                        .statusCode(HttpStatus.OK.value())
+                        .success(true)
+                        .build());
+    }
+
+
+    @GetMapping("/items")
+    @Operation(summary = "Get donation items with filters and pagination",
+            description = "Retrieves donation items based on various filters and supports pagination.")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_STAFF', 'ROLE_STORE_MANAGER', 'ROLE_MANAGER')")
+    public ResponseEntity<ApiResponseDTO<PageResponseDTO<DonationItemDetailResponse>>> getDonationItems(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long donationId,
+            @Parameter(description = "AT_EVENT, IN_WAREHOUSE, RECYCLED, LOST")
+            @RequestParam(required = false )DonationItemStatus status,
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Sort field")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction (ASC/DESC)")
+            @RequestParam(defaultValue = "DESC") String sortDir){
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.fromString(sortDir), sortBy)
+        );
+
+        PageResponseDTO<DonationItemDetailResponse> donationItems = donationService.getDonationItems( code, name, donationId, status, eventId, pageable );
+
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.<PageResponseDTO<DonationItemDetailResponse>>builder()
+                        .data(donationItems)
+                        .message("Donation items retrieved successfully")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());

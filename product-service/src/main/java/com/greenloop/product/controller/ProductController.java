@@ -220,7 +220,7 @@ public class ProductController {
         );
     }
 
-    @PutMapping("/change-event-status")
+    @PutMapping("/change-event-status-items")
     @Operation(summary = "Change product-event mapping status", description = "Update status of products in an event")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
     public ResponseEntity<ApiResponseDTO<String>> changeProductEventStatus(
