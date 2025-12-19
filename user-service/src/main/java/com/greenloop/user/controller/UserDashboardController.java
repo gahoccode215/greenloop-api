@@ -18,20 +18,15 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "User Dashboard", description = "Dashboard quản lý thống kê người dùng")
 public class UserDashboardController {
 
-    private final UserDashboardService dashboardService;
+  private final UserDashboardService dashboardService;
 
-    @GetMapping("/overview")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<ApiResponseDTO<UserDashboardOverviewResponse>> getDashboardOverview() {
+  @GetMapping("/overview")
+  @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+  public ResponseEntity<ApiResponseDTO<UserDashboardOverviewResponse>> getDashboardOverview() {
 
-       UserDashboardOverviewResponse response = dashboardService.getDashboardOverview();
+    UserDashboardOverviewResponse response = dashboardService.getDashboardOverview();
 
-        return ResponseEntity.ok(
-                ApiResponseDTO.success(
-                        "Lấy thống kê người dùng thành công",
-                        response,
-                        HttpStatus.OK
-                )
-        );
-    }
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Lấy thống kê người dùng thành công", response, HttpStatus.OK));
+  }
 }

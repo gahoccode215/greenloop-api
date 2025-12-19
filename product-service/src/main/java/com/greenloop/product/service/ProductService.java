@@ -1,9 +1,6 @@
 package com.greenloop.product.service;
 
-import com.greenloop.product.dto.request.AssignProductEventRequest;
-import com.greenloop.product.dto.request.CreateProductRequest;
-import com.greenloop.product.dto.request.UpdateProductRequest;
-import com.greenloop.product.dto.request.UpdateStatusProductEventMappingRequest;
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.PageResponseDTO;
 import com.greenloop.product.dto.response.ProductResponse;
 import com.greenloop.product.enums.EventMappingStatus;

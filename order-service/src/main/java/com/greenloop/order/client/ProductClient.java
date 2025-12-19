@@ -1,7 +1,7 @@
 package com.greenloop.order.client;
 
 import com.greenloop.order.dto.ProductDTO;
-import com.greenloop.order.dto.request.ProductValidationRequest;
+import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,4 +21,16 @@ public interface ProductClient {
 
     @GetMapping("/internal/products/detail/{id}")
     ApiResponseDTO<ProductDTO> getProductDetailById(@PathVariable("id") Long id);
+
+    @PostMapping("/internal/products/reserve")
+    ApiResponseDTO<Void> reserveProducts(@RequestBody ReserveProductsRequest request);
+
+    @PostMapping("/internal/products/unreserve")
+    ApiResponseDTO<Void> unreserveProducts(@RequestBody UnreserveProductsRequest request);
+
+    @PostMapping("/internal/products/mark-sold")
+    ApiResponseDTO<Void> markProductsAsSold(@RequestBody MarkProductsSoldRequest request);
+
+    @PostMapping("/internal/products/update-status")
+    ApiResponseDTO<Void> updateProductStatus(@RequestBody UpdateProductStatusRequest request);
 }

@@ -2,13 +2,10 @@ package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.client.UserClient;
+import com.greenloop.order.client.VoucherClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
-import com.greenloop.order.dto.event.OrderCancelledEvent;
-import com.greenloop.order.dto.event.OrderCheckedOutEvent;
-import com.greenloop.order.dto.event.OrderCompletedEvent;
-import com.greenloop.order.dto.event.VoucherUsedEvent;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.*;
@@ -29,8 +26,6 @@ import com.greenloop.order.util.PageResponseUtil;
 import com.greenloop.order.util.ShippingStatusMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,11 +33,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.payos.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -59,12 +52,13 @@ public class OrderServiceImpl implements OrderService {
     private final PayOSPaymentService payOSPaymentService;
     private final ShippingCalculationService shippingCalculationService;
     private final GoShipService goShipService;
-    private final StreamBridge streamBridge;
     private final VoucherDiscountService voucherDiscountService;
     private final OrderCodeGenerator orderCodeGenerator;
     private final PendingOrderCacheService pendingOrderCacheService;
     private final WarehouseSettingService warehouseSettingService;
     private final UserClient userClient;
+    private final VoucherClient voucherClient;
+    private final TransactionService transactionService;
 
     @Override
     @Transactional
@@ -318,8 +312,10 @@ public class OrderServiceImpl implements OrderService {
 // 1) Lưu Order vào DB (buildAndSaveOrder sẽ gắn ShippingAddress + Warehouse)
         Order createdOrder = buildAndSaveOrder(orderRequest);
 
-// 2) Publish event để RESERVE sản phẩm bên Product Service
-        publishOrderCheckedOutEvent(createdOrder);
+// 2. Gọi Feign Client để reserve sản phẩm
+        reserveProductsViaFeign(createdOrder);
+
+        transactionService.createTransactionFromOrder(createdOrder);
 
 // 3) Xóa giỏ hàng vì đơn COD đã được tạo thành công
         cartService.clearCart(userId);
@@ -639,11 +635,9 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
-        // PUBLISH EVENT CỘNG ECO POINTS
-        publishOrderCompletedEvent(order);
+        transactionService.completeTransaction(orderId);
 
-        log.info("Order {} completed. Previous status: {}. Reason: {}. Earned eco points: {}",
-                orderId, oldStatus, reason, totalEcoPoints);
+        markProductsAsSoldViaFeign(order);
     }
 
     @Override
@@ -717,33 +711,18 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        // Publish event: RESERVED → AVAILABLE
-        publishOrderCancelledEvent(order, reason);
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            transactionService.createRefundTransaction(order, reason);
+        }
+
+
+        unreserveProductsViaFeign(order);
 
         log.info("Order {} cancelled. Previous status: {}. Reason: {}",
                 orderId, oldStatus, reason);
     }
 
-    private void publishOrderCancelledEvent(Order order, String reason) {
-        List<OrderCancelledEvent.ProductStatusChange> changes =
-                order.getOrderItems().stream()
-                        .map(item -> OrderCancelledEvent.ProductStatusChange.builder()
-                                .productId(item.getProductId())
-                                .newStatus(ProductStatusConstant.AVAILABLE)
-                                .build())
-                        .collect(Collectors.toList());
 
-        OrderCancelledEvent event = OrderCancelledEvent.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .cancelledAt(LocalDateTime.now())
-                .reason(reason)
-                .productStatusChanges(changes)
-                .build();
-
-        streamBridge.send("orderCancelledProduct-out-0", event);
-        log.info("Published OrderCancelledEvent for order {}", order.getOrderId());
-    }
 
 
     private OrderResponse mapToOrderResponse(Order order) {
@@ -835,114 +814,6 @@ public class OrderServiceImpl implements OrderService {
         return response;
     }
 
-    private void publishOrderCheckedOutEvent(Order order) {
-        log.info("Publishing OrderCheckedOutEvent for order {}", order.getOrderId());
-
-        List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
-
-        for (OrderItem item : order.getOrderItems()) {
-            productStatusChanges.add(
-                    OrderCheckedOutEvent.ProductStatusChange.builder()
-                            .productId(item.getProductId())
-                            .newStatus(ProductStatusConstant.RESERVED)
-                            .ecoPointValue(0)
-                            .build()
-            );
-        }
-
-        OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
-                .orderId(order.getOrderId())
-                .customerId(order.getCustomerId())
-                .totalAmount(order.getTotalPrice())
-                .checkedOutAt(order.getCreatedAt())
-                .productStatusChanges(productStatusChanges)
-                .totalEcoPoints(0)
-                .build();
-
-        // Gửi đến Product Service
-        streamBridge.send("orderCheckedOutProduct-out-0", event);
-
-        log.info("Published OrderCheckedOutEvent (product reserve only) for order {} with {} products",
-                order.getOrderId(), productStatusChanges.size());
-
-        // Nếu có Voucher, publish event đến Reward Service
-        if (order.getVoucherUserId() != null) {
-            log.info("voucher used>>>>");
-            publishVoucherUsedEvent(order);
-        }
-    }
-
-    private void publishVoucherUsedEvent(Order order) {
-        log.info("Publishing VoucherUsedEvent for order {} with voucherUserId {}",
-                order.getOrderId(), order.getVoucherUserId());
-
-        VoucherUsedEvent voucherEvent = VoucherUsedEvent.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .customerId(order.getCustomerId())
-                .voucherUserId(order.getVoucherUserId())
-                .voucherCode(order.getVoucherCode())
-                .discountValue(order.getDiscountAmount())
-                .usedAt(order.getCreatedAt())
-                .build();
-
-        streamBridge.send("orderCheckoutVoucherUsed-out-0", voucherEvent);
-
-        log.info("Published VoucherUsedEvent for voucherUserId {} on order {}",
-                order.getVoucherUserId(), order.getOrderId());
-    }
-
-    /**
-     * Publish event khi order hoàn tất - CỘNG ECO POINTS
-     */
-    /**
-     * Publish event khi order hoàn tất - CỘNG ECO POINTS
-     */
-    private void publishOrderCompletedEvent(Order order) {
-        log.info("Publishing OrderCompletedEvent for order {}", order.getOrderId());
-
-        int totalEcoPoints = 0;
-        List<OrderCompletedEvent.ProductEcoPoint> products = new ArrayList<>();
-
-
-        for (OrderItem item : order.getOrderItems()) {
-            // Lấy ecoPoint từ OrderItem (đã lưu khi checkout)
-            Integer ecoPoint = item.getEcoPoint() != null ? item.getEcoPoint() : 0;
-            totalEcoPoints += ecoPoint;
-
-            products.add(
-                    OrderCompletedEvent.ProductEcoPoint.builder()
-                            .productId(item.getProductId())
-                            .ecoPointValue(ecoPoint)
-                            .newStatus(ProductStatusConstant.SOLD)
-                            .build()
-            );
-
-            log.debug("Order item: productId={}, ecoPoint={}",
-                    item.getProductId(), ecoPoint);
-        }
-
-        OrderCompletedEvent event = OrderCompletedEvent.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .customerId(order.getCustomerId())
-                .totalAmount(order.getTotalPrice())
-                .completedAt(LocalDateTime.now())
-                .totalEcoPoints(totalEcoPoints)
-                .products(products)
-                .build();
-
-        // GỬI EVENT ĐẾN REWARD SERVICE (cộng điểm)
-        streamBridge.send("orderCompletedReward-out-0", event);
-
-        // GỬI EVENT ĐẾN PRODUCT SERVICE (chuyển RESERVED → SOLD)
-        streamBridge.send("orderCompletedProduct-out-0", event);
-
-        log.info("Published OrderCompletedEvent for order {} - Total eco points: {}",
-                order.getOrderId(), totalEcoPoints);
-    }
-
-
     private void validateCancelPermission(Order order, OrderStatus currentStatus,
                                           Long requestingUserId, String userRole) {
 
@@ -978,6 +849,122 @@ public class OrderServiceImpl implements OrderService {
                 log.info("Customer {} cancelling their own pending order {}",
                         requestingUserId, order.getOrderId());
             }
+        }
+    }
+
+
+    private void reserveProductsViaFeign(Order order) {
+        log.info("Reserving products via Feign for order {}", order.getOrderId());
+
+        List<ReserveProductsRequest.ProductReserve> products = order.getOrderItems().stream()
+                .map(item -> ReserveProductsRequest.ProductReserve.builder()
+                        .productId(item.getProductId())
+                        .build())
+                .collect(Collectors.toList());
+
+        ReserveProductsRequest request = ReserveProductsRequest.builder()
+                .orderId(order.getOrderId())
+                .customerId(order.getCustomerId())
+                .products(products)
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = productClient.reserveProducts(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to reserve products for order {}", order.getOrderId());
+                throw new RuntimeException("Không thể reserve sản phẩm");
+            }
+            log.info("Reserved {} products for order {}", products.size(), order.getOrderId());
+        } catch (Exception e) {
+            log.error("Error calling product service to reserve products", e);
+            throw new RuntimeException("Lỗi khi gọi Product Service", e);
+        }
+
+        // Nếu có voucher, gọi Reward Service qua Feign
+        if (order.getVoucherUserId() != null) {
+            markVoucherAsUsedViaFeign(order);
+        }
+    }
+
+    /**
+     * Unreserve sản phẩm khi cancel order
+     */
+    private void unreserveProductsViaFeign(Order order) {
+        log.info("Unreserving products via Feign for order {}", order.getOrderId());
+
+        List<UnreserveProductsRequest.ProductUnreserve> products = order.getOrderItems().stream()
+                .map(item -> UnreserveProductsRequest.ProductUnreserve.builder()
+                        .productId(item.getProductId())
+                        .build())
+                .collect(Collectors.toList());
+
+        UnreserveProductsRequest request = UnreserveProductsRequest.builder()
+                .orderId(order.getOrderId())
+                .products(products)
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = productClient.unreserveProducts(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to unreserve products for order {}", order.getOrderId());
+            }
+        } catch (Exception e) {
+            log.error("Error calling product service to unreserve products", e);
+        }
+    }
+    private void markVoucherAsUsedViaFeign(Order order) {
+        log.info("Marking voucher as used via Feign for order: {}, voucherUserId: {}",
+                order.getOrderId(), order.getVoucherUserId());
+
+        VoucherUsedRequest request = VoucherUsedRequest.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .voucherUserId(order.getVoucherUserId())
+                .voucherCode(order.getVoucherCode())
+                .discountValue(order.getDiscountAmount())
+                .usedAt(order.getCreatedAt())
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = voucherClient.markVoucherAsUsed(request); // ✅ DÙNG voucherClient
+            if (!response.isSuccess()) {
+                log.error("Failed to mark voucher as used for order {}", order.getOrderId());
+            } else {
+                log.info("Voucher marked as used successfully via Feign for voucherUserId: {}",
+                        order.getVoucherUserId());
+            }
+        } catch (Exception e) {
+            log.error("Error calling reward service to mark voucher as used", e);
+            // Không throw exception để không làm fail checkout flow
+        }
+    }
+
+    /**
+     * Đánh dấu sản phẩm là SOLD khi hoàn thành đơn hàng
+     */
+    private void markProductsAsSoldViaFeign(Order order) {
+        log.info("Marking products as SOLD via Feign for order {}", order.getOrderId());
+
+        List<MarkProductsSoldRequest.ProductSold> products = order.getOrderItems().stream()
+                .map(item -> MarkProductsSoldRequest.ProductSold.builder()
+                        .productId(item.getProductId())
+                        .ecoPointValue(item.getEcoPoint() != null ? item.getEcoPoint() : 0)
+                        .build())
+                .collect(Collectors.toList());
+
+        MarkProductsSoldRequest request = MarkProductsSoldRequest.builder()
+                .orderId(order.getOrderId())
+                .products(products)
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = productClient.markProductsAsSold(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to mark products as SOLD for order {}", order.getOrderId());
+            }
+        } catch (Exception e) {
+            log.error("Error calling product service to mark as sold", e);
         }
     }
 

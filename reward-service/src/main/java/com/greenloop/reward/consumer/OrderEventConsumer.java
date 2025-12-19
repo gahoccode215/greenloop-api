@@ -37,48 +37,48 @@ public class OrderEventConsumer {
     };
   }
 
-    @Bean
-    public Consumer<OrderCompletedEvent> orderCompletedRewardConsumer() {
-        return event -> {
-            log.info(
-                    "Received OrderCompletedEvent - orderId: {}, orderCode: {}, customerId: {}, totalEcoPoints: {}",
-                    event.getOrderId(),
-                    event.getOrderCode(),
-                    event.getCustomerId(),
-                    event.getTotalEcoPoints());
+  @Bean
+  public Consumer<OrderCompletedEvent> orderCompletedRewardConsumer() {
+    return event -> {
+      log.info(
+          "Received OrderCompletedEvent - orderId: {}, orderCode: {}, customerId: {}, totalEcoPoints: {}",
+          event.getOrderId(),
+          event.getOrderCode(),
+          event.getCustomerId(),
+          event.getTotalEcoPoints());
 
-            // Cộng điểm cho customer khi order hoàn thành
-            processCompletedOrderEcoPoints(event);
-        };
+      // Cộng điểm cho customer khi order hoàn thành
+      processCompletedOrderEcoPoints(event);
+    };
+  }
+
+  private void processCompletedOrderEcoPoints(OrderCompletedEvent event) {
+    if (event.getTotalEcoPoints() == null || event.getTotalEcoPoints() <= 0) {
+      log.info("No eco points to add for completed orderId: {}", event.getOrderId());
+      return;
     }
 
-    private void processCompletedOrderEcoPoints(OrderCompletedEvent event) {
-        if (event.getTotalEcoPoints() == null || event.getTotalEcoPoints() <= 0) {
-            log.info("No eco points to add for completed orderId: {}", event.getOrderId());
-            return;
-        }
+    try {
+      ecoPointUserService.addEcoPointsForOnlineOrder(
+          event.getCustomerId(),
+          event.getTotalEcoPoints(),
+          event.getOrderId(),
+          event.getOrderCode());
 
-        try {
-            ecoPointUserService.addEcoPointsForOnlineOrder(
-                    event.getCustomerId(),
-                    event.getTotalEcoPoints(),
-                    event.getOrderId(),
-                    event.getOrderCode());
+      log.info(
+          "Added {} eco points for customer {} - completed order: {}",
+          event.getTotalEcoPoints(),
+          event.getCustomerId(),
+          event.getOrderCode());
 
-            log.info(
-                    "Added {} eco points for customer {} - completed order: {}",
-                    event.getTotalEcoPoints(),
-                    event.getCustomerId(),
-                    event.getOrderCode());
-
-        } catch (Exception e) {
-            log.error(
-                    "Failed to add eco points for completed order {}: {}",
-                    event.getOrderId(),
-                    e.getMessage(),
-                    e);
-        }
+    } catch (Exception e) {
+      log.error(
+          "Failed to add eco points for completed order {}: {}",
+          event.getOrderId(),
+          e.getMessage(),
+          e);
     }
+  }
 
   private void processVoucherRedemption(OrderOfflineCreatedEvent event) {
     if (event.getVoucherUserId() == null) {

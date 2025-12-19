@@ -533,65 +533,64 @@ public class EventServiceImpl implements EventService {
       }
     }
 
-      if (status == EventStatus.UPCOMING
-              || status == EventStatus.ONGOING
-              || status == EventStatus.PUBLISHED) {
+    if (status == EventStatus.UPCOMING
+        || status == EventStatus.ONGOING
+        || status == EventStatus.PUBLISHED) {
 
-          List<Long> notifiedUserIds = new ArrayList<>();
-//          notifiedUserIds.addAll(
-//                  event.getStaffAssignments().stream()
-//                          .map(EventStaffAssignment::getStaffId)
-//                          .toList()
-//          );
-//          notifiedUserIds.addAll(
-//                  event.getRegistrations().stream()
-//                          .map(EventRegistration::getUserId)
-//                          .toList()
-//          );
-          try {
-              notifiedUserIds = userServiceFeign.getAllUserIds();
-          } catch (Exception e) {
-                log.error("Failed to fetch all user IDs for notifications: {}", e.getMessage());
-          }
-
-          String title = "";
-          String message = "";
-
-          switch (status) {
-              case UPCOMING -> {
-                  title = "Sự kiện sắp diễn ra";
-                  message = "Sự kiện " + event.getName()
-                          + " sẽ diễn ra vào ngày "
-                          + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-                          + ". Hãy chuẩn bị tham gia nhé!";
-              }
-              case ONGOING -> {
-                  title = "Sự kiện đang diễn ra";
-                  message = "Sự kiện " + event.getName()
-                          + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ!";
-              }
-              case PUBLISHED -> {
-                  title = "Sự kiện đã được công bố";
-                  message = "Sự kiện " + event.getName()
-                          + " đã chính thức được công bố. Hãy theo dõi để không bỏ lỡ!";
-              }
-              default -> {
-              }
-          }
-
-          for (Long idU : notifiedUserIds) {
-              notificationProducer.sendNotificationMessage(
-                      NotificationEvent.builder()
-                              .userId(idU)
-                              .title(title)
-                              .message(message)
-                              .build()
-              );
-          }
+      List<Long> notifiedUserIds = new ArrayList<>();
+      //          notifiedUserIds.addAll(
+      //                  event.getStaffAssignments().stream()
+      //                          .map(EventStaffAssignment::getStaffId)
+      //                          .toList()
+      //          );
+      //          notifiedUserIds.addAll(
+      //                  event.getRegistrations().stream()
+      //                          .map(EventRegistration::getUserId)
+      //                          .toList()
+      //          );
+      try {
+        notifiedUserIds = userServiceFeign.getAllUserIds();
+      } catch (Exception e) {
+        log.error("Failed to fetch all user IDs for notifications: {}", e.getMessage());
       }
 
+      String title = "";
+      String message = "";
 
-      return event.getId();
+      switch (status) {
+        case UPCOMING -> {
+          title = "Sự kiện sắp diễn ra";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " sẽ diễn ra vào ngày "
+                  + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                  + ". Hãy chuẩn bị tham gia nhé!";
+        }
+        case ONGOING -> {
+          title = "Sự kiện đang diễn ra";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ!";
+        }
+        case PUBLISHED -> {
+          title = "Sự kiện đã được công bố";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " đã chính thức được công bố. Hãy theo dõi để không bỏ lỡ!";
+        }
+        default -> {}
+      }
+
+      for (Long idU : notifiedUserIds) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder().userId(idU).title(title).message(message).build());
+      }
+    }
+
+    return event.getId();
   }
 
   private EventDetailResponse fromEntityToDetailResponse(Event event, boolean isRegistered) {
@@ -1097,8 +1096,7 @@ public class EventServiceImpl implements EventService {
             .userId(userId)
             .title("Hủy đăng ký sự kiện thành công")
             .message("Bạn đã hủy đăng ký thành công cho sự kiện ID: " + eventId)
-            .build()
-    );
+            .build());
   }
 
   /**

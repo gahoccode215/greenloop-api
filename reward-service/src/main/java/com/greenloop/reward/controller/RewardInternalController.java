@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/internal")
 @RequiredArgsConstructor
 @Slf4j
-public class InternalRewardController {
+public class RewardInternalController {
 
   private final EcoPointUserService ecoPointUserService;
   private final VoucherService voucherService;
@@ -47,5 +47,25 @@ public class InternalRewardController {
             .message(
                 "Voucher validation completed successfully for voucherUserId: " + voucherUserId)
             .build());
+  }
+
+  @PostMapping("/rewards/eco-points/add")
+  public ResponseEntity<ApiResponseDTO<Void>> addEcoPoints(
+      @RequestBody AddEcoPointsRequest request) {
+
+    log.info(
+        "Internal API: Add eco points - orderId: {}, customerId: {}, points: {}",
+        request.getOrderId(),
+        request.getCustomerId(),
+        request.getEcoPoints());
+
+    ecoPointUserService.addEcoPointsForOnlineOrder(
+        request.getCustomerId(),
+        request.getEcoPoints(),
+        request.getOrderId(),
+        request.getOrderCode());
+
+    return ResponseEntity.ok(
+        ApiResponseDTO.success("Eco points added successfully", null, HttpStatus.OK));
   }
 }

@@ -5,35 +5,11 @@ spring:
     name: product-service
   cloud:
     function:
-      definition: orderCheckedOutProductConsumer;orderOfflineCreatedProductConsumer;orderCancelledProductConsumer
+      definition:
     stream:
       bindings:
         ecoPointDonation-out-0:
           destination: ecopoint-donation
-        orderCheckedOutProductConsumer-in-0:
-          destination: order-checked-out-product
-          group: ${spring.application.name}
-          consumer:
-            max-attempts: 3
-            back-off-initial-interval: 1000
-            back-off-multiplier: 2.0
-            back-off-max-interval: 10000
-        orderOfflineCreatedProductConsumer-in-0:
-          destination: order-offline-created-product
-          group: ${spring.application.name}
-        orderCancelledProductConsumer-in-0:
-          destination: order-cancelled-product
-          group: ${spring.application.name}
-      rabbit:
-        bindings:
-          orderCheckedOutProductConsumer-in-0:
-            consumer:
-              auto-bind-dlq: true  # Tạo Dead Letter Queue tự động
-              republish-to-dlq: true  # Gửi failed message vào DLQ
-              requeue-rejected: false  # Không requeue vô hạn
-              durableSubscription: true  # Queue persistent
-              prefetch: 1  # Xử lý từng message một
-              acknowledge-mode: AUTO
 
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_product_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true

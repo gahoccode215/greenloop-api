@@ -427,6 +427,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
 
+
     private ProductAsset handleImageUpload(MultipartFile file) {
         try {
             String localImagePath = "GreenLoop/Products";

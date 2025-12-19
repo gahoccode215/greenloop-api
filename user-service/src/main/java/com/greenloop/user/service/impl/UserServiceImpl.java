@@ -12,7 +12,6 @@ import com.greenloop.user.exception.UserNotFoundException;
 import com.greenloop.user.repository.UserRepository;
 import com.greenloop.user.service.CloudinaryService;
 import com.greenloop.user.service.UserService;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -94,17 +93,17 @@ public class UserServiceImpl implements UserService {
     return mapUserToProfileResponse(updatedUser);
   }
 
-    @Override
-    public List<Long> getAllUserIds() {
-      List<Long> userIds = new ArrayList<>();
-        List<User> users = userRepository.findAll();
-        for (User user : users) {
-            userIds.add(user.getId());
-        }
-        return userIds;
+  @Override
+  public List<Long> getAllUserIds() {
+    List<Long> userIds = new ArrayList<>();
+    List<User> users = userRepository.findAll();
+    for (User user : users) {
+      userIds.add(user.getId());
     }
+    return userIds;
+  }
 
-    private UserProfileResponse mapUserToProfileResponse(User user) {
+  private UserProfileResponse mapUserToProfileResponse(User user) {
     List<String> roleNames = user.getRoles().stream().map(Role::getName).toList();
 
     return UserProfileResponse.builder()

@@ -8,7 +8,7 @@ import lombok.*;
 @Setter
 @Builder
 public class NotificationEvent {
-    private Long userId;
-    private String title;
-    private String message;
+  private Long userId;
+  private String title;
+  private String message;
 }

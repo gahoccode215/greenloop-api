@@ -69,3 +69,4 @@ hs_err_pid*
 /*.event
 /.env.event
 /.env.reward
+/.env.ai

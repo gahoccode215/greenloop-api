@@ -53,10 +53,9 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
           "/api/v1/goship/shipments/**",
           "/api/v1/blogs/**",
           "/api/v1/simulator/shipments",
-            "/api/v1/orders/payment/payos-webhook",
-              "/api/v1/eco-point-users/leaderboard",
-              "/api/v1/goship/webhooks"
-      );
+          "/api/v1/orders/payment/payos-webhook",
+          "/api/v1/eco-point-users/leaderboard",
+          "/api/v1/goship/webhooks");
 
   public JwtAuthFilter(JwtUtil jwtUtil) {
     super(Config.class);

@@ -50,7 +50,7 @@ public class SecurityConfig {
     "/login/**",
     "/api/v1/users/*/**",
     "/api/v1/blogs/**",
-          "/api/v1/internal/**"
+    "/api/v1/internal/**"
   };
 
   private final HeaderAuthFilter headerAuthFilter;

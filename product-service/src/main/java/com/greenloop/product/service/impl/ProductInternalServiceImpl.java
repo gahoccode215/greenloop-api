@@ -1,5 +1,9 @@
 package com.greenloop.product.service.impl;
 
+import com.greenloop.product.dto.request.MarkProductsSoldRequest;
+import com.greenloop.product.dto.request.ReserveProductsRequest;
+import com.greenloop.product.dto.request.UnreserveProductsRequest;
+import com.greenloop.product.dto.request.UpdateProductStatusRequest;
 import com.greenloop.product.dto.response.EventProductMappingResponse;
 import com.greenloop.product.dto.response.ProductAssetResponse;
 import com.greenloop.product.dto.response.ProductResponse;
@@ -16,6 +20,7 @@ import com.greenloop.product.repository.DonationItemRepository;
 import com.greenloop.product.repository.EventProductMappingRepository;
 import com.greenloop.product.repository.ProductRepository;
 import com.greenloop.product.service.ProductInternalService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -139,6 +144,78 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
         return response;
     }
+    @Override
+    @Transactional
+    public void reserveProducts(ReserveProductsRequest request) {
+        log.info("Reserving {} products for order {}",
+                request.getProducts().size(), request.getOrderId());
+
+        for (ReserveProductsRequest.ProductReserve item : request.getProducts()) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+
+            if (product.getStatus() != ProductStatus.AVAILABLE) {
+                throw new BusinessException(
+                        "Sản phẩm " + product.getCode() + " không ở trạng thái AVAILABLE",
+                        ErrorCode.PRODUCT_NOT_AVAILABLE
+                );
+            }
+
+            product.setStatus(ProductStatus.RESERVED);
+            productRepository.save(product);
+
+            log.info("Product {} reserved for order {}",
+                    product.getCode(), request.getOrderId());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unreserveProducts(UnreserveProductsRequest request) {
+        log.info("Unreserving {} products for cancelled order {}",
+                request.getProducts().size(), request.getOrderId());
+
+        for (UnreserveProductsRequest.ProductUnreserve item : request.getProducts()) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+
+            if (product.getStatus() == ProductStatus.RESERVED) {
+                product.setStatus(ProductStatus.AVAILABLE);
+                productRepository.save(product);
+
+                log.info("Product {} unreserved back to AVAILABLE",
+                        product.getCode());
+            } else {
+                log.warn("Product {} is not RESERVED, current status: {}",
+                        product.getCode(), product.getStatus());
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void markProductsAsSold(MarkProductsSoldRequest request) {
+        log.info("Marking {} products as SOLD for completed order {}",
+                request.getProducts().size(), request.getOrderId());
+
+        for (MarkProductsSoldRequest.ProductSold item : request.getProducts()) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+
+            if (product.getStatus() == ProductStatus.RESERVED) {
+                product.setStatus(ProductStatus.SOLD);
+                productRepository.save(product);
+
+                log.info("Product {} marked as SOLD", product.getCode());
+            } else {
+                log.warn("Product {} is not RESERVED, current status: {}",
+                        product.getCode(), product.getStatus());
+            }
+        }
+    }
 
     /**
      * Map Event Mappings sang DTO
@@ -157,6 +234,36 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                         .build())
                 .collect(Collectors.toList());
     }
+    @Override
+    @Transactional
+    public void updateProductStatus(UpdateProductStatusRequest request) {
+        log.info("Updating status for {} products in order {}",
+                request.getProductUpdates().size(), request.getOrderCode());
+
+        for (UpdateProductStatusRequest.ProductStatusUpdate update : request.getProductUpdates()) {
+            Product product = productRepository.findById(update.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + update.getProductId()));
+
+            // Validate old status (warning only, không block)
+            if (!product.getStatus().name().equals(update.getOldStatus())) {
+                log.warn("Product {} current status {} does not match expected old status {}",
+                        product.getCode(), product.getStatus(), update.getOldStatus());
+            }
+
+            // Update to new status
+            ProductStatus newStatus = ProductStatus.valueOf(update.getNewStatus());
+            product.setStatus(newStatus);
+            productRepository.save(product);
+
+            log.info("Updated product {} from {} to {}",
+                    product.getCode(), update.getOldStatus(), update.getNewStatus());
+        }
+
+        log.info("Successfully updated status for {} products in order {}",
+                request.getProductUpdates().size(), request.getOrderCode());
+    }
+
 
     /**
      * Map ProductAssets sang DTO
