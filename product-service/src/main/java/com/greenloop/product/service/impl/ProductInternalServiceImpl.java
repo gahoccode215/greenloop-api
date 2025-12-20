@@ -273,7 +273,7 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
             // 1. Đổi Product status = SOLD
             Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException(productId));
+                    .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID " + productId));
 
             product.setStatus(ProductStatus.SOLD);
             productRepository.save(product);

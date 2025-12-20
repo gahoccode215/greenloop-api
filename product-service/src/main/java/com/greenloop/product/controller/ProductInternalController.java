@@ -1,10 +1,6 @@
 package com.greenloop.product.controller;
 
-import com.greenloop.product.dto.request.MarkProductsSoldRequest;
-import com.greenloop.product.dto.request.ProductValidationRequest;
-import com.greenloop.product.dto.request.ReserveProductsRequest;
-import com.greenloop.product.dto.request.UnreserveProductsRequest;
-import com.greenloop.product.dto.request.UpdateProductStatusRequest; // ✅ THÊM DÒNG NÀY
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.ApiResponseDTO;
 import com.greenloop.product.dto.response.ProductResponse;
 import com.greenloop.product.service.ProductInternalService;
