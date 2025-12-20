@@ -2,6 +2,7 @@ package com.greenloop.product.repository;
 
 import com.greenloop.product.entity.EventProductMapping;
 import com.greenloop.product.enums.EventMappingStatus;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface EventProductMappingRepository extends JpaRepository<EventProductMapping, Long> {
+public interface EventProductMappingRepository extends JpaRepository<EventProductMapping, Long>, Specification<EventProductMapping> {
 
     @Query("""
                 SELECT m FROM EventProductMapping m

@@ -7,11 +7,18 @@ import com.greenloop.event.enums.RegistrationStatus;
 import com.greenloop.event.service.EventService;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -424,4 +431,72 @@ public class EventController {
     EventResponse eventResponse = eventService.getInfoEvent(eventId);
     return ResponseEntity.ok(eventResponse);
   }
+
+  // --------------------------- Event Export ---------------------------
+  @GetMapping("/export")
+  @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+  @Operation(
+          summary = "Export Events Data",
+          description = "Export events data to CSV with various filters and options",
+          tags = {"Event Administration"})
+  public void exportEvents(
+          @RequestParam(required = false) Long eventId,
+          @RequestParam(defaultValue = "false") boolean includeParticipants,
+          @RequestParam(defaultValue = "false") boolean includeStaff,
+          @RequestParam(defaultValue = "false") boolean includeCheckin,
+          @RequestParam(defaultValue = "false") boolean includeStaffDetails,
+          @RequestParam(required = false) EventStatus status,
+          @RequestParam(required = false) Integer month,
+          @RequestParam(required = false) Integer year,
+          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+          HttpServletResponse response) throws IOException {
+
+      response.setContentType("text/csv; charset=UTF-8");
+      response.setHeader("Content-Disposition", "attachment; filename=events_export_"
+              + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+      List<EventExportDTO> exportData = eventService.getExportData(
+              eventId, status, month, year, start, end,
+              includeParticipants, includeStaff, includeCheckin, includeStaffDetails);
+
+      try (PrintWriter writer = response.getWriter();
+           CSVPrinter csvPrinter = new CSVPrinter(writer,
+                   CSVFormat.DEFAULT.withHeader(
+                           "EventId", "EventCode", "EventName", "Status",
+                           "StartTime", "EndTime",
+                           "ParticipantsCount", "StaffCount", "CheckinCount",
+                           "UserId", "QrCode", "CheckinTime", "RegistrationNote", "RegistrationStatus",
+                           "StaffId", "StaffName", "IsStoreManager"))) {
+
+          for (EventExportDTO dto : exportData) {
+              csvPrinter.printRecord(
+                      dto.getEventId(),
+                      dto.getEventCode(),
+                      dto.getEventName(),
+                      dto.getStatus(),
+                      dto.getStartTime(),
+                      dto.getEndTime(),
+                      dto.getParticipantsCount(),
+                      dto.getStaffCount(),
+                      dto.getCheckinCount(),
+                      dto.getUserId() != null ? dto.getUserId() : "",
+                      dto.getQrCode() != null ? dto.getQrCode() : "",
+                      dto.getCheckinTime() != null ? dto.getCheckinTime() : "",
+                      dto.getRegistrationNote() != null ? dto.getRegistrationNote() : "",
+                      dto.getRegistrationStatus() != null ? dto.getRegistrationStatus() : "",
+                      dto.getStaffId() != null ? dto.getStaffId() : "",
+                      dto.getStaffName() != null ? dto.getStaffName() : "",
+                      dto.getIsStoreManager() != null ? dto.getIsStoreManager() : ""
+              );
+          }
+
+      } catch (Exception e) {
+          log.error("Error exporting events data to CSV", e);
+          response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+          response.setContentType("application/json");
+          response.getWriter().write("{\"error\":\"Failed to export data\"}");
+      }
+  }
+
 }

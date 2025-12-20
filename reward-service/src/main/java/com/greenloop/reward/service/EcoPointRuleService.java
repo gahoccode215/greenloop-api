@@ -4,6 +4,9 @@ import com.greenloop.reward.dto.request.EcoPointInfoRequest;
 import com.greenloop.reward.dto.request.EcoPointRuleFilterRequest;
 import com.greenloop.reward.dto.request.EcoPointRuleRequest;
 import com.greenloop.reward.dto.response.EcoPointResponse;
+import com.greenloop.reward.dto.response.EcoPointRuleExportDTO;
+import com.greenloop.reward.enums.EcoActionType;
+
 import java.util.List;
 
 public interface EcoPointRuleService {

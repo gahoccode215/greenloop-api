@@ -3,16 +3,21 @@ package com.greenloop.product.controller;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
 import com.greenloop.product.dto.response.*;
+import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.service.DonationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +25,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -140,6 +149,63 @@ public class DonationController {
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
+    }
+
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @Operation(summary = "Export Donations Data", description = "Export donations to CSV")
+    public void exportDonations(
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) DonationItemStatus itemStatus,
+            @RequestParam(required = false) ConditionGrade conditionGrade,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "true") boolean includeItems,
+            HttpServletResponse response) throws IOException {
+
+        try {
+            List<DonationExportDTO> exportData = donationService.getExportData(
+                    eventId, userId, itemStatus, conditionGrade, categoryId,
+                    startDate, endDate, includeItems);
+
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=donations_export_"
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+            try (PrintWriter writer = response.getWriter();
+                 CSVPrinter csvPrinter = new CSVPrinter(writer,
+                         CSVFormat.DEFAULT.withHeader(
+                                 "DonationId", "DonationCode", "UserId", "EventId", "EventCode", "EventName", "DonationNote", "InspectedBy", "InspectorName", "CreatedAt",
+                                 "ItemId", "ItemCode", "ItemName", "ItemDescription", "CategoryName",
+                                 "ConditionGrade", "EcoPointValue", "ItemStatus", "ConvertProductId", "ImageUrl"))) {
+
+                for (DonationExportDTO dto : exportData) {
+                    csvPrinter.printRecord(
+                            dto.getDonationId(), dto.getDonationCode(), dto.getUserId(),
+                            dto.getEventId(), dto.getEventCode(), dto.getEventName(),
+                            dto.getInspectedBy(), dto.getInspectorName(), dto.getDonationCreatedAt(),
+                            dto.getItemId() != null ? dto.getItemId() : "",
+                            dto.getItemCode() != null ? dto.getItemCode() : "",
+                            dto.getItemName() != null ? dto.getItemName() : "",
+                            dto.getItemDescription() != null ? dto.getItemDescription() : "",
+                            dto.getCategoryName() != null ? dto.getCategoryName() : "",
+                            dto.getConditionGrade() != null ? dto.getConditionGrade() : "",
+                            dto.getEcoPointValue() != null ? dto.getEcoPointValue() : "",
+                            dto.getItemStatus() != null ? dto.getItemStatus() : "",
+                            dto.getConvertProductId() != null ? dto.getConvertProductId() : "",
+                            dto.getImageUrl() != null ? dto.getImageUrl() : ""
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exporting donations data", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Failed to export donations data\"}");
+        }
     }
 
 }
