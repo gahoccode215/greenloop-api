@@ -75,4 +75,7 @@ public interface EventService {
   EventUserRegistrationResponse getUserRegistrationByTicketCode(String ticketCode);
 
   EventResponse getInfoEvent(Long eventId);
+
+
+    List<EventExportDTO> getExportData(Long eventId, EventStatus status, Integer month, Integer year, LocalDateTime start, LocalDateTime end, boolean includeParticipants, boolean includeStaff, boolean includeCheckin, boolean includeStaffDetails);
 }

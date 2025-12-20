@@ -4,20 +4,25 @@ import com.greenloop.product.dto.request.AssignProductEventRequest;
 import com.greenloop.product.dto.request.CreateProductRequest;
 import com.greenloop.product.dto.request.UpdateProductRequest;
 import com.greenloop.product.dto.request.UpdateStatusProductEventMappingRequest;
-import com.greenloop.product.dto.response.ApiResponseDTO;
-import com.greenloop.product.dto.response.PageResponseDTO;
-import com.greenloop.product.dto.response.ProductResponse;
+import com.greenloop.product.dto.response.*;
+import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.EventMappingStatus;
+import com.greenloop.product.enums.ProductStatus;
+import com.greenloop.product.enums.ProductType;
 import com.greenloop.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +30,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -261,5 +271,104 @@ public class ProductController {
         );
     }
 
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @Operation(summary = "Export Products Data", description = "Export products to CSV")
+    public void exportProducts(
+            @RequestParam(required = false) ProductStatus status,
+            @RequestParam(required = false) ProductType type,
+            @RequestParam(required = false) ConditionGrade conditionGrade,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long donationItemId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            HttpServletResponse response) throws IOException {
+
+        try {
+            List<ProductExportDTO> exportData = productService.getExportData(
+                    status, type, conditionGrade, categoryId, donationItemId,
+                    startDate, endDate, minPrice, maxPrice);
+
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=products_export_"
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+            try (PrintWriter writer = response.getWriter();
+                 CSVPrinter csvPrinter = new CSVPrinter(writer,
+                         CSVFormat.DEFAULT.withHeader(
+                                 "ProductId", "ProductCode", "ProductName", "Description", "CategoryName",
+                                 "DonationItemId", "DonationCode", "Price", "EcoPointValue",
+                                 "ConditionGrade", "Status", "Type",
+                                 "CreatedAt", "UpdatedAt", "ImageUrls"))) {
+
+                for (ProductExportDTO dto : exportData) {
+                    csvPrinter.printRecord(
+                            dto.getProductId(), dto.getProductCode(), dto.getProductName(),
+                            dto.getDescription(), dto.getCategoryName(),
+                            dto.getDonationItemId(), dto.getDonationCode(),
+                            dto.getPrice(), dto.getEcoPointValue(),
+                            dto.getConditionGrade(), dto.getStatus(), dto.getType(),
+                            dto.getCreatedAt(), dto.getUpdatedAt(), dto.getImageUrls()
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exporting products data", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Failed to export products data\"}");
+        }
+    }
+
+
+    @GetMapping("/event-mapping/export")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @Operation(summary = "Export Event Product Mappings", description = "Export event-product mappings to CSV")
+    public void exportMappings(
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) EventMappingStatus mappingStatus,
+            @RequestParam(required = false) ProductStatus productStatus,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            HttpServletResponse response) throws IOException {
+
+        try {
+            List<EventProductMappingExportDTO> exportData = productService.getExportData(
+                    eventId, productId, mappingStatus, productStatus, startDate, endDate);
+
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=event_products_export_"
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
+            try (PrintWriter writer = response.getWriter();
+                 CSVPrinter csvPrinter = new CSVPrinter(writer,
+                         CSVFormat.DEFAULT.withHeader(
+                                 "MappingId", "EventId", "EventCode", "EventName",
+                                 "EventStartTime", "EventEndTime", "EventStatus",
+                                 "ProductId", "ProductCode", "ProductName", "ProductPrice",
+                                 "ProductStatus", "ProductType", "CategoryName",
+                                 "DisplayFrom", "DisplayTo", "MappingStatus", "CreatedAt"))) {
+
+                for (EventProductMappingExportDTO dto : exportData) {
+                    csvPrinter.printRecord(
+                            dto.getMappingId(), dto.getEventId(), dto.getEventCode(), dto.getEventName(),
+                            dto.getEventStartTime(), dto.getEventEndTime(), dto.getEventStatus(),
+                            dto.getProductId(), dto.getProductCode(), dto.getProductName(), dto.getProductPrice(),
+                            dto.getProductStatus(), dto.getProductType(), dto.getCategoryName(),
+                            dto.getDisplayFrom(), dto.getDisplayTo(), dto.getMappingStatus(), dto.getCreatedAt()
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exporting mappings data", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Failed to export mappings data\"}");
+        }
+    }
 
 }
