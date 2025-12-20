@@ -1,9 +1,6 @@
 package com.greenloop.product.service.impl;
 
-import com.greenloop.product.dto.request.MarkProductsSoldRequest;
-import com.greenloop.product.dto.request.ReserveProductsRequest;
-import com.greenloop.product.dto.request.UnreserveProductsRequest;
-import com.greenloop.product.dto.request.UpdateProductStatusRequest;
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.EventProductMappingResponse;
 import com.greenloop.product.dto.response.ProductAssetResponse;
 import com.greenloop.product.dto.response.ProductResponse;
@@ -264,6 +261,43 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 request.getProductUpdates().size(), request.getOrderCode());
     }
 
+
+    @Override
+    @Transactional
+    public void markOfflineProductsAsSold(MarkOfflineProductsSoldRequest request) {
+        log.info("Marking OFFLINE products as SOLD and event mapping as SOLD_OUT for order: {}, event: {}",
+                request.getOrderId(), request.getEventId());
+
+        for (MarkOfflineProductsSoldRequest.ProductSold productSold : request.getProducts()) {
+            Long productId = productSold.getProductId();
+
+            // 1. Đổi Product status = SOLD
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException(productId));
+
+            product.setStatus(ProductStatus.SOLD);
+            productRepository.save(product);
+
+            log.info("Product {} marked as SOLD for offline order: {}",
+                    productId, request.getOrderId());
+
+            // 2. Đổi EventProductMapping status = SOLD_OUT
+            EventProductMapping mapping = eventProductMappingRepository
+                    .findByEventIdAndProductId(request.getEventId(), productId)
+                    .orElseThrow(() -> new RuntimeException(
+                            String.format("EventProductMapping not found for eventId: %d, productId: %d",
+                                    request.getEventId(), productId)));
+
+            mapping.setStatus(EventMappingStatus.SOLD_OUT);
+            eventProductMappingRepository.save(mapping);
+
+            log.info("EventProductMapping updated to SOLD_OUT for event: {}, product: {}",
+                    request.getEventId(), productId);
+        }
+
+        log.info("Completed marking {} offline products as SOLD with event mapping SOLD_OUT",
+                request.getProducts().size());
+    }
 
     /**
      * Map ProductAssets sang DTO

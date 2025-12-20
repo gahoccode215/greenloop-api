@@ -244,7 +244,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         log.info("Processing completed offline order: {}", order.getOrderCode());
 
         // 1. Mark products as SOLD via Feign
-        markProductsAsSoldViaFeign(order);
+        markOfflineProductsAsSoldViaFeign(order);
 
         // 2. Mark voucher as used via Feign (nếu có voucher)
         if (order.getVoucherUserId() != null) {
@@ -252,31 +252,33 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         }
     }
 
-    private void markProductsAsSoldViaFeign(Order order) {
-        log.info("Marking products as SOLD via Feign for offline order: {}", order.getOrderCode());
+    private void markOfflineProductsAsSoldViaFeign(Order order) {
+        log.info("Marking offline products as SOLD and event mapping as SOLD_OUT for order: {}",
+                order.getOrderCode());
 
-        List<MarkProductsSoldRequest.ProductSold> products = order.getOrderItems().stream()
-                .map(item -> MarkProductsSoldRequest.ProductSold.builder()
+        List<MarkOfflineProductsSoldRequest.ProductSold> products = order.getOrderItems().stream()
+                .map(item -> MarkOfflineProductsSoldRequest.ProductSold.builder()
                         .productId(item.getProductId())
                         .build())
                 .collect(Collectors.toList());
 
-        MarkProductsSoldRequest request = MarkProductsSoldRequest.builder()
+        MarkOfflineProductsSoldRequest request = MarkOfflineProductsSoldRequest.builder()
                 .orderId(order.getOrderId())
+                .eventId(order.getEventId())
                 .products(products)
                 .build();
 
         try {
-            ApiResponseDTO<Void> response = productClient.markProductsAsSold(request);
+            ApiResponseDTO<Void> response = productClient.markOfflineProductsAsSold(request);
             if (!response.isSuccess()) {
-                log.error("Failed to mark products as SOLD for offline order: {}",
+                log.error("Failed to mark offline products as SOLD for order: {}",
                         order.getOrderCode());
             } else {
-                log.info("Marked {} products as SOLD for offline order: {}",
+                log.info("Marked {} offline products as SOLD and mapping as SOLD_OUT for order: {}",
                         products.size(), order.getOrderCode());
             }
         } catch (Exception e) {
-            log.error("Error calling product service to mark products as SOLD", e);
+            log.error("Error calling product service to mark offline products as SOLD", e);
         }
     }
 

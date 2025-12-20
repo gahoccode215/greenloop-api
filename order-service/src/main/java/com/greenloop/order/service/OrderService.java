@@ -1,10 +1,7 @@
 package com.greenloop.order.service;
 
 import com.greenloop.order.dto.request.*;
-import com.greenloop.order.dto.response.CheckoutResponse;
-import com.greenloop.order.dto.response.OrderResponse;
-import com.greenloop.order.dto.response.PageResponseDTO;
-import com.greenloop.order.dto.response.ShipmentInfoResponse;
+import com.greenloop.order.dto.response.*;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentStatus;
@@ -27,4 +24,9 @@ public interface OrderService {
     ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
     Order buildAndSaveOrder(CreateOrderRequest request);
     void handleLostOrder(String orderId, String reason);
+
+    CheckoutResponse directCheckout(Long userId, DirectCheckoutRequest request);
+
+    ShippingEstimateResponse estimateShippingForDirectCheckout(
+            DirectShippingEstimateRequest request);
 }

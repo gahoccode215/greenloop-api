@@ -31,6 +31,10 @@ public interface ProductClient {
     @PostMapping("/internal/products/mark-sold")
     ApiResponseDTO<Void> markProductsAsSold(@RequestBody MarkProductsSoldRequest request);
 
+    @PostMapping("/internal/products/mark-offline-sold")
+    ApiResponseDTO<Void> markOfflineProductsAsSold(
+            @RequestBody MarkOfflineProductsSoldRequest request);
+
     @PostMapping("/internal/products/update-status")
     ApiResponseDTO<Void> updateProductStatus(@RequestBody UpdateProductStatusRequest request);
 }

@@ -1,28 +1,22 @@
 package com.greenloop.order.controller;
 
 import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.constant.ProductStatusConstant;
-import com.greenloop.order.dto.event.OrderCheckedOutEvent;
-import com.greenloop.order.dto.event.VoucherUsedEvent;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
-import com.greenloop.order.dto.request.CreateOrderRequest;
+import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.entity.Order;
-import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.OrderType;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
-import com.greenloop.order.service.CartService;
-import com.greenloop.order.service.OrderOfflineService;
-import com.greenloop.order.service.OrderService;
-import com.greenloop.order.service.PendingOrderCacheService;
+import com.greenloop.order.service.*;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,8 +25,9 @@ import vn.payos.model.webhooks.ConfirmWebhookResponse;
 import vn.payos.model.webhooks.Webhook;
 import vn.payos.model.webhooks.WebhookData;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/orders/payment")
@@ -47,7 +42,9 @@ public class PaymentWebhookController {
     private final OrderOfflineService orderOfflineService;
     private final PendingOrderCacheService pendingOrderCacheService;
     private final CartService cartService;
-    private final StreamBridge streamBridge;
+    private final ProductClient productClient;
+    private final RewardClient rewardClient;
+    private final TransactionService transactionService;
 
     @PostMapping("/payos-webhook")
     public ResponseEntity<ApiResponseDTO<WebhookData>> handlePayOSWebhook(
@@ -78,17 +75,13 @@ public class PaymentWebhookController {
                     webhookData.getOrderCode());
 
             if (orderId != null) {
-                // Order đang pending trong Redis
                 PendingOrderRedis pendingOrder = pendingOrderCacheService.getPendingOrder(orderId);
 
                 if (pendingOrder != null) {
                     log.info("Found pending order in Redis: {}", pendingOrder.getOrderCode());
 
-                    // 3a. Xử lý theo kết quả thanh toán
                     if ("00".equals(webhookData.getCode())) {
-                        //  THÀNH CÔNG: Persist từ Redis vào DB
                         Order order = persistOrderFromRedis(pendingOrder, webhookData);
-
                         return ResponseEntity.ok(
                                 ApiResponseDTO.success(
                                         "Thanh toán thành công, đơn hàng " + order.getOrderCode() + " đã được tạo",
@@ -97,9 +90,7 @@ public class PaymentWebhookController {
                                 )
                         );
                     } else {
-                        // THẤT BẠI: Xóa khỏi Redis
                         handleFailedPaymentFromRedis(pendingOrder, webhookData);
-
                         return ResponseEntity.ok(
                                 ApiResponseDTO.success(
                                         "Thanh toán thất bại, đơn hàng đã bị hủy - Code: " + webhookData.getCode(),
@@ -111,8 +102,7 @@ public class PaymentWebhookController {
                 }
             }
 
-            // 3b. Nếu không tìm thấy trong Redis, tìm trong Database
-            // (Trường hợp: COD orders hoặc offline orders đã được tạo trước)
+            // 3. Nếu không tìm thấy trong Redis, tìm trong Database
             orderId = orderService.findOrderIdByPaymentOrderCode(webhookData.getOrderCode());
 
             if (orderId == null) {
@@ -132,7 +122,6 @@ public class PaymentWebhookController {
 
             if ("00".equals(webhookData.getCode())) {
                 handleSuccessfulPayment(order, webhookData);
-
                 return ResponseEntity.ok(
                         ApiResponseDTO.success(
                                 "Thanh toán thành công cho đơn hàng " + order.getOrderCode(),
@@ -142,7 +131,6 @@ public class PaymentWebhookController {
                 );
             } else {
                 handleFailedPayment(order, webhookData);
-
                 return ResponseEntity.ok(
                         ApiResponseDTO.success(
                                 "Webhook nhận được nhưng thanh toán không thành công - Code: " + webhookData.getCode(),
@@ -165,8 +153,8 @@ public class PaymentWebhookController {
     }
 
     /**
-     * ========== REDIS FLOW ==========
-     * Persist order từ Redis vào Database khi thanh toán thành công
+     * ✅ Persist order từ Redis vào Database khi thanh toán thành công
+     * GỌI FEIGN THAY VÌ BẮN EVENT
      */
     private Order persistOrderFromRedis(
             PendingOrderRedis pendingOrder,
@@ -174,7 +162,6 @@ public class PaymentWebhookController {
 
         log.info("Persisting order from Redis to DB: {}", pendingOrder.getOrderCode());
 
-        // Build CreateOrderRequest từ PendingOrderRedis
         CreateOrderRequest orderRequest = CreateOrderRequest.builder()
                 .orderId(pendingOrder.getOrderId())
                 .orderCode(pendingOrder.getOrderCode())
@@ -211,26 +198,24 @@ public class PaymentWebhookController {
 
         // Set order status theo loại đơn
         if (OrderType.ONLINE.equals(pendingOrder.getOrderType())) {
-            orderRequest.setOrderStatus(OrderStatus.PENDING);  // Đợi admin confirm
+            orderRequest.setOrderStatus(OrderStatus.PENDING);
         } else if (OrderType.OFFLINE.equals(pendingOrder.getOrderType())) {
-            orderRequest.setOrderStatus(OrderStatus.COMPLETED);  // Offline complete ngay
+            orderRequest.setOrderStatus(OrderStatus.COMPLETED);
         }
 
         // Save vào Database
         Order savedOrder = orderService.buildAndSaveOrder(orderRequest);
 
-        // Publish event theo loại đơn
+        // ✅ Xử lý theo loại đơn qua Feign (không bắn event)
         if (OrderType.ONLINE.equals(pendingOrder.getOrderType())) {
-            // Online: CHỈ RESERVE sản phẩm, CHƯA cộng điểm
-            publishOrderCheckedOutEventFromRedis(savedOrder);
+            handleOnlineOrderPersist(savedOrder);
 
             // Clear cart
             if (pendingOrder.getCustomerId() != null) {
                 cartService.clearCart(pendingOrder.getCustomerId());
             }
         } else if (OrderType.OFFLINE.equals(pendingOrder.getOrderType())) {
-            // Offline: SOLD sản phẩm + cộng điểm ngay
-            orderOfflineService.publishOrderOfflineCreatedEventDelayed(savedOrder);
+            handleOfflineOrderPersist(savedOrder);
         }
 
         // Xóa khỏi Redis
@@ -248,49 +233,153 @@ public class PaymentWebhookController {
     }
 
     /**
-     * Publish OrderCheckedOutEvent cho order từ Redis
-     * CHỈ RESERVE sản phẩm, CHƯA cộng eco points
+     * ✅ Xử lý ONLINE order - CHỈ RESERVE sản phẩm + mark voucher used
      */
-    private void publishOrderCheckedOutEventFromRedis(Order order) {
-        log.info("Publishing OrderCheckedOutEvent for order {} (from Redis)", order.getOrderId());
+    private void handleOnlineOrderPersist(Order order) {
+        log.info("Processing ONLINE order {} via Feign", order.getOrderCode());
 
-        List<OrderCheckedOutEvent.ProductStatusChange> productStatusChanges = new ArrayList<>();
+        // 1. Reserve products qua Product Service
+        reserveProductsViaFeign(order);
 
-        for (OrderItem item : order.getOrderItems()) {
-            productStatusChanges.add(
-                    OrderCheckedOutEvent.ProductStatusChange.builder()
-                            .productId(item.getProductId())
-                            .newStatus(ProductStatusConstant.RESERVED)
-                            .ecoPointValue(0) // Không cộng điểm lúc checkout
-                            .build()
-            );
+        // 2. Tạo transaction
+        transactionService.createTransactionFromOrder(order);
+
+        // 3. Mark voucher as used (nếu có)
+        if (order.getVoucherUserId() != null) {
+            markVoucherAsUsedViaFeign(order);
         }
 
-        OrderCheckedOutEvent event = OrderCheckedOutEvent.builder()
+        log.info("ONLINE order {} processed: products RESERVED, voucher marked (if any)",
+                order.getOrderCode());
+    }
+
+    /**
+     * ✅ Xử lý OFFLINE order - SOLD sản phẩm + cộng điểm + mark voucher used
+     */
+    private void handleOfflineOrderPersist(Order order) {
+        log.info("Processing OFFLINE order {} via Feign", order.getOrderCode());
+
+        // 1. Mark products as SOLD
+        markProductsAsSoldViaFeign(order);
+
+        // 2. Complete transaction
+        transactionService.completeTransaction(order.getOrderId());
+
+        // 3. Add eco points
+        int totalEcoPoints = order.getOrderItems().stream()
+                .mapToInt(item -> item.getEcoPoint() != null ? item.getEcoPoint() : 0)
+                .sum();
+
+        if (totalEcoPoints > 0) {
+            addEcoPointsViaFeign(order, totalEcoPoints);
+        }
+
+        // 4. Mark voucher as used (nếu có)
+        if (order.getVoucherUserId() != null) {
+            markVoucherAsUsedViaFeign(order);
+        }
+
+        log.info("OFFLINE order {} processed: products SOLD, {} eco points added, voucher marked (if any)",
+                order.getOrderCode(), totalEcoPoints);
+    }
+
+    /**
+     * ✅ Reserve products qua Product Service
+     */
+    private void reserveProductsViaFeign(Order order) {
+        log.info("Reserving products via Feign for order: {}", order.getOrderCode());
+
+        List<ReserveProductsRequest.ProductReserve> products = order.getOrderItems().stream()
+                .map(item -> ReserveProductsRequest.ProductReserve.builder()
+                        .productId(item.getProductId())
+                        .build())
+                .collect(Collectors.toList());
+
+        ReserveProductsRequest request = ReserveProductsRequest.builder()
                 .orderId(order.getOrderId())
                 .customerId(order.getCustomerId())
-                .totalAmount(order.getTotalPrice())
-                .checkedOutAt(order.getCreatedAt())
-                .productStatusChanges(productStatusChanges)
-                .totalEcoPoints(0) // Không cộng điểm
+                .products(products)
                 .build();
-        log.info("Published OrderCheckedOutEvent (product reserve only)  {}", event);
 
-        // gửi đến Product Service
-        streamBridge.send("orderCheckedOutProduct-out-0", event);
-
-        log.info("Published OrderCheckedOutEvent (product reserve only) for order {}",
-                order.getOrderId());
-        if (order.getVoucherUserId() != null) {
-            publishVoucherUsedEventFromRedis(order);
+        try {
+            ApiResponseDTO<Void> response = productClient.reserveProducts(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to reserve products for order: {}", order.getOrderCode());
+            } else {
+                log.info("Reserved {} products for order: {}", products.size(), order.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Error calling product service to reserve products", e);
         }
     }
 
-    private void publishVoucherUsedEventFromRedis(Order order) {
-        log.info("Publishing VoucherUsedEvent for order {} (from Redis) with voucherUserId {}",
-                order.getOrderId(), order.getVoucherUserId());
+    /**
+     * ✅ Mark products as SOLD qua Product Service
+     */
+    private void markProductsAsSoldViaFeign(Order order) {
+        log.info("Marking products as SOLD via Feign for order: {}", order.getOrderCode());
 
-        VoucherUsedEvent voucherEvent = VoucherUsedEvent.builder()
+        List<MarkProductsSoldRequest.ProductSold> products = order.getOrderItems().stream()
+                .map(item -> MarkProductsSoldRequest.ProductSold.builder()
+                        .productId(item.getProductId())
+                        .ecoPointValue(item.getEcoPoint() != null ? item.getEcoPoint() : 0)
+                        .build())
+                .collect(Collectors.toList());
+
+        MarkProductsSoldRequest request = MarkProductsSoldRequest.builder()
+                .orderId(order.getOrderId())
+                .products(products)
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = productClient.markProductsAsSold(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to mark products as SOLD for order: {}", order.getOrderCode());
+            } else {
+                log.info("Marked {} products as SOLD for order: {}", products.size(), order.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Error calling product service to mark as sold", e);
+        }
+    }
+
+    /**
+     * ✅ Add eco points qua Reward Service
+     */
+    private void addEcoPointsViaFeign(Order order, int totalEcoPoints) {
+        log.info("Adding {} eco points via Feign for order: {}",
+                totalEcoPoints, order.getOrderCode());
+
+        AddEcoPointsRequest request = AddEcoPointsRequest.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .ecoPoints(totalEcoPoints)
+                .orderAmount(order.getTotalPrice())
+                .earnedAt(LocalDateTime.now())
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = rewardClient.addEcoPoints(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to add eco points for order: {}", order.getOrderCode());
+            } else {
+                log.info("Added {} eco points successfully for order: {}",
+                        totalEcoPoints, order.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Error calling reward service to add eco points", e);
+        }
+    }
+
+    /**
+     * ✅ Mark voucher as used qua Reward Service
+     */
+    private void markVoucherAsUsedViaFeign(Order order) {
+        log.info("Marking voucher as used via Feign for order: {}, voucherUserId: {}",
+                order.getOrderCode(), order.getVoucherUserId());
+
+        VoucherUsedRequest request = VoucherUsedRequest.builder()
                 .orderId(order.getOrderId())
                 .orderCode(order.getOrderCode())
                 .customerId(order.getCustomerId())
@@ -300,10 +389,17 @@ public class PaymentWebhookController {
                 .usedAt(order.getCreatedAt())
                 .build();
 
-        streamBridge.send("orderCheckoutVoucherUsed-out-0", voucherEvent);
-
-        log.info("Published VoucherUsedEvent for voucherUserId {} on order {} (PayOS flow)",
-                order.getVoucherUserId(), order.getOrderId());
+        try {
+            ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to mark voucher as used for order: {}", order.getOrderCode());
+            } else {
+                log.info("Voucher marked as used successfully for voucherUserId: {}",
+                        order.getVoucherUserId());
+            }
+        } catch (Exception e) {
+            log.error("Error calling reward service to mark voucher as used", e);
+        }
     }
 
     /**
@@ -318,35 +414,27 @@ public class PaymentWebhookController {
                 webhookData.getCode(),
                 webhookData.getDesc());
 
-        // Xóa khỏi Redis (không lưu vào DB)
         pendingOrderCacheService.deletePendingOrder(
                 pendingOrder.getOrderId(),
                 pendingOrder.getPaymentOrderCode()
         );
 
-        // TODO: Gửi notification cho customer về payment failed
-
         log.info("Deleted failed pending order {} from Redis", pendingOrder.getOrderCode());
     }
 
     /**
-     * ========== DATABASE FLOW ==========
      * Xử lý thanh toán thành công cho orders đã có trong DB
-     * (COD orders hoặc Offline orders)
      */
     private void handleSuccessfulPayment(Order order, WebhookData webhookData) {
         String orderId = order.getOrderId();
         OrderType orderType = order.getOrderType();
-        PaymentMethod paymentMethod = order.getPaymentMethod();
 
-        // Cập nhật payment status và transaction ID
         orderService.updatePaymentStatus(orderId, PaymentStatus.PAID);
         orderService.updatePaymentTransactionId(orderId, webhookData.getReference());
 
-        log.info("Processing successful payment for Order: {}, Type: {}, PaymentMethod: {}",
-                order.getOrderCode(), orderType, paymentMethod);
+        log.info("Processing successful payment for Order: {}, Type: {}",
+                order.getOrderCode(), orderType);
 
-        // Xử lý theo loại đơn hàng
         if (OrderType.OFFLINE.equals(orderType)) {
             handleOfflineOrderPayment(order);
         } else {
@@ -354,39 +442,22 @@ public class PaymentWebhookController {
         }
     }
 
-    /**
-     * Xử lý thanh toán thành công cho đơn OFFLINE
-     */
     private void handleOfflineOrderPayment(Order order) {
         String orderId = order.getOrderId();
 
-        // Cập nhật trạng thái đơn hàng thành COMPLETED
         orderService.updateOrderStatus(orderId, OrderStatus.COMPLETED);
-
-        // Publish event để:
-        // - Chuyển sản phẩm RESERVED → SOLD
-        // - Cộng eco points cho customer
-        // - Mark voucher as used
         orderOfflineService.publishOrderOfflineCreatedEventDelayed(order);
 
-        log.info("Offline order {} completed after PayOS payment. Event published.",
-                order.getOrderCode());
+        log.info("Offline order {} completed after PayOS payment", order.getOrderCode());
     }
 
-    /**
-     * Xử lý thanh toán thành công cho đơn ONLINE
-     */
     private void handleOnlineOrderPayment(Order order) {
         String orderId = order.getOrderId();
         OrderStatus currentStatus = order.getOrderStatus();
 
-        // Chỉ cập nhật nếu đang ở trạng thái PENDING
         if (OrderStatus.PENDING.equals(currentStatus)) {
-            // Đơn online sau khi thanh toán vẫn giữ PENDING
-            // Đợi admin CONFIRM để chuyển sang PROCESSING
             orderService.updateOrderStatus(orderId, OrderStatus.PENDING);
-
-            log.info("Online order {} payment confirmed. Status remains PENDING, waiting for admin confirmation.",
+            log.info("Online order {} payment confirmed. Status remains PENDING",
                     order.getOrderCode());
         } else {
             log.warn("Online order {} already in status {}. Skipping status update.",
@@ -394,27 +465,16 @@ public class PaymentWebhookController {
         }
     }
 
-    /**
-     * Xử lý thanh toán thất bại cho orders đã có trong DB
-     */
     private void handleFailedPayment(Order order, WebhookData webhookData) {
         String orderId = order.getOrderId();
-
-        // Cập nhật payment status
         orderService.updatePaymentStatus(orderId, PaymentStatus.FAILED);
 
         log.warn("Payment failed for order {} - Code: {}, Desc: {}",
                 order.getOrderCode(),
                 webhookData.getCode(),
                 webhookData.getDesc());
-
-        // TODO: Có thể gửi notification cho customer/admin
-        // TODO: Nếu là OFFLINE, có thể tự động cancel order sau X phút
     }
 
-    /**
-     * Confirm webhook URL với PayOS
-     */
     @PostMapping("/confirm-webhook")
     public ResponseEntity<ApiResponseDTO<ConfirmWebhookResponse>> confirmWebhook(
             @RequestParam String webhookUrl,
@@ -428,7 +488,6 @@ public class PaymentWebhookController {
                             HttpStatus.OK
                     )
             );
-
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     ApiResponseDTO.error(

@@ -22,6 +22,24 @@ public class ProductInternalController {
 
     private final ProductInternalService productInternalService;
 
+    @PostMapping("/mark-offline-sold")
+    public ResponseEntity<ApiResponseDTO<Void>> markOfflineProductsAsSold(
+            @RequestBody MarkOfflineProductsSoldRequest request) {
+
+        log.info("Mark OFFLINE products as SOLD API called for order: {}, event: {}, products count: {}",
+                request.getOrderId(), request.getEventId(), request.getProducts().size());
+
+        productInternalService.markOfflineProductsAsSold(request);
+
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Đã đánh dấu sản phẩm offline là SOLD và mapping là SOLD_OUT thành công",
+                        null,
+                        HttpStatus.OK
+                )
+        );
+    }
+
     @PostMapping("/validate-for-offline-order")
     public ResponseEntity<ApiResponseDTO<Void>> validateProductsForOfflineOrder(
             @RequestBody ProductValidationRequest request) {

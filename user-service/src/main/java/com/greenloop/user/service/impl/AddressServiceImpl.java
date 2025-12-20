@@ -21,186 +21,211 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class AddressServiceImpl implements AddressService {
 
-  private final UserAddressRepository addressRepository;
-  private final UserRepository userRepository;
+    private final UserAddressRepository addressRepository;
+    private final UserRepository userRepository;
 
-  @Override
-  @Transactional
-  public AddressResponse createAddress(Long userId, AddressRequest request) {
+    @Override
+    @Transactional
+    public AddressResponse createAddress(Long userId, AddressRequest request) {
+        User user = findUserById(userId);
+        boolean shouldSetDefault = determineDefaultStatus(userId, request.getIsDefault());
 
-    User user = findUserById(userId);
-    boolean shouldSetDefault = determineDefaultStatus(userId, request.getIsDefault());
+        if (shouldSetDefault) {
+            unsetAllDefaultAddresses(userId);
+        }
 
-    if (shouldSetDefault) {
-      unsetAllDefaultAddresses(userId);
+        UserAddress address = buildAddressEntity(request, user, shouldSetDefault);
+        UserAddress savedAddress = addressRepository.save(address);
+
+        return mapToResponse(savedAddress);
     }
 
-    UserAddress address = buildAddressEntity(request, user, shouldSetDefault);
-    UserAddress savedAddress = addressRepository.save(address);
+    @Override
+    @Transactional
+    public AddressResponse updateAddress(Long userId, Long addressId, AddressRequest request) {
+        UserAddress address = findAddressByIdAndUserId(addressId, userId);
+        updateAddressFields(address, request);
+        handleDefaultAddressChange(address, request.getIsDefault(), userId);
 
-    return mapToResponse(savedAddress);
-  }
+        UserAddress updatedAddress = addressRepository.save(address);
 
-  @Override
-  @Transactional
-  public AddressResponse updateAddress(Long userId, Long addressId, AddressRequest request) {
-
-    UserAddress address = findAddressByIdAndUserId(addressId, userId);
-    updateAddressFields(address, request);
-    handleDefaultAddressChange(address, request.getIsDefault(), userId);
-
-    UserAddress updatedAddress = addressRepository.save(address);
-
-    return mapToResponse(updatedAddress);
-  }
-
-  @Override
-  @Transactional
-  public void deleteAddress(Long userId, Long addressId) {
-
-    UserAddress address = findAddressByIdAndUserId(addressId, userId);
-    boolean wasDefault = address.getIsDefault();
-
-    addressRepository.delete(address);
-
-    if (wasDefault) {
-      reassignDefaultAddress(userId);
+        return mapToResponse(updatedAddress);
     }
-  }
 
-  @Override
-  @Transactional(readOnly = true)
-  public List<AddressResponse> getAllAddresses(Long userId) {
+    @Override
+    @Transactional
+    public void deleteAddress(Long userId, Long addressId) {
+        UserAddress address = findAddressByIdAndUserId(addressId, userId);
+        boolean wasDefault = address.getIsDefault();
 
-    List<UserAddress> addresses = addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
+        addressRepository.delete(address);
 
-    return addresses.stream().map(this::mapToResponse).collect(Collectors.toList());
-  }
+        if (wasDefault) {
+            reassignDefaultAddress(userId);
+        }
+    }
 
-  @Override
-  @Transactional(readOnly = true)
-  public AddressResponse getAddressById(Long userId, Long addressId) {
+    @Override
+    @Transactional(readOnly = true)
+    public List<AddressResponse> getAllAddresses(Long userId) {
+        List<UserAddress> addresses = addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
+        return addresses.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
 
-    UserAddress address = findAddressByIdAndUserId(addressId, userId);
-    return mapToResponse(address);
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public AddressResponse getAddressById(Long userId, Long addressId) {
+        UserAddress address = findAddressByIdAndUserId(addressId, userId);
+        return mapToResponse(address);
+    }
 
-  @Override
-  @Transactional
-  public AddressResponse setDefaultAddress(Long userId, Long addressId) {
+    @Override
+    @Transactional
+    public AddressResponse setDefaultAddress(Long userId, Long addressId) {
+        UserAddress address = findAddressByIdAndUserId(addressId, userId);
 
-    UserAddress address = findAddressByIdAndUserId(addressId, userId);
+        unsetAllDefaultAddresses(userId);
+        address.setIsDefault(true);
+        addressRepository.save(address);
 
-    unsetAllDefaultAddresses(userId);
-    address.setIsDefault(true);
-    addressRepository.save(address);
+        return mapToResponse(address);
+    }
 
-    return mapToResponse(address);
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public AddressResponse getDefaultAddress(Long userId) {
+        UserAddress address =
+                addressRepository
+                        .findDefaultAddressByUserId(userId)
+                        .orElseThrow(
+                                () ->
+                                        new AddressNotFoundException(
+                                                "Không tìm thấy địa chỉ mặc định cho người dùng: " + userId));
 
-  @Override
-  @Transactional(readOnly = true)
-  public AddressResponse getDefaultAddress(Long userId) {
+        return mapToResponse(address);
+    }
 
-    UserAddress address =
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+    }
+
+    private UserAddress findAddressByIdAndUserId(Long addressId, Long userId) {
+        return addressRepository
+                .findByIdAndUserId(addressId, userId)
+                .orElseThrow(() -> new AddressNotFoundException(addressId, userId));
+    }
+
+    private boolean determineDefaultStatus(Long userId, Boolean requestedDefault) {
+        long addressCount = addressRepository.countByUserId(userId);
+        boolean isFirstAddress = addressCount == 0;
+        boolean explicitlyRequested = Boolean.TRUE.equals(requestedDefault);
+        return isFirstAddress || explicitlyRequested;
+    }
+
+    private void unsetAllDefaultAddresses(Long userId) {
         addressRepository
-            .findDefaultAddressByUserId(userId)
-            .orElseThrow(
-                () ->
-                    new AddressNotFoundException(
-                        "Không tìm thấy địa chỉ mặc định cho người dùng: " + userId));
-
-    return mapToResponse(address);
-  }
-
-  private User findUserById(Long userId) {
-    return userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-  }
-
-  private UserAddress findAddressByIdAndUserId(Long addressId, Long userId) {
-    return addressRepository
-        .findByIdAndUserId(addressId, userId)
-        .orElseThrow(() -> new AddressNotFoundException(addressId, userId));
-  }
-
-  private boolean determineDefaultStatus(Long userId, Boolean requestedDefault) {
-    long addressCount = addressRepository.countByUserId(userId);
-    boolean isFirstAddress = addressCount == 0;
-    boolean explicitlyRequested = Boolean.TRUE.equals(requestedDefault);
-    return isFirstAddress || explicitlyRequested;
-  }
-
-  private void unsetAllDefaultAddresses(Long userId) {
-    addressRepository
-        .findByUserIdAndIsDefaultTrue(userId)
-        .ifPresent(
-            address -> {
-              address.setIsDefault(false);
-              addressRepository.save(address);
-            });
-  }
-
-  private UserAddress buildAddressEntity(AddressRequest request, User user, boolean isDefault) {
-    return UserAddress.builder()
-        .recipientName(request.getRecipientName())
-        .recipientPhone(request.getRecipientPhone())
-        .addressLine(request.getAddressLine())
-        .ward(request.getWard())
-        .wardCode(request.getWardCode())
-        .district(request.getDistrict())
-        .districtName(request.getDistrictName())
-        .city(request.getCity())
-        .cityName(request.getCityName())
-        .deliveryNote(request.getDeliveryNote())
-        .isDefault(isDefault)
-        .user(user)
-        .build();
-  }
-
-  private void updateAddressFields(UserAddress address, AddressRequest request) {
-    address.setRecipientName(request.getRecipientName());
-    address.setRecipientPhone(request.getRecipientPhone());
-    address.setAddressLine(request.getAddressLine());
-    address.setWard(request.getWard());
-    address.setWardCode(request.getWardCode());
-    address.setDistrict(request.getDistrict());
-    address.setDistrictName(request.getDistrictName());
-    address.setCity(request.getCity());
-    address.setCityName(request.getCityName());
-    address.setDeliveryNote(request.getDeliveryNote());
-  }
-
-  private void handleDefaultAddressChange(
-      UserAddress address, Boolean requestedDefault, Long userId) {
-    if (Boolean.TRUE.equals(requestedDefault) && !address.getIsDefault()) {
-      unsetAllDefaultAddresses(userId);
-      address.setIsDefault(true);
+                .findByUserIdAndIsDefaultTrue(userId)
+                .ifPresent(
+                        address -> {
+                            address.setIsDefault(false);
+                            addressRepository.save(address);
+                        });
     }
-  }
 
-  private void reassignDefaultAddress(Long userId) {
-    List<UserAddress> remainingAddresses =
-        addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
+    private UserAddress buildAddressEntity(AddressRequest request, User user, boolean isDefault) {
+        return UserAddress.builder()
+                .recipientName(request.getRecipientName())
+                .recipientPhone(request.getRecipientPhone())
+                .addressLine(request.getAddressLine())
+                .ward(request.getWard())
+                .wardCode(request.getWardCode())
+                .district(request.getDistrict())
+                .districtName(request.getDistrictName())
+                .city(request.getCity())
+                .cityName(request.getCityName())
+                .deliveryNote(request.getDeliveryNote())
+                .isDefault(isDefault)
+                .user(user)
+                .build();
+    }
 
-    UserAddress firstAddress = remainingAddresses.get(0);
-    firstAddress.setIsDefault(true);
-    addressRepository.save(firstAddress);
-  }
+    private void updateAddressFields(UserAddress address, AddressRequest request) {
+        address.setRecipientName(request.getRecipientName());
+        address.setRecipientPhone(request.getRecipientPhone());
+        address.setAddressLine(request.getAddressLine());
+        address.setWard(request.getWard());
+        address.setWardCode(request.getWardCode());
+        address.setDistrict(request.getDistrict());
+        address.setDistrictName(request.getDistrictName());
+        address.setCity(request.getCity());
+        address.setCityName(request.getCityName());
+        address.setDeliveryNote(request.getDeliveryNote());
+    }
 
-  private AddressResponse mapToResponse(UserAddress address) {
-    return AddressResponse.builder()
-        .id(address.getId())
-        .recipientName(address.getRecipientName())
-        .recipientPhone(address.getRecipientPhone())
-        .addressLine(address.getAddressLine())
-        .ward(address.getWard())
-        .wardCode(address.getWardCode())
-        .district(address.getDistrict())
-        .districtName(address.getDistrictName())
-        .city(address.getCity())
-        .cityName(address.getCityName())
-        .isDefault(address.getIsDefault())
-        .deliveryNote(address.getDeliveryNote())
-        .build();
-  }
+    private void handleDefaultAddressChange(
+            UserAddress address, Boolean requestedDefault, Long userId) {
+
+        if (Boolean.TRUE.equals(requestedDefault) && !address.getIsDefault()) {
+            unsetAllDefaultAddresses(userId);
+            address.setIsDefault(true);
+            log.info("Set address {} as default for user {}", address.getId(), userId);
+        }
+
+        else if (Boolean.FALSE.equals(requestedDefault) && address.getIsDefault()) {
+            long totalAddresses = addressRepository.countByUserId(userId);
+
+            if (totalAddresses == 1) {
+                log.warn("Cannot unset default for the only address of user {}", userId);
+                return;
+            }
+
+            address.setIsDefault(false);
+            log.info("Unset default for address {} of user {}", address.getId(), userId);
+
+            reassignDefaultAddressExcluding(userId, address.getId());
+        }
+    }
+
+    private void reassignDefaultAddressExcluding(Long userId, Long excludeAddressId) {
+        List<UserAddress> remainingAddresses =
+                addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId).stream()
+                        .filter(addr -> !addr.getId().equals(excludeAddressId))
+                        .collect(Collectors.toList());
+
+        if (!remainingAddresses.isEmpty()) {
+            UserAddress firstAddress = remainingAddresses.get(0);
+            firstAddress.setIsDefault(true);
+            addressRepository.save(firstAddress);
+            log.info("Reassigned default to address {} for user {}", firstAddress.getId(), userId);
+        }
+    }
+
+    private void reassignDefaultAddress(Long userId) {
+        List<UserAddress> remainingAddresses =
+                addressRepository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
+
+        if (!remainingAddresses.isEmpty()) {
+            UserAddress firstAddress = remainingAddresses.get(0);
+            firstAddress.setIsDefault(true);
+            addressRepository.save(firstAddress);
+            log.info("Reassigned default to address {} for user {}", firstAddress.getId(), userId);
+        }
+    }
+
+    private AddressResponse mapToResponse(UserAddress address) {
+        return AddressResponse.builder()
+                .id(address.getId())
+                .recipientName(address.getRecipientName())
+                .recipientPhone(address.getRecipientPhone())
+                .addressLine(address.getAddressLine())
+                .ward(address.getWard())
+                .wardCode(address.getWardCode())
+                .district(address.getDistrict())
+                .districtName(address.getDistrictName())
+                .city(address.getCity())
+                .cityName(address.getCityName())
+                .isDefault(address.getIsDefault())
+                .deliveryNote(address.getDeliveryNote())
+                .build();
+    }
 }

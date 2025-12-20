@@ -55,7 +55,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .shippingFee(order.getShippingFee())
                 .discountAmount(order.getDiscountAmount())
                 .voucherCode(order.getVoucherCode())
-                // TODO: Tính voucherDiscount và shippingDiscount riêng nếu có
                 .voucherDiscount(order.getDiscountAmount())
                 .shippingDiscount(BigDecimal.ZERO)
                 .paymentMethod(order.getPaymentMethod())
@@ -67,7 +66,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .description(buildDescription(order))
                 .transactionDate(LocalDateTime.now())
                 .eventId(order.getEventId())
-                // TODO: Load event name from Event Service
                 .isGuestPurchase(order.getIsGuestPurchase())
                 .guestName(order.getGuestName())
                 .guestPhone(order.getGuestPhone())
@@ -109,7 +107,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .customerId(order.getCustomerId())
                 .transactionType(TransactionType.REFUND)
                 .orderType(order.getOrderType())
-                .amount(order.getTotalPrice().negate()) // Số âm
+                .amount(order.getTotalPrice().negate())
                 .productTotal(order.getSubTotal())
                 .shippingFee(order.getShippingFee())
                 .discountAmount(order.getDiscountAmount())
@@ -133,26 +131,15 @@ public class TransactionServiceImpl implements TransactionService {
 
         log.info("Generating detailed report from {} to {}", from, to);
 
-        // Build specification
         Specification<Transaction> spec = TransactionSpecification.filterTransactions(from, to, filter);
         List<Transaction> transactions = transactionRepository.findAll(spec);
 
-        // 1. OVERALL SUMMARY
         TransactionReportResponse.OverallSummary overall = calculateOverallSummary(transactions);
-
-        // 2. SOURCE BREAKDOWN (Online vs Offline)
         TransactionReportResponse.SourceBreakdown sourceBreakdown = calculateSourceBreakdown(transactions, overall.getTotalInflow());
-
-        // 3. PAYMENT BREAKDOWN
         TransactionReportResponse.PaymentBreakdown paymentBreakdown = calculatePaymentBreakdown(transactions, overall.getTotalInflow());
-
-        // 4. EVENT BREAKDOWN
         List<TransactionReportResponse.EventBreakdown> eventBreakdowns = calculateEventBreakdown(transactions);
-
-        // 5. DETAILED AMOUNTS
         TransactionReportResponse.DetailedAmounts detailedAmounts = calculateDetailedAmounts(transactions);
 
-        // 6. RECENT TRANSACTIONS
         List<TransactionDetailResponse> recentTransactions = transactions.stream()
                 .sorted((t1, t2) -> t2.getTransactionDate().compareTo(t1.getTransactionDate()))
                 .limit(20)
@@ -185,6 +172,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         return PageResponseUtil.toPageResponse(responsePage);
     }
+
     @Override
     @Transactional(readOnly = true)
     public TransactionDetailResponse getTransactionById(Long id) {
@@ -200,15 +188,21 @@ public class TransactionServiceImpl implements TransactionService {
     // ========== PRIVATE HELPERS ==========
     // ========================================
 
+    /**
+     * ✅ FIX: Xử lý null cho amount
+     */
     private TransactionReportResponse.OverallSummary calculateOverallSummary(List<Transaction> transactions) {
         BigDecimal totalInflow = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
+                .filter(amount -> amount != null) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalOutflow = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.REFUND && t.getStatus() == TransactionStatus.REFUNDED)
-                .map(t -> t.getAmount().abs())
+                .filter(t -> t.getTransactionType() == TransactionType.REFUND
+                        && t.getStatus() == TransactionStatus.REFUNDED)
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return TransactionReportResponse.OverallSummary.builder()
@@ -216,19 +210,21 @@ public class TransactionServiceImpl implements TransactionService {
                 .totalOutflow(totalOutflow)
                 .netCashFlow(totalInflow.subtract(totalOutflow))
                 .totalTransactions(transactions.size())
-                .inflowTransactions((int) transactions.stream().filter(t -> t.getTransactionType() == TransactionType.PAYMENT).count())
-                .outflowTransactions((int) transactions.stream().filter(t -> t.getTransactionType() == TransactionType.REFUND).count())
+                .inflowTransactions((int) transactions.stream()
+                        .filter(t -> t.getTransactionType() == TransactionType.PAYMENT).count())
+                .outflowTransactions((int) transactions.stream()
+                        .filter(t -> t.getTransactionType() == TransactionType.REFUND).count())
                 .build();
     }
 
-    private TransactionReportResponse.SourceBreakdown calculateSourceBreakdown(List<Transaction> transactions, BigDecimal totalInflow) {
-        // Online
+    private TransactionReportResponse.SourceBreakdown calculateSourceBreakdown(
+            List<Transaction> transactions, BigDecimal totalInflow) {
+
         List<Transaction> onlineTransactions = transactions.stream()
                 .filter(t -> t.getOrderType() == OrderType.ONLINE)
                 .toList();
         TransactionReportResponse.OnlineOfflineData online = calculateOnlineOfflineData(onlineTransactions, totalInflow);
 
-        // Offline
         List<Transaction> offlineTransactions = transactions.stream()
                 .filter(t -> t.getOrderType() == OrderType.OFFLINE)
                 .toList();
@@ -240,20 +236,30 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    private TransactionReportResponse.OnlineOfflineData calculateOnlineOfflineData(List<Transaction> transactions, BigDecimal totalInflow) {
+    /**
+     * ✅ FIX: Xử lý null và division by zero
+     */
+    private TransactionReportResponse.OnlineOfflineData calculateOnlineOfflineData(
+            List<Transaction> transactions, BigDecimal totalInflow) {
+
         BigDecimal inflow = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
+                .filter(amount -> amount != null) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal outflow = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                .map(t -> t.getAmount().abs())
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        double percentage = totalInflow.compareTo(BigDecimal.ZERO) > 0
-                ? inflow.divide(totalInflow, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
-                : 0.0;
+        // ✅ FIX: Check null và zero
+        double percentage = 0.0;
+        if (totalInflow != null && totalInflow.compareTo(BigDecimal.ZERO) > 0) {
+            percentage = inflow.divide(totalInflow, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100)).doubleValue();
+        }
 
         return TransactionReportResponse.OnlineOfflineData.builder()
                 .totalInflow(inflow)
@@ -264,7 +270,12 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    private TransactionReportResponse.PaymentBreakdown calculatePaymentBreakdown(List<Transaction> transactions, BigDecimal totalInflow) {
+    /**
+     * ✅ FIX: Xử lý null trong payment breakdown
+     */
+    private TransactionReportResponse.PaymentBreakdown calculatePaymentBreakdown(
+            List<Transaction> transactions, BigDecimal totalInflow) {
+
         Map<PaymentMethod, List<Transaction>> grouped = transactions.stream()
                 .filter(t -> t.getPaymentMethod() != null)
                 .collect(Collectors.groupingBy(Transaction::getPaymentMethod));
@@ -272,19 +283,25 @@ public class TransactionServiceImpl implements TransactionService {
         List<TransactionReportResponse.PaymentMethodData> methods = grouped.entrySet().stream()
                 .map(entry -> {
                     List<Transaction> list = entry.getValue();
+
                     BigDecimal inflow = list.stream()
-                            .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
+                            .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                                    && t.getStatus() == TransactionStatus.COMPLETED)
                             .map(Transaction::getAmount)
+                            .filter(amount -> amount != null) // ✅ FIX
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     BigDecimal outflow = list.stream()
                             .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                            .map(t -> t.getAmount().abs())
+                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                    double percentage = totalInflow.compareTo(BigDecimal.ZERO) > 0
-                            ? inflow.divide(totalInflow, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
-                            : 0.0;
+                    // ✅ FIX: Check null và zero
+                    double percentage = 0.0;
+                    if (totalInflow != null && totalInflow.compareTo(BigDecimal.ZERO) > 0) {
+                        percentage = inflow.divide(totalInflow, 4, RoundingMode.HALF_UP)
+                                .multiply(BigDecimal.valueOf(100)).doubleValue();
+                    }
 
                     return TransactionReportResponse.PaymentMethodData.builder()
                             .paymentMethod(entry.getKey().name())
@@ -302,7 +319,12 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    private List<TransactionReportResponse.EventBreakdown> calculateEventBreakdown(List<Transaction> transactions) {
+    /**
+     * ✅ FIX: Xử lý null trong event breakdown
+     */
+    private List<TransactionReportResponse.EventBreakdown> calculateEventBreakdown(
+            List<Transaction> transactions) {
+
         Map<Long, List<Transaction>> grouped = transactions.stream()
                 .filter(t -> t.getEventId() != null)
                 .collect(Collectors.groupingBy(Transaction::getEventId));
@@ -310,16 +332,18 @@ public class TransactionServiceImpl implements TransactionService {
         return grouped.entrySet().stream()
                 .map(entry -> {
                     List<Transaction> list = entry.getValue();
-                    String eventName = list.get(0).getEventName(); // Assume same event name
+                    String eventName = list.get(0).getEventName();
 
                     BigDecimal revenue = list.stream()
-                            .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
+                            .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                                    && t.getStatus() == TransactionStatus.COMPLETED)
                             .map(Transaction::getAmount)
+                            .filter(amount -> amount != null) // ✅ FIX
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     BigDecimal refund = list.stream()
                             .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                            .map(t -> t.getAmount().abs())
+                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     TransactionReportResponse.PaymentMethodSplit split = calculatePaymentMethodSplit(list);
@@ -337,7 +361,9 @@ public class TransactionServiceImpl implements TransactionService {
                 .toList();
     }
 
-    private TransactionReportResponse.PaymentMethodSplit calculatePaymentMethodSplit(List<Transaction> transactions) {
+    private TransactionReportResponse.PaymentMethodSplit calculatePaymentMethodSplit(
+            List<Transaction> transactions) {
+
         BigDecimal cash = sumByPaymentMethod(transactions, PaymentMethod.CASH);
         BigDecimal bankTransfer = sumByPaymentMethod(transactions, PaymentMethod.BANK_TRANSFER);
         BigDecimal cod = sumByPaymentMethod(transactions, PaymentMethod.COD);
@@ -351,42 +377,57 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
+    /**
+     * ✅ FIX: Filter null amount
+     */
     private BigDecimal sumByPaymentMethod(List<Transaction> transactions, PaymentMethod method) {
         return transactions.stream()
-                .filter(t -> t.getPaymentMethod() == method && t.getStatus() == TransactionStatus.COMPLETED)
+                .filter(t -> t.getPaymentMethod() == method
+                        && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
+                .filter(amount -> amount != null) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private TransactionReportResponse.DetailedAmounts calculateDetailedAmounts(List<Transaction> transactions) {
+    /**
+     * ✅ FIX: Xử lý null cho tất cả BigDecimal fields
+     */
+    private TransactionReportResponse.DetailedAmounts calculateDetailedAmounts(
+            List<Transaction> transactions) {
+
         BigDecimal productRevenue = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(Transaction::getProductTotal)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
+                .map(t -> t.getProductTotal() != null ? t.getProductTotal() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal shippingFee = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(Transaction::getShippingFee)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
+                .map(t -> t.getShippingFee() != null ? t.getShippingFee() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal discount = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(Transaction::getDiscountAmount)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
+                .map(t -> t.getDiscountAmount() != null ? t.getDiscountAmount() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal voucherDiscount = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getVoucherDiscount() != null ? t.getVoucherDiscount() : BigDecimal.ZERO)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
+                .map(t -> t.getVoucherDiscount() != null ? t.getVoucherDiscount() : BigDecimal.ZERO) // ✅ FIX (đã có sẵn)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal shippingDiscount = transactions.stream()
-                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getShippingDiscount() != null ? t.getShippingDiscount() : BigDecimal.ZERO)
+                .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
+                        && t.getStatus() == TransactionStatus.COMPLETED)
+                .map(t -> t.getShippingDiscount() != null ? t.getShippingDiscount() : BigDecimal.ZERO) // ✅ FIX (đã có sẵn)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal refund = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                .map(t -> t.getAmount().abs())
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return TransactionReportResponse.DetailedAmounts.builder()

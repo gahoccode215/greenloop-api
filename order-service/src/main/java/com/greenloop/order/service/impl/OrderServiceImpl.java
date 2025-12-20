@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -233,7 +234,7 @@ public class OrderServiceImpl implements OrderService {
                     userId, orderId, orderCode, request, orderItems,
                     productTotal, finalShippingFee, totalPrice,
                     productDiscount.add(shippingDiscount), voucherResult,
-                    selectedOption, expectedDeliveryTime, parcelDimensions
+                    selectedOption, expectedDeliveryTime, parcelDimensions, false
             );
 
             // 6.2.2. Message trả về
@@ -282,7 +283,7 @@ public class OrderServiceImpl implements OrderService {
             VoucherDiscountResult voucherResult,
             ShippingEstimateResponse.ShippingOption selectedOption,
             LocalDateTime expectedDeliveryTime,
-            ParcelDimensionDTO parcelDimensions) {
+            ParcelDimensionDTO parcelDimensions, Boolean directCheckout) {
 // GOM TOÀN BỘ THÔNG TIN ORDER ĐỂ LƯU DB
         CreateOrderRequest orderRequest = CreateOrderRequest.builder()
                 .orderId(orderId)
@@ -318,7 +319,9 @@ public class OrderServiceImpl implements OrderService {
         transactionService.createTransactionFromOrder(createdOrder);
 
 // 3) Xóa giỏ hàng vì đơn COD đã được tạo thành công
-        cartService.clearCart(userId);
+        if(!directCheckout){
+            cartService.clearCart(userId);
+        }
 
     }
 
@@ -617,28 +620,63 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         OrderStatus oldStatus = order.getOrderStatus();
-
         if (!oldStatus.canTransitionTo(OrderStatus.COMPLETED)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
-                    OrderStatus.COMPLETED.getDescription()
-            );
+                    OrderStatus.COMPLETED.getDescription());
         }
 
+        // Tính tổng eco points
         int totalEcoPoints = order.getOrderItems().stream()
                 .mapToInt(item -> item.getEcoPoint() != null ? item.getEcoPoint() : 0)
                 .sum();
 
+        // Cập nhật order
         order.setEarnedEcoPoints(totalEcoPoints);
         order.setOrderStatus(OrderStatus.COMPLETED);
         order.setUpdatedAt(LocalDateTime.now());
-
         orderRepository.save(order);
 
-        transactionService.completeTransaction(orderId);
+        log.info("Order {} completed. Previous status: {}. Reason: {}",
+                orderId, oldStatus, reason);
 
+        // Xử lý các tác vụ hoàn tất
+        transactionService.completeTransaction(orderId);
         markProductsAsSoldViaFeign(order);
+
+        // Cộng điểm thưởng
+        if (totalEcoPoints > 0) {
+            addEcoPointsViaFeign(order, totalEcoPoints);
+        }
     }
+
+    private void addEcoPointsViaFeign(Order order, int totalEcoPoints) {
+        log.info("Adding {} eco points via Feign for order: {}",
+                totalEcoPoints, order.getOrderCode());
+
+        AddEcoPointsRequest request = AddEcoPointsRequest.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .ecoPoints(totalEcoPoints)
+                .orderAmount(order.getTotalPrice())
+                .earnedAt(LocalDateTime.now())
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = rewardClient.addEcoPoints(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to add eco points for order: {}", order.getOrderCode());
+            } else {
+                log.info("Added {} eco points successfully for order: {}",
+                        totalEcoPoints, order.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Error calling reward service to add eco points", e);
+            // Không throw để không fail flow chính
+        }
+    }
+
 
     @Override
     @Transactional
@@ -722,6 +760,142 @@ public class OrderServiceImpl implements OrderService {
                 orderId, oldStatus, reason);
     }
 
+    @Override
+    @Transactional
+    public CheckoutResponse directCheckout(Long userId, DirectCheckoutRequest request) {
+
+
+        // 1. Validate sản phẩm
+        ProductDTO product = validateAndGetProduct(request.getProductId());
+
+        // 2. Tạo OrderItemRequest từ sản phẩm
+        OrderItemRequest orderItem = buildOrderItemFromProduct(product);
+        List<OrderItemRequest> orderItems = Collections.singletonList(orderItem);
+        BigDecimal productTotal = product.getPrice();
+
+        // 3. Tạo giả CartItem để tính shipping (tái sử dụng logic)
+        CartItem tempCartItem = buildTempCartItemFromProduct(product);
+        List<CartItem> tempCartItems = Collections.singletonList(tempCartItem);
+
+        // 4. Tính phí ship
+        ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
+                tempCartItems,
+                productTotal,
+                String.valueOf(request.getShippingAddress().getCityId()),
+                String.valueOf(request.getShippingAddress().getDistrictId())
+        );
+
+        if (estimate.getAvailableOptions().isEmpty()) {
+            throw new ShippingRateNotFoundException("Không tìm thấy đơn vị vận chuyển phù hợp");
+        }
+
+        ShippingEstimateResponse.ShippingOption selectedOption = estimate.getAvailableOptions().stream()
+                .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
+                .findFirst()
+                .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
+
+        BigDecimal originalShippingFee = selectedOption.getFee();
+
+        // 5. Áp dụng voucher
+        VoucherDiscountResult voucherResult = voucherDiscountService.validateAndCalculateOnline(
+                request.getVoucherUserId(),
+                productTotal,
+                originalShippingFee
+        );
+
+        BigDecimal productDiscount = voucherResult.getDiscountAmount() != null
+                ? voucherResult.getDiscountAmount()
+                : BigDecimal.ZERO;
+        BigDecimal shippingDiscount = voucherResult.getShippingDiscount() != null
+                ? voucherResult.getShippingDiscount()
+                : BigDecimal.ZERO;
+
+        BigDecimal finalShippingFee = originalShippingFee.subtract(shippingDiscount);
+        if (finalShippingFee.compareTo(BigDecimal.ZERO) < 0) {
+            finalShippingFee = BigDecimal.ZERO;
+        }
+
+        BigDecimal subtotalAfterDiscount = productTotal.subtract(productDiscount);
+        BigDecimal totalPrice = subtotalAfterDiscount.add(finalShippingFee);
+
+        // 6. Tính expected delivery time
+        LocalDateTime expectedDeliveryTime = calculateExpectedDeliveryTime(
+                selectedOption.getEstimatedDelivery());
+
+        // 7. Tính parcel dimensions
+        ParcelDimensionDTO parcelDimensions = shippingCalculationService
+                .calculateParcelDimensions(tempCartItems);
+
+        // 8. Tạo orderId và orderCode
+        String orderId = UUID.randomUUID().toString();
+        String orderCode = orderCodeGenerator.generateOrderOnlineCode();
+
+        // 9. Build response
+        CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
+                .orderId(orderId)
+                .orderCode(orderCode)
+                .productTotal(productTotal)
+                .originalShippingFee(originalShippingFee)
+                .productDiscount(productDiscount)
+                .shippingDiscount(shippingDiscount)
+                .discountAmount(productDiscount.add(shippingDiscount))
+                .voucherCode(voucherResult.getVoucherCode())
+                .isFreeShip(voucherResult.getIsFreeShip())
+                .subtotalAfterDiscount(subtotalAfterDiscount)
+                .shippingFee(finalShippingFee)
+                .totalPrice(totalPrice)
+                .selectedCarrier(selectedOption.getCarrierName())
+                .estimatedDelivery(selectedOption.getEstimatedDelivery())
+                .createdAt(LocalDateTime.now());
+
+        // 10. Xử lý theo payment method (tái sử dụng logic hiện có)
+        if (request.getPaymentMethod() == PaymentMethod.COD) {
+            handleCODCheckout(
+                    userId, orderId, orderCode,
+                    convertToCheckoutRequest(request), // Convert DTO
+                    orderItems, productTotal, finalShippingFee, totalPrice,
+                    productDiscount.add(shippingDiscount),
+                    voucherResult, selectedOption, expectedDeliveryTime, parcelDimensions, true
+            );
+
+            String message = String.format("Đặt hàng thành công! Tổng thanh toán: %,d đ khi nhận hàng.",
+                    totalPrice.longValue());
+            responseBuilder.paymentUrl(null).message(message);
+
+        } else if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
+            String paymentUrl = handlePayOSCheckout(
+                    userId, orderId, orderCode,
+                    convertToCheckoutRequest(request),
+                    orderItems, productTotal, finalShippingFee, totalPrice,
+                    productDiscount.add(shippingDiscount),
+                    voucherResult, selectedOption, expectedDeliveryTime, parcelDimensions
+            );
+
+            String message = String.format("Vui lòng thanh toán %,d đ để hoàn tất đơn hàng.",
+                    totalPrice.longValue());
+            responseBuilder.paymentUrl(paymentUrl).message(message);
+        }
+
+        return responseBuilder.build();
+    }
+
+
+    @Override
+    public ShippingEstimateResponse estimateShippingForDirectCheckout(
+            DirectShippingEstimateRequest request) {
+
+        log.info("Estimating shipping for direct checkout - productId: {}", request.getProductId());
+
+        ProductDTO product = validateAndGetProduct(request.getProductId());
+        CartItem tempCartItem = buildTempCartItemFromProduct(product);
+
+        return shippingCalculationService.calculateShippingFee(
+                Collections.singletonList(tempCartItem),
+                product.getPrice(),
+                String.valueOf(request.getCityId()),
+                String.valueOf(request.getDistrictId())
+        );
+    }
 
 
 
@@ -812,6 +986,93 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return response;
+    }
+
+    private ProductDTO validateAndGetProduct(Long productId) {
+        ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(productId);
+
+        if (!response.isSuccess() || response.getData() == null) {
+            throw new ProductNotFoundException(productId);
+        }
+
+        ProductDTO product = response.getData();
+
+        if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
+            throw new ProductNotAvailableException(product.getId());
+        }
+
+        return product;
+    }
+
+    /**
+     * Build OrderItemRequest từ ProductDTO
+     */
+    private OrderItemRequest buildOrderItemFromProduct(ProductDTO product) {
+        Integer ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;
+
+        String productImage = null;
+        if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
+            ProductDTO.ProductAssetDTO asset = product.getImageUrls().get(0);
+            if (asset != null) {
+                productImage = asset.getProductAssetUrl();
+            }
+        }
+
+        return OrderItemRequest.builder()
+                .productId(product.getId())
+                .price(product.getPrice())
+                .productName(product.getName())
+                .productImage(productImage)
+                .ecoPoint(ecoPoint)
+                .build();
+    }
+
+    /**
+     * Build CartItem tạm để tính shipping
+     */
+    private CartItem buildTempCartItemFromProduct(ProductDTO product) {
+        String productImage = null;
+        if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
+            ProductDTO.ProductAssetDTO asset = product.getImageUrls().get(0);
+            if (asset != null) {
+                productImage = asset.getProductAssetUrl();
+            }
+        }
+
+        return CartItem.builder()
+                .productId(product.getId())
+                .price(product.getPrice())
+                .productName(product.getName())
+                .productImage(productImage)
+                .weight(product.getWeight())
+                .width(product.getWidth())
+                .height(product.getHeight())
+                .length(product.getLength())
+                .build();
+    }
+
+
+    private CheckoutRequest convertToCheckoutRequest(DirectCheckoutRequest directRequest) {
+        return CheckoutRequest.builder()
+                .selectedRateId(directRequest.getSelectedRateId())
+                .shippingAddress(directRequest.getShippingAddress())
+                .voucherUserId(directRequest.getVoucherUserId())
+                .paymentMethod(directRequest.getPaymentMethod())
+                .platform(directRequest.getPlatform())
+                .build();
+    }
+
+    private LocalDateTime calculateExpectedDeliveryTime(String estimatedDelivery) {
+        try {
+            String numberStr = estimatedDelivery.replaceAll("[^0-9]", "");
+            if (!numberStr.isEmpty()) {
+                int days = Integer.parseInt(numberStr);
+                return LocalDateTime.now().plusDays(days);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse delivery time: {}", estimatedDelivery);
+        }
+        return LocalDateTime.now().plusDays(3);
     }
 
     private void validateCancelPermission(Order order, OrderStatus currentStatus,
@@ -927,7 +1188,7 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         try {
-            ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request); // ✅ DÙNG voucherClient
+            ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request);
             if (!response.isSuccess()) {
                 log.error("Failed to mark voucher as used for order {}", order.getOrderId());
             } else {
