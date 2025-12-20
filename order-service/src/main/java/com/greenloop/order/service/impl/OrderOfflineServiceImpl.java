@@ -1,7 +1,7 @@
 package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
-import com.greenloop.order.client.VoucherClient;
+import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.dto.ProductDTO;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
 import com.greenloop.order.dto.request.*;
@@ -38,7 +38,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     private final OrderCodeGenerator orderCodeGenerator;
     private final VoucherDiscountService voucherDiscountService;
     private final ProductClient productClient;
-    private final VoucherClient voucherClient;
+    private final RewardClient rewardClient;
     private final PayOSPaymentService payOSPaymentService;
     private final PendingOrderCacheService pendingOrderCacheService;
     private final TransactionService transactionService;
@@ -296,7 +296,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .build();
 
         try {
-            ApiResponseDTO<Void> response = voucherClient.markVoucherAsUsed(request);
+            ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request);
             if (!response.isSuccess()) {
                 log.error("Failed to mark voucher as used for offline order: {}",
                         order.getOrderCode());

@@ -1,6 +1,6 @@
 package com.greenloop.order.service.impl;
 
-import com.greenloop.order.client.VoucherClient;
+import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.UserVoucherResponse;
 import com.greenloop.order.dto.response.VoucherDiscountResult;
@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
-    private final VoucherClient voucherClient;
+    private final RewardClient rewardClient;
 
     /**
      * Validate và tính discount cho đơn OFFLINE
@@ -39,7 +39,7 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
         try {
             ApiResponseDTO<UserVoucherResponse> response =
-                    voucherClient.validateVoucherForUser(voucherUserId);
+                    rewardClient.validateVoucherForUser(voucherUserId);
 
             if (!response.isSuccess() || response.getData() == null) {
                 throw new VoucherException("Voucher không hợp lệ hoặc không tồn tại");
@@ -100,7 +100,7 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
         try {
             ApiResponseDTO<UserVoucherResponse> response =
-                    voucherClient.validateVoucherForUser(voucherUserId);
+                    rewardClient.validateVoucherForUser(voucherUserId);
 
             if (!response.isSuccess() || response.getData() == null) {
                 throw new VoucherException("Voucher không hợp lệ hoặc không tồn tại");

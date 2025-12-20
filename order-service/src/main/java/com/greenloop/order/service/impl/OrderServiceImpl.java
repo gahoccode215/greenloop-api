@@ -2,7 +2,7 @@ package com.greenloop.order.service.impl;
 
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.client.UserClient;
-import com.greenloop.order.client.VoucherClient;
+import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
@@ -57,7 +57,7 @@ public class OrderServiceImpl implements OrderService {
     private final PendingOrderCacheService pendingOrderCacheService;
     private final WarehouseSettingService warehouseSettingService;
     private final UserClient userClient;
-    private final VoucherClient voucherClient;
+    private final RewardClient rewardClient;
     private final TransactionService transactionService;
 
     @Override
@@ -927,7 +927,7 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         try {
-            ApiResponseDTO<Void> response = voucherClient.markVoucherAsUsed(request); // ✅ DÙNG voucherClient
+            ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request); // ✅ DÙNG voucherClient
             if (!response.isSuccess()) {
                 log.error("Failed to mark voucher as used for order {}", order.getOrderId());
             } else {

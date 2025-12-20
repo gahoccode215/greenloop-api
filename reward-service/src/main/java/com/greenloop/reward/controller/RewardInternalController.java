@@ -1,5 +1,6 @@
 package com.greenloop.reward.controller;
 
+import com.greenloop.reward.dto.request.AddEcoPointsRequest;
 import com.greenloop.reward.dto.response.ApiResponseDTO;
 import com.greenloop.reward.dto.response.EcoPointUserResponse;
 import com.greenloop.reward.dto.response.UserVoucherResponse;
