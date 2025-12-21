@@ -6,7 +6,7 @@ import com.greenloop.reward.dto.response.*;
 import com.greenloop.reward.enums.VoucherStatus;
 import com.greenloop.reward.enums.VoucherType;
 import com.greenloop.reward.service.VoucherService;
-import com.greenloop.reward.utils.CSVExportUtil;
+import com.greenloop.reward.utils.ExcelExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,16 +14,12 @@ import jakarta.validation.Valid;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-
+import org.apache.poi.ss.usermodel.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -365,11 +361,9 @@ public class VoucherController {
             .build());
   }
 
-
-
     @GetMapping("/export")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
-    @Operation(summary = "Export Vouchers", description = "Export vouchers to CSV")
+    @Operation(summary = "Export Vouchers", description = "Export vouchers to Excel")
     public void exportVouchers(
             @RequestParam(required = false) Long campaignId,
             @RequestParam(required = false) VoucherStatus status,
@@ -386,38 +380,61 @@ public class VoucherController {
                     campaignId, status, type, expiryDateFrom, expiryDateTo,
                     minPointToRedeem, maxPointToRedeem, includeExpired);
 
-            CSVExportUtil.prepareCsvResponse(response, "vouchers_export");
+            ExcelExportUtil.prepareExcelResponse(response, "vouchers_export");
 
-            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
-                 CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer,
-                         "CampaignId", "CampaignName", "CampaignDescription",
-                         "CampaignStartDate", "CampaignEndDate",
-                         "VoucherId", "VoucherCode", "VoucherName", "VoucherDescription",
-                         "Type", "Value", "MinOrderValue", "MaxDiscount",
-                         "Status", "ExpiryDate", "Quantity", "UsedQuantity", "AvailableQuantity",
-                         "PointToRedeem", "CreatedAt", "UpdatedAt")) {
+            try (Workbook workbook = ExcelExportUtil.createWorkbook()) {
+                Sheet sheet = ExcelExportUtil.createSheet(workbook, "Vouchers");
 
+                // Create header
+                ExcelExportUtil.createHeaderRow(sheet,
+                        "ID Chiến Dịch", "Tên Chiến Dịch", "Mô Tả Chiến Dịch",
+                        "Ngày Bắt Đầu CD", "Ngày Kết Thúc CD",
+                        "ID Voucher", "Mã Voucher", "Tên Voucher", "Mô Tả Voucher",
+                        "Loại", "Giá Trị", "Giá Trị Đơn Tối Thiểu", "Giảm Tối Đa",
+                        "Trạng Thái", "Ngày Hết Hạn", "Số Lượng", "Đã Sử Dụng", "Còn Lại",
+                        "Điểm Đổi", "Ngày Tạo", "Ngày Cập Nhật");
+
+                // Write data
+                int rowNum = 1;
                 for (VoucherExportDTO dto : exportData) {
-                    csvPrinter.printRecord(
-                            dto.getCampaignId(), dto.getCampaignName(), dto.getCampaignDescription(),
-                            dto.getCampaignStartDate(), dto.getCampaignEndDate(),
-                            dto.getVoucherId(), dto.getVoucherCode(), dto.getVoucherName(), dto.getVoucherDescription(),
-                            dto.getType(), dto.getValue(), dto.getMinOrderValue(), dto.getMaxDiscount(),
-                            dto.getStatus(), dto.getExpiryDate(), dto.getQuantity(), dto.getUsedQuantity(),
-                            dto.getAvailableQuantity(), dto.getPointToRedeem(), dto.getCreatedAt(), dto.getUpdatedAt()
-                    );
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
+
+                    row.createCell(colNum++).setCellValue(dto.getCampaignId() != null ? dto.getCampaignId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignName() != null ? dto.getCampaignName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignDescription() != null ? dto.getCampaignDescription() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignStartDate() != null ? dto.getCampaignStartDate() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignEndDate() != null ? dto.getCampaignEndDate() : "");
+                    row.createCell(colNum++).setCellValue(dto.getVoucherId() != null ? dto.getVoucherId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getVoucherCode() != null ? dto.getVoucherCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getVoucherName() != null ? dto.getVoucherName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getVoucherDescription() != null ? dto.getVoucherDescription() : "");
+                    row.createCell(colNum++).setCellValue(dto.getType() != null ? dto.getType() : "");
+                    row.createCell(colNum++).setCellValue(dto.getValue() != null ? dto.getValue() : "");
+                    row.createCell(colNum++).setCellValue(dto.getMinOrderValue() != null ? dto.getMinOrderValue() : "");
+                    row.createCell(colNum++).setCellValue(dto.getMaxDiscount() != null ? dto.getMaxDiscount() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStatus() != null ? dto.getStatus() : "");
+                    row.createCell(colNum++).setCellValue(dto.getExpiryDate() != null ? dto.getExpiryDate() : "");
+                    row.createCell(colNum++).setCellValue(dto.getQuantity() != null ? dto.getQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUsedQuantity() != null ? dto.getUsedQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getAvailableQuantity() != null ? dto.getAvailableQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getPointToRedeem() != null ? dto.getPointToRedeem() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCreatedAt() != null ? dto.getCreatedAt() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUpdatedAt() != null ? dto.getUpdatedAt() : "");
                 }
+
+                workbook.write(response.getOutputStream());
             }
         } catch (Exception e) {
             log.error("Error exporting vouchers", e);
-            CSVExportUtil.handleError(response, "Lỗi khi xuất voucher");
+            ExcelExportUtil.handleError(response, "Lỗi khi xuất voucher");
         }
     }
 
 
     @GetMapping("/campaign/export")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
-    @Operation(summary = "Export Voucher Campaigns", description = "Export voucher campaigns to CSV")
+    @Operation(summary = "Export Voucher Campaigns", description = "Export voucher campaigns to Excel")
     public void exportCampaigns(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDateTo,
@@ -432,28 +449,44 @@ public class VoucherController {
                     startDateFrom, startDateTo, endDateFrom, endDateTo,
                     includeExpired, includeVoucherDetails);
 
-            CSVExportUtil.prepareCsvResponse(response, "voucher_campaigns_export");
+            ExcelExportUtil.prepareExcelResponse(response, "voucher_campaigns_export");
 
-            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
-                 CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer, "CampaignId", "CampaignName", "CampaignDescription",
-                         "StartDate", "EndDate",
-                         "TotalVouchers", "ActiveVouchers", "ExpiredVouchers",
-                         "TotalQuantity", "UsedQuantity", "AvailableQuantity",
-                         "CreatedAt", "UpdatedAt")) {
+            try (Workbook workbook = ExcelExportUtil.createWorkbook()) {
+                Sheet sheet = ExcelExportUtil.createSheet(workbook, "Campaigns");
 
+                ExcelExportUtil.createHeaderRow(sheet,
+                        "ID Chiến Dịch", "Tên Chiến Dịch", "Mô Tả",
+                        "Ngày Bắt Đầu", "Ngày Kết Thúc",
+                        "Tổng Voucher", "Voucher Active", "Voucher Hết Hạn",
+                        "Tổng Số Lượng", "Đã Sử Dụng", "Còn Lại",
+                        "Ngày Tạo", "Ngày Cập Nhật");
+
+                // Write data
+                int rowNum = 1;
                 for (VoucherCampaignExportDTO dto : exportData) {
-                    csvPrinter.printRecord(
-                            dto.getCampaignId(), dto.getCampaignName(), dto.getCampaignDescription(),
-                            dto.getStartDate(), dto.getEndDate(),
-                            dto.getTotalVouchers(), dto.getActiveVouchers(), dto.getExpiredVouchers(),
-                            dto.getTotalQuantity(), dto.getUsedQuantity(), dto.getAvailableQuantity(),
-                            dto.getCreatedAt(), dto.getUpdatedAt()
-                    );
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
+
+                    row.createCell(colNum++).setCellValue(dto.getCampaignId() != null ? dto.getCampaignId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignName() != null ? dto.getCampaignName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCampaignDescription() != null ? dto.getCampaignDescription() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStartDate() != null ? dto.getStartDate() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEndDate() != null ? dto.getEndDate() : "");
+                    row.createCell(colNum++).setCellValue(dto.getTotalVouchers() != null ? dto.getTotalVouchers() : "");
+                    row.createCell(colNum++).setCellValue(dto.getActiveVouchers() != null ? dto.getActiveVouchers() : "");
+                    row.createCell(colNum++).setCellValue(dto.getExpiredVouchers() != null ? dto.getExpiredVouchers() : "");
+                    row.createCell(colNum++).setCellValue(dto.getTotalQuantity() != null ? dto.getTotalQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUsedQuantity() != null ? dto.getUsedQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getAvailableQuantity() != null ? dto.getAvailableQuantity() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCreatedAt() != null ? dto.getCreatedAt() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUpdatedAt() != null ? dto.getUpdatedAt() : "");
                 }
+
+                workbook.write(response.getOutputStream());
             }
         } catch (Exception e) {
             log.error("Error exporting campaigns", e);
-            CSVExportUtil.handleError(response, "Lỗi khi xuất chiến dịch voucher");
+            ExcelExportUtil.handleError(response, "Lỗi khi xuất chiến dịch voucher");
         }
     }
 }

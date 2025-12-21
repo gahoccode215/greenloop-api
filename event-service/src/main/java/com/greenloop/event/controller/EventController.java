@@ -5,7 +5,7 @@ import com.greenloop.event.dto.response.*;
 import com.greenloop.event.enums.EventStatus;
 import com.greenloop.event.enums.RegistrationStatus;
 import com.greenloop.event.service.EventService;
-import com.greenloop.event.utils.CSVExportUtil;
+import com.greenloop.event.utils.ExcelExportUtil;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,14 +13,11 @@ import jakarta.validation.Valid;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -435,68 +432,74 @@ public class EventController {
   }
 
   // --------------------------- Event Export ---------------------------
-  @GetMapping("/export")
-  @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
-  @Operation(
-          summary = "Export Events Data",
-          description = "Export events data to CSV with various filters and options",
-          tags = {"Event Administration"})
-  public void exportEvents(
-          @RequestParam(required = false) Long eventId,
-          @RequestParam(defaultValue = "false") boolean includeParticipants,
-          @RequestParam(defaultValue = "false") boolean includeStaff,
-          @RequestParam(defaultValue = "false") boolean includeCheckin,
-          @RequestParam(defaultValue = "false") boolean includeStaffDetails,
-          @RequestParam(required = false) EventStatus status,
-          @RequestParam(required = false) Integer month,
-          @RequestParam(required = false) Integer year,
-          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
-          HttpServletResponse response) throws IOException {
 
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @Operation(
+            summary = "Export Events Data",
+            description = "Export events data to Excel with various filters and options",
+            tags = {"Event Administration"})
+    public void exportEvents(
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(defaultValue = "false") boolean includeParticipants,
+            @RequestParam(defaultValue = "false") boolean includeStaff,
+            @RequestParam(defaultValue = "false") boolean includeCheckin,
+            @RequestParam(defaultValue = "false") boolean includeStaffDetails,
+            @RequestParam(required = false) EventStatus status,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            HttpServletResponse response) throws IOException {
 
+        try {
+            List<EventExportDTO> exportData = eventService.getExportData(
+                    eventId, status, month, year, start, end,
+                    includeParticipants, includeStaff, includeCheckin, includeStaffDetails);
 
-      List<EventExportDTO> exportData = eventService.getExportData(
-              eventId, status, month, year, start, end,
-              includeParticipants, includeStaff, includeCheckin, includeStaffDetails);
+            ExcelExportUtil.prepareExcelResponse(response, "events_export");
 
-      CSVExportUtil.prepareCsvResponse(response, "events_export");
+            try (Workbook workbook = ExcelExportUtil.createWorkbook()) {
+                Sheet sheet = ExcelExportUtil.createSheet(workbook, "Events");
 
-      try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
-           CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer,
-                   "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện", "Trạng Thái",
-                   "Thời Gian Bắt Đầu", "Thời Gian Kết Thúc",
-                   "Số Lượng Người Tham Gia", "Số Lượng Nhân Viên", "Số Lượt Check-in",
-                   "ID Người Dùng", "Mã QR", "Thời Gian Check-in", "Ghi Chú Đăng Ký", "Trạng Thái Đăng Ký",
-                   "ID Nhân Viên", "Tên Nhân Viên", "Là Quản Lý Cửa Hàng"
-           )) {
+                // Create header
+                ExcelExportUtil.createHeaderRow(sheet,
+                        "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện", "Trạng Thái",
+                        "Thời Gian Bắt Đầu", "Thời Gian Kết Thúc",
+                        "Số Lượng Người Tham Gia", "Số Lượng Nhân Viên", "Số Lượt Check-in",
+                        "ID Người Dùng", "Mã QR", "Thời Gian Check-in", "Ghi Chú Đăng Ký", "Trạng Thái Đăng Ký",
+                        "ID Nhân Viên", "Tên Nhân Viên", "Là Quản Lý Cửa Hàng");
 
-          for (EventExportDTO dto : exportData) {
-              csvPrinter.printRecord(
-                      dto.getEventId(),
-                      dto.getEventCode(),
-                      dto.getEventName(),
-                      dto.getStatus(),
-                      dto.getStartTime(),
-                      dto.getEndTime(),
-                      dto.getParticipantsCount(),
-                      dto.getStaffCount(),
-                      dto.getCheckinCount(),
-                      dto.getUserId() != null ? dto.getUserId() : "",
-                      dto.getQrCode() != null ? dto.getQrCode() : "",
-                      dto.getCheckinTime() != null ? dto.getCheckinTime() : "",
-                      dto.getRegistrationNote() != null ? dto.getRegistrationNote() : "",
-                      dto.getRegistrationStatus() != null ? dto.getRegistrationStatus() : "",
-                      dto.getStaffId() != null ? dto.getStaffId() : "",
-                      dto.getStaffName() != null ? dto.getStaffName() : "",
-                      Boolean.TRUE.equals(dto.getIsStoreManager()) ? "Quản Lý Sự Kiện" : ""
-              );
-          }
+                int rowNum = 1;
+                for (EventExportDTO dto : exportData) {
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
 
-      } catch (Exception e) {
-          log.error("Error exporting events data to CSV", e);
-          CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu sự kiện.");
-      }
-  }
+                    row.createCell(colNum++).setCellValue(dto.getEventId() != null ? dto.getEventId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventCode() != null ? dto.getEventCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventName() != null ? dto.getEventName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStatus() != null ? dto.getStatus() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStartTime() != null ? dto.getStartTime() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEndTime() != null ? dto.getEndTime() : "");
+                    row.createCell(colNum++).setCellValue(dto.getParticipantsCount() != null ? dto.getParticipantsCount() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStaffCount() != null ? dto.getStaffCount() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCheckinCount() != null ? dto.getCheckinCount() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUserId() != null ? dto.getUserId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getQrCode() != null ? dto.getQrCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCheckinTime() != null ? dto.getCheckinTime() : "");
+                    row.createCell(colNum++).setCellValue(dto.getRegistrationNote() != null ? dto.getRegistrationNote() : "");
+                    row.createCell(colNum++).setCellValue(dto.getRegistrationStatus() != null ? dto.getRegistrationStatus() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStaffId() != null ? dto.getStaffId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getStaffName() != null ? dto.getStaffName() : "");
+                    row.createCell(colNum++).setCellValue(Boolean.TRUE.equals(dto.getIsStoreManager()) ? "Quản Lý Sự Kiện" : "");
+                }
+
+                workbook.write(response.getOutputStream());
+            }
+        } catch (Exception e) {
+            log.error("Error exporting events data to Excel", e);
+            ExcelExportUtil.handleError(response, "Lỗi khi xuất dữ liệu sự kiện.");
+        }
+    }
 
 }

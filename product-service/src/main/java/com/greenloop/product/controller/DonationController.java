@@ -6,15 +6,14 @@ import com.greenloop.product.dto.response.*;
 import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.service.DonationService;
-import com.greenloop.product.utils.CSVExportUtil;
+import com.greenloop.product.utils.ExcelExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -28,9 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -153,10 +150,9 @@ public class DonationController {
                         .build());
     }
 
-
     @GetMapping("/export")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
-    @Operation(summary = "Export Donations Data", description = "Export donations to CSV")
+    @Operation(summary = "Export Donations Data", description = "Export donations to Excel")
     public void exportDonations(
             @RequestParam(required = false) Long eventId,
             @RequestParam(required = false) Long userId,
@@ -173,38 +169,51 @@ public class DonationController {
                     eventId, userId, itemStatus, conditionGrade, categoryId,
                     startDate, endDate, includeItems);
 
-            CSVExportUtil.prepareCsvResponse(response, "donations_export");
+            ExcelExportUtil.prepareExcelResponse(response, "donations_export");
 
-            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
-                 CSVPrinter csvPrinter =  CSVExportUtil.createCsvPrinter(writer,
-                         "ID Trao Đổi", "Mã Đơn Trao Đổi", "ID Người Dùng", "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện", "Ghi Chú Trao Đổi", "Người Kiểm Tra", "Tên Người Kiểm Tra", "Thời Gian Tạo",
-                         "ID Vật Phẩm", "Mã Vật Phẩm", "Tên Vật Phẩm", "Mô Tả Vật Phẩm", "Tên Danh Mục",
-                         "Mức Độ Tình Trạng", "Giá Trị Điểm Eco", "Trạng Thái Vật Phẩm", "ID Sản Phẩm Chuyển Đổi", "Đường Dẫn Hình Ảnh"
+            try (Workbook workbook = ExcelExportUtil.createWorkbook()) {
+                Sheet sheet = ExcelExportUtil.createSheet(workbook, "Donations");
 
-                 )) {
+                // Create header
+                ExcelExportUtil.createHeaderRow(sheet,
+                        "ID Trao Đổi", "Mã Đơn Trao Đổi", "ID Người Dùng", "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện",
+                        "Ghi Chú Trao Đổi", "Người Kiểm Tra", "Tên Người Kiểm Tra", "Thời Gian Tạo",
+                        "ID Vật Phẩm", "Mã Vật Phẩm", "Tên Vật Phẩm", "Mô Tả Vật Phẩm", "Tên Danh Mục",
+                        "Mức Độ Tình Trạng", "Giá Trị Điểm Eco", "Trạng Thái Vật Phẩm", "ID Sản Phẩm Chuyển Đổi", "Đường Dẫn Hình Ảnh");
 
+                // Write data
+                int rowNum = 1;
                 for (DonationExportDTO dto : exportData) {
-                    csvPrinter.printRecord(
-                            dto.getDonationId(), dto.getDonationCode(), dto.getUserId(),
-                            dto.getEventId(), dto.getEventCode(), dto.getEventName(),
-                            dto.getInspectedBy(), dto.getInspectorName(), dto.getDonationCreatedAt(),
-                            dto.getItemId() != null ? dto.getItemId() : "",
-                            dto.getItemCode() != null ? dto.getItemCode() : "",
-                            dto.getItemName() != null ? dto.getItemName() : "",
-                            dto.getItemDescription() != null ? dto.getItemDescription() : "",
-                            dto.getCategoryName() != null ? dto.getCategoryName() : "",
-                            dto.getConditionGrade() != null ? dto.getConditionGrade() : "",
-                            dto.getEcoPointValue() != null ? dto.getEcoPointValue() : "",
-                            dto.getItemStatus() != null ? dto.getItemStatus() : "",
-                            dto.getConvertProductId() != null ? dto.getConvertProductId() : "",
-                            dto.getImageUrl() != null ? dto.getImageUrl() : ""
-                    );
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
+
+                    row.createCell(colNum++).setCellValue(dto.getDonationId() != null ? dto.getDonationId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationCode() != null ? dto.getDonationCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUserId() != null ? dto.getUserId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventId() != null ? dto.getEventId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventCode() != null ? dto.getEventCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventName() != null ? dto.getEventName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationNote() != null ? dto.getDonationNote() : "");
+                    row.createCell(colNum++).setCellValue(dto.getInspectedBy() != null ? dto.getInspectedBy() : "");
+                    row.createCell(colNum++).setCellValue(dto.getInspectorName() != null ? dto.getInspectorName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationCreatedAt() != null ? dto.getDonationCreatedAt() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemId() != null ? dto.getItemId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemCode() != null ? dto.getItemCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemName() != null ? dto.getItemName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemDescription() != null ? dto.getItemDescription() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCategoryName() != null ? dto.getCategoryName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getConditionGrade() != null ? dto.getConditionGrade() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEcoPointValue() != null ? dto.getEcoPointValue() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemStatus() != null ? dto.getItemStatus() : "");
+                    row.createCell(colNum++).setCellValue(dto.getConvertProductId() != null ? dto.getConvertProductId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getImageUrl() != null ? dto.getImageUrl() : "");
                 }
+
+                workbook.write(response.getOutputStream());
             }
         } catch (Exception e) {
             log.error("Error exporting donations data", e);
-            CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu trao đổi.");
+            ExcelExportUtil.handleError(response, "Lỗi khi xuất dữ liệu trao đổi.");
         }
     }
-
 }
