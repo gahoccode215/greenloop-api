@@ -6,6 +6,7 @@ import com.greenloop.product.dto.response.*;
 import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.service.DonationService;
+import com.greenloop.product.utils.CSVExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,7 +47,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<Long>builder()
                         .data(donationService.createDonation(request, multipartFile))
-                        .message("Donation created successfully")
+                        .message("Tạo Đơn Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -61,7 +63,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<List<DonationResponse>>builder()
                         .data(donations)
-                        .message("Donations retrieved successfully")
+                        .message("Lấy Danh Sách Đơn Trao Đổi Theo Sự Kiện Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -76,7 +78,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<DonationDetailResponse>builder()
                         .data(donation)
-                        .message("Donation retrieved successfully")
+                        .message("Lấy Thông Tin Đơn Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build()
@@ -91,7 +93,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<List<DonationResponse>>builder()
                         .data(myDonations)
-                        .message("My donations retrieved successfully")
+                        .message("Lấy Danh Sách Đơn Trao Đổi Của Tôi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -108,7 +110,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<UpdateDonationItemStatusResponse>builder()
                         .data(response)
-                        .message("Donation item statuses updated successfully")
+                        .message("Cập Nhật Trạng Thái Vật Phẩm Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -145,7 +147,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<PageResponseDTO<DonationItemDetailResponse>>builder()
                         .data(donationItems)
-                        .message("Donation items retrieved successfully")
+                        .message("Lấy Danh Sách Vật Phẩm Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -171,16 +173,15 @@ public class DonationController {
                     eventId, userId, itemStatus, conditionGrade, categoryId,
                     startDate, endDate, includeItems);
 
-            response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=donations_export_"
-                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            CSVExportUtil.prepareCsvResponse(response, "donations_export");
 
-            try (PrintWriter writer = response.getWriter();
-                 CSVPrinter csvPrinter = new CSVPrinter(writer,
-                         CSVFormat.DEFAULT.withHeader(
-                                 "DonationId", "DonationCode", "UserId", "EventId", "EventCode", "EventName", "DonationNote", "InspectedBy", "InspectorName", "CreatedAt",
-                                 "ItemId", "ItemCode", "ItemName", "ItemDescription", "CategoryName",
-                                 "ConditionGrade", "EcoPointValue", "ItemStatus", "ConvertProductId", "ImageUrl"))) {
+            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+                 CSVPrinter csvPrinter =  CSVExportUtil.createCsvPrinter(writer,
+                         "ID Trao Đổi", "Mã Đơn Trao Đổi", "ID Người Dùng", "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện", "Ghi Chú Trao Đổi", "Người Kiểm Tra", "Tên Người Kiểm Tra", "Thời Gian Tạo",
+                         "ID Vật Phẩm", "Mã Vật Phẩm", "Tên Vật Phẩm", "Mô Tả Vật Phẩm", "Tên Danh Mục",
+                         "Mức Độ Tình Trạng", "Giá Trị Điểm Eco", "Trạng Thái Vật Phẩm", "ID Sản Phẩm Chuyển Đổi", "Đường Dẫn Hình Ảnh"
+
+                 )) {
 
                 for (DonationExportDTO dto : exportData) {
                     csvPrinter.printRecord(
@@ -202,9 +203,7 @@ public class DonationController {
             }
         } catch (Exception e) {
             log.error("Error exporting donations data", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Failed to export donations data\"}");
+            CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu trao đổi.");
         }
     }
 

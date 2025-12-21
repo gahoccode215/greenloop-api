@@ -6,12 +6,14 @@ import com.greenloop.reward.dto.response.*;
 import com.greenloop.reward.enums.VoucherStatus;
 import com.greenloop.reward.enums.VoucherType;
 import com.greenloop.reward.service.VoucherService;
+import com.greenloop.reward.utils.CSVExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -384,19 +386,16 @@ public class VoucherController {
                     campaignId, status, type, expiryDateFrom, expiryDateTo,
                     minPointToRedeem, maxPointToRedeem, includeExpired);
 
-            response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=vouchers_export_"
-                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            CSVExportUtil.prepareCsvResponse(response, "vouchers_export");
 
-            try (PrintWriter writer = response.getWriter();
-                 CSVPrinter csvPrinter = new CSVPrinter(writer,
-                         CSVFormat.DEFAULT.withHeader(
-                                 "CampaignId", "CampaignName", "CampaignDescription",
-                                 "CampaignStartDate", "CampaignEndDate",
-                                 "VoucherId", "VoucherCode", "VoucherName", "VoucherDescription",
-                                 "Type", "Value", "MinOrderValue", "MaxDiscount",
-                                 "Status", "ExpiryDate", "Quantity", "UsedQuantity", "AvailableQuantity",
-                                 "PointToRedeem", "CreatedAt", "UpdatedAt"))) {
+            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+                 CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer,
+                         "CampaignId", "CampaignName", "CampaignDescription",
+                         "CampaignStartDate", "CampaignEndDate",
+                         "VoucherId", "VoucherCode", "VoucherName", "VoucherDescription",
+                         "Type", "Value", "MinOrderValue", "MaxDiscount",
+                         "Status", "ExpiryDate", "Quantity", "UsedQuantity", "AvailableQuantity",
+                         "PointToRedeem", "CreatedAt", "UpdatedAt")) {
 
                 for (VoucherExportDTO dto : exportData) {
                     csvPrinter.printRecord(
@@ -411,9 +410,7 @@ public class VoucherController {
             }
         } catch (Exception e) {
             log.error("Error exporting vouchers", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Failed to export vouchers\"}");
+            CSVExportUtil.handleError(response, "Lỗi khi xuất voucher");
         }
     }
 
@@ -435,18 +432,14 @@ public class VoucherController {
                     startDateFrom, startDateTo, endDateFrom, endDateTo,
                     includeExpired, includeVoucherDetails);
 
-            response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=voucher_campaigns_export_"
-                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            CSVExportUtil.prepareCsvResponse(response, "voucher_campaigns_export");
 
-            try (PrintWriter writer = response.getWriter();
-                 CSVPrinter csvPrinter = new CSVPrinter(writer,
-                         CSVFormat.DEFAULT.withHeader(
-                                 "CampaignId", "CampaignName", "CampaignDescription",
-                                 "StartDate", "EndDate",
-                                 "TotalVouchers", "ActiveVouchers", "ExpiredVouchers",
-                                 "TotalQuantity", "UsedQuantity", "AvailableQuantity",
-                                 "CreatedAt", "UpdatedAt"))) {
+            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+                 CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer, "CampaignId", "CampaignName", "CampaignDescription",
+                         "StartDate", "EndDate",
+                         "TotalVouchers", "ActiveVouchers", "ExpiredVouchers",
+                         "TotalQuantity", "UsedQuantity", "AvailableQuantity",
+                         "CreatedAt", "UpdatedAt")) {
 
                 for (VoucherCampaignExportDTO dto : exportData) {
                     csvPrinter.printRecord(
@@ -460,9 +453,7 @@ public class VoucherController {
             }
         } catch (Exception e) {
             log.error("Error exporting campaigns", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Failed to export campaigns\"}");
+            CSVExportUtil.handleError(response, "Lỗi khi xuất chiến dịch voucher");
         }
     }
 }
