@@ -56,7 +56,11 @@ public enum ErrorCode {
   VOUCHER_USER_OUT_OF_QUANTITY(
       "VCH_011", "Voucher người dùng đã hết số lượng", HttpStatus.BAD_REQUEST),
 
-  VOUCHER_INACTIVE("VCH_012", "Voucher không hoạt động", HttpStatus.BAD_REQUEST);
+  VOUCHER_INACTIVE("VCH_012", "Voucher không hoạt động", HttpStatus.BAD_REQUEST),
+    ECO_POINT_NOT_ENOUGH(
+            "ECO_008", "Người dùng không đủ điểm eco point", HttpStatus.BAD_REQUEST),
+    ECO_POINT_RULE_INVALID_RANGE(
+            "ECO_009", "Quy tắc eco point có phạm vi không hợp lệ", HttpStatus.BAD_REQUEST);
 
   private final String code;
   private final String message;

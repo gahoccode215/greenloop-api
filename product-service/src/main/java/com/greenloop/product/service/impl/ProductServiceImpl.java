@@ -126,7 +126,9 @@ public class ProductServiceImpl implements ProductService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime limit = displayFrom.minusDays(1);
-        return now.isBefore(limit);
+        return now.isAfter(displayFrom)
+                && (active.getDisplayTo() == null || now.isBefore(active.getDisplayTo()));
+
     }
 
 
@@ -175,6 +177,10 @@ public class ProductServiceImpl implements ProductService {
 
         DonationItem donation = donationItemRepository.findByCode(request.getDonationItemCode())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy Donation Code: " + request.getDonationItemCode(), ErrorCode.DONATION_ITEM_NOT_FOUND));
+
+        if (donation.getConvertProductId() != null) {
+            throw new BusinessException(ErrorCode.DONATION_ITEM_ALREADY_CONVERTED);
+        }
 
 
         Product product = Product.builder()
@@ -496,6 +502,14 @@ public class ProductServiceImpl implements ProductService {
 
         if (ecoPointRule == null) {
             log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
+        }
+
+        if(ecoPointRule.getIsActive() == null || !ecoPointRule.getIsActive()) {
+            log.warn("Eco point rule for action type DONATION and category ID {} is inactive", itemReq.getCategoryId());
+            throw new BusinessException(
+                    "Quy tắc Eco Point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.",
+                    ErrorCode.ECO_POINT_RULE_INACTIVE
+            );
         }
 
         if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
