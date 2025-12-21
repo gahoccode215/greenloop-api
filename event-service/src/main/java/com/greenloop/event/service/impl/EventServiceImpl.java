@@ -1041,7 +1041,12 @@ public class EventServiceImpl implements EventService {
             ErrorCode.ALREADY_CHECKED_IN);
     }
 
-    registration.setStatus(RegistrationStatus.ATTENDED);
+      if (now.isAfter(event.getEndTime())) {
+          throw new BusinessException(ErrorCode.EVENT_ALREADY_ENDED);
+      }
+
+
+      registration.setStatus(RegistrationStatus.ATTENDED);
     registration.setCheckinTime(now);
     registration.updatedBy(userId);
     registrationRepository.save(registration);
@@ -1115,7 +1120,11 @@ public class EventServiceImpl implements EventService {
                       ErrorCode.REGISTRATION_NOT_FOUND);
                 });
 
-    registration.setActive(false);
+      if (registration.getStatus() == RegistrationStatus.ATTENDED) {
+          throw new BusinessException(ErrorCode.CANNOT_CANCEL_AFTER_CHECKIN);
+      }
+
+      registration.setActive(false);
     registration.setStatus(RegistrationStatus.CANCELED);
     registration.updatedBy(userId);
     registrationRepository.save(registration);

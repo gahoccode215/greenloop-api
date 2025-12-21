@@ -4,6 +4,8 @@ import com.greenloop.reward.entity.EcoPointUser;
 import com.greenloop.reward.enums.EcoPointStatus;
 import java.util.List;
 import java.util.Optional;
+
+import com.greenloop.reward.enums.SourceType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -30,4 +32,5 @@ public interface EcoPointUserRepository extends JpaRepository<EcoPointUser, Long
           + "   SELECT eu.lifetimePoints FROM EcoPointUser eu WHERE eu.userId = :userId"
           + ")")
   Long countUsersWithMoreLifetimePoints(Long userId);
+
 }
