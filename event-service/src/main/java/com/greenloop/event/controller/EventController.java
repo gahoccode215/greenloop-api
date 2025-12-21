@@ -5,12 +5,14 @@ import com.greenloop.event.dto.response.*;
 import com.greenloop.event.enums.EventStatus;
 import com.greenloop.event.enums.RegistrationStatus;
 import com.greenloop.event.service.EventService;
+import com.greenloop.event.utils.CSVExportUtil;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -452,22 +454,22 @@ public class EventController {
           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
           HttpServletResponse response) throws IOException {
 
-      response.setContentType("text/csv; charset=UTF-8");
-      response.setHeader("Content-Disposition", "attachment; filename=events_export_"
-              + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+
 
       List<EventExportDTO> exportData = eventService.getExportData(
               eventId, status, month, year, start, end,
               includeParticipants, includeStaff, includeCheckin, includeStaffDetails);
 
-      try (PrintWriter writer = response.getWriter();
-           CSVPrinter csvPrinter = new CSVPrinter(writer,
-                   CSVFormat.DEFAULT.withHeader(
-                           "EventId", "EventCode", "EventName", "Status",
-                           "StartTime", "EndTime",
-                           "ParticipantsCount", "StaffCount", "CheckinCount",
-                           "UserId", "QrCode", "CheckinTime", "RegistrationNote", "RegistrationStatus",
-                           "StaffId", "StaffName", "IsStoreManager"))) {
+      CSVExportUtil.prepareCsvResponse(response, "events_export");
+
+      try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+           CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer,
+                   "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện", "Trạng Thái",
+                   "Thời Gian Bắt Đầu", "Thời Gian Kết Thúc",
+                   "Số Lượng Người Tham Gia", "Số Lượng Nhân Viên", "Số Lượt Check-in",
+                   "ID Người Dùng", "Mã QR", "Thời Gian Check-in", "Ghi Chú Đăng Ký", "Trạng Thái Đăng Ký",
+                   "ID Nhân Viên", "Tên Nhân Viên", "Là Quản Lý Cửa Hàng"
+           )) {
 
           for (EventExportDTO dto : exportData) {
               csvPrinter.printRecord(
@@ -487,15 +489,13 @@ public class EventController {
                       dto.getRegistrationStatus() != null ? dto.getRegistrationStatus() : "",
                       dto.getStaffId() != null ? dto.getStaffId() : "",
                       dto.getStaffName() != null ? dto.getStaffName() : "",
-                      dto.getIsStoreManager() != null ? dto.getIsStoreManager() : ""
+                      Boolean.TRUE.equals(dto.getIsStoreManager()) ? "Quản Lý Sự Kiện" : ""
               );
           }
 
       } catch (Exception e) {
           log.error("Error exporting events data to CSV", e);
-          response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-          response.setContentType("application/json");
-          response.getWriter().write("{\"error\":\"Failed to export data\"}");
+          CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu sự kiện.");
       }
   }
 

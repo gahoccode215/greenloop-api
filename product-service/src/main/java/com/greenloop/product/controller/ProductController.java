@@ -10,6 +10,7 @@ import com.greenloop.product.enums.EventMappingStatus;
 import com.greenloop.product.enums.ProductStatus;
 import com.greenloop.product.enums.ProductType;
 import com.greenloop.product.service.ProductService;
+import com.greenloop.product.utils.CSVExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -292,17 +294,14 @@ public class ProductController {
                     status, type, conditionGrade, categoryId, donationItemId,
                     startDate, endDate, minPrice, maxPrice);
 
-            response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=products_export_"
-                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            CSVExportUtil.prepareCsvResponse(response, "products_export");
 
-            try (PrintWriter writer = response.getWriter();
-                 CSVPrinter csvPrinter = new CSVPrinter(writer,
-                         CSVFormat.DEFAULT.withHeader(
-                                 "ProductId", "ProductCode", "ProductName", "Description", "CategoryName",
-                                 "DonationItemId", "DonationCode", "Price", "EcoPointValue",
-                                 "ConditionGrade", "Status", "Type",
-                                 "CreatedAt", "UpdatedAt", "ImageUrls"))) {
+            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+                 CSVPrinter csvPrinter = CSVExportUtil.createCsvPrinter(writer,
+                         "ID Sản Phẩm", "Mã Sản Phẩm", "Tên Sản Phẩm", "Mô Tả", "Tên Danh Mục",
+                         "ID Sản Phẩm Trao Đổi", "Mã Sản Phẩm Trao Đổi", "Giá", "Điểm Eco",
+                         "Mức Độ Tình Trạng", "Trạng Thái", "Loại",
+                         "Ngày Tạo", "Ngày Cập Nhật", "Liên Kết Hình Ảnh")) {
 
                 for (ProductExportDTO dto : exportData) {
                     csvPrinter.printRecord(
@@ -317,9 +316,7 @@ public class ProductController {
             }
         } catch (Exception e) {
             log.error("Error exporting products data", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Failed to export products data\"}");
+            CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu sản phẩm");
         }
     }
 
@@ -340,18 +337,15 @@ public class ProductController {
             List<EventProductMappingExportDTO> exportData = productService.getExportData(
                     eventId, productId, mappingStatus, productStatus, startDate, endDate);
 
-            response.setContentType("text/csv; charset=UTF-8");
-            response.setHeader("Content-Disposition", "attachment; filename=event_products_export_"
-                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".csv");
+            CSVExportUtil.prepareCsvResponse(response, "event_product_mappings_export");
 
-            try (PrintWriter writer = response.getWriter();
-                 CSVPrinter csvPrinter = new CSVPrinter(writer,
-                         CSVFormat.DEFAULT.withHeader(
-                                 "MappingId", "EventId", "EventCode", "EventName",
-                                 "EventStartTime", "EventEndTime", "EventStatus",
-                                 "ProductId", "ProductCode", "ProductName", "ProductPrice",
-                                 "ProductStatus", "ProductType", "CategoryName",
-                                 "DisplayFrom", "DisplayTo", "MappingStatus", "CreatedAt"))) {
+            try (OutputStreamWriter writer = CSVExportUtil.createCsvWriter(response);
+                 CSVPrinter csvPrinter =  CSVExportUtil.createCsvPrinter(writer,
+                         "ID Liên Kết", "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện",
+                         "Ngày Bắt Đầu Sự Kiện", "Ngày Kết Thúc Sự Kiện", "Trạng Thái Sự Kiện",
+                         "ID Sản Phẩm", "Mã Sản Phẩm", "Tên Sản Phẩm", "Giá Sản Phẩm",
+                         "Trạng Thái Sản Phẩm", "Loại Sản Phẩm", "Tên Danh Mục",
+                         "Thời Gian Sản Phẩm Bắt Đầu Tại Sự Kiện", "Thời Gian Sản Phẩm Kết Thúc Tại Sự Kiện", "Trạng Thái Sản Phẩm Tại Sự Kiện", "Ngày Tạo")) {
 
                 for (EventProductMappingExportDTO dto : exportData) {
                     csvPrinter.printRecord(
@@ -365,9 +359,7 @@ public class ProductController {
             }
         } catch (Exception e) {
             log.error("Error exporting mappings data", e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Failed to export mappings data\"}");
+            CSVExportUtil.handleError(response, "Lỗi khi xuất dữ liệu liên kết sản phẩm sự kiện");
         }
     }
 
