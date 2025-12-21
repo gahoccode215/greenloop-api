@@ -124,7 +124,6 @@ public class DonationServiceImpl implements DonationService {
             log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
             ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
         }
-//        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
         return savedDonation.getId();
     }
 
