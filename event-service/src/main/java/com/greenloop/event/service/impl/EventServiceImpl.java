@@ -1033,6 +1033,14 @@ public class EventServiceImpl implements EventService {
           ErrorCode.EVENT_NOT_STARTED);
     }
 
+    if(registration.getStatus().equals(RegistrationStatus.ATTENDED)) {
+        log.warn(
+            "User {} has already checked in with ticket code {}", userId, ticketCode);
+        throw new BusinessException(
+            "Mã vé đã được check-in trước đó: " + ticketCode,
+            ErrorCode.ALREADY_CHECKED_IN);
+    }
+
     registration.setStatus(RegistrationStatus.ATTENDED);
     registration.setCheckinTime(now);
     registration.updatedBy(userId);
