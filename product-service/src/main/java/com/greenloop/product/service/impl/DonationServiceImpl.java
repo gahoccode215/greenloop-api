@@ -1,6 +1,7 @@
 package com.greenloop.product.service.impl;
 
 import com.greenloop.product.dto.event.EcoPointTransactionDTO;
+import com.greenloop.product.dto.event.NotificationEvent;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
@@ -52,11 +53,14 @@ public class DonationServiceImpl implements DonationService {
     private final String ecoPointRedisKey = "eco_point_rule_";
     private final EcoPointDonationProducer ecoPointDonationProducer;
     private final Map<Long, String> eventNameCache = new ConcurrentHashMap<>();
+    private final NotificationProducer notificationProducer;
+
 
 
     private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
     @Override
+    @Transactional
     public Long createDonation(DonationCreateRequest request, List<MultipartFile> files) {
         Long currentUserId = getCurrentUserId();
         log.info("Create Donation by Current user ID: {}", currentUserId);
@@ -107,23 +111,51 @@ public class DonationServiceImpl implements DonationService {
         EcoPointTransactionDTO ecoPointTransaction = EcoPointTransactionDTO.builder()
                 .userId(request.getUserId())
                 .points(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
-                .description("Eco points for donation ID: " + savedDonation.getId())
+                .description("Cộng điểm trao đổi của đơn với ID là: " + savedDonation.getId())
                 .sourceType(SourceType.DONATION)
                 .sourceId(savedDonation.getId())
                 .type(EcoPointType.EARNED)
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
-        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        boolean ecoPointUpdated = false;
+
         try {
             Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
-            if(!result) {
+            ecoPointUpdated = Boolean.TRUE.equals(result);
+
+            if (!ecoPointUpdated) {
                 ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+                log.warn(
+                        "Eco point update failed, queued for retry. donationId={}",
+                        savedDonation.getId());
             }
-        }
-        catch (Exception e) {
-            log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
+        } catch (Exception e) {
             ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+            log.error(
+                    "Reward service error, eco point queued for retry. donationId={}",
+                    savedDonation.getId(),
+                    e);
         }
+
+        String notificationMessage;
+
+        if (ecoPointUpdated) {
+            notificationMessage =
+                    "Bạn đã quyên góp thành công và nhận được "
+                            + ecoPointTransaction.getPoints()
+                            + " điểm Eco Point.";
+        } else {
+            notificationMessage =
+                    "Bạn đã quyên góp thành công. Hệ thống đang xử lý cộng điểm Eco Point và sẽ cập nhật sớm nhất.";
+        }
+
+        notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                        .userId(request.getUserId())
+                        .title("Quyên góp thành công")
+                        .message(notificationMessage)
+                        .build());
+
         return savedDonation.getId();
     }
 
