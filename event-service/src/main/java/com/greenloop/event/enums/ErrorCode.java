@@ -49,7 +49,8 @@ public enum ErrorCode {
   FAILED_TO_CALL_USER_SERVICE(
       "3004", "Gọi tới User Service thất bại", HttpStatus.SERVICE_UNAVAILABLE),
 
-  EVENT_NOT_STARTED("4000", "Sự kiện chưa bắt đầu", HttpStatus.BAD_REQUEST);
+  EVENT_NOT_STARTED("4000", "Sự kiện chưa bắt đầu", HttpStatus.BAD_REQUEST),
+    ALREADY_CHECKED_IN("4001", "Người dùng đã điểm danh sự kiện này", HttpStatus.BAD_REQUEST);
 
   private final String code;
   private final String message;

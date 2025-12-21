@@ -73,8 +73,14 @@ public class EcoPointUserController {
       if (!"greenloopsecret".equals(apiSecret)) {
           return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
       }
-      ecoPointUserService.updateEcoPointUserBalance(request);
-      return ResponseEntity.ok(true);
+
+      boolean result = ecoPointUserService.updateEcoPointUserBalance(request);
+
+      if (result) {
+          return ResponseEntity.ok(true);
+      } else {
+          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+      }
   }
 
     @GetMapping("/leaderboard")
