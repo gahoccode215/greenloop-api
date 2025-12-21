@@ -1055,28 +1055,37 @@ public class EventServiceImpl implements EventService {
             .type(EcoPointType.EARNED)
             .build();
 
-    try {
-        Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
-        if (result == null || !result) {
-            ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        }
-        log.info("Eco points updated successfully via Reward Service for user {}", registration.getUserId());
-    } catch (Exception e) {
-        ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        log.info("Failed to update eco points via Reward Service, queued for retry: {}", e.getMessage());
-    }
+      boolean ecoPointUpdated = false;
 
-    notificationProducer.sendNotificationMessage(
-        NotificationEvent.builder()
-            .userId(registration.getUserId())
-            .title("Check-in sự kiện thành công")
-            .message(
-                "Bạn đã check-in thành công cho sự kiện: "
-                    + event.getName()
-                    + ". Bạn nhận được 5 điểm Eco Point.")
-            .build());
+      try {
+          Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+          ecoPointUpdated = Boolean.TRUE.equals(result);
 
-    log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
+          if (!ecoPointUpdated) {
+              ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+          }
+      } catch (Exception e) {
+          ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+      }
+
+      String message =
+              ecoPointUpdated
+                      ? "Bạn đã check-in thành công cho sự kiện: "
+                      + event.getName()
+                      + ". Bạn nhận được 5 điểm Eco Point."
+                      : "Bạn đã check-in thành công cho sự kiện: "
+                      + event.getName()
+                      + ". Hệ thống đang xử lý cộng điểm Eco Point và sẽ cập nhật sớm nhất.";
+
+      notificationProducer.sendNotificationMessage(
+              NotificationEvent.builder()
+                      .userId(registration.getUserId())
+                      .title("Check-in sự kiện thành công")
+                      .message(message)
+                      .build());
+
+
+      log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
   }
 
   /**

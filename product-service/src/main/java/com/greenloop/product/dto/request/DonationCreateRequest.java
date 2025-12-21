@@ -17,8 +17,6 @@ public class DonationCreateRequest {
     @NotNull(message = "Event ID is required")
     private Long eventId;
 
-    @NotNull(message = "Total weight is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Total weight must be greater than 0")
     private Float totalWeight;
 
     @Size(max = 2000, message = "Note must not exceed 2000 characters")

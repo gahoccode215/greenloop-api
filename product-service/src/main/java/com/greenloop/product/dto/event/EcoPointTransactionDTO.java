@@ -2,11 +2,14 @@ package com.greenloop.product.dto.event;
 
 import com.greenloop.product.enums.EcoPointType;
 import com.greenloop.product.enums.SourceType;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 @Data
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
 public class EcoPointTransactionDTO {
     private Long userId;
     private Integer points;
