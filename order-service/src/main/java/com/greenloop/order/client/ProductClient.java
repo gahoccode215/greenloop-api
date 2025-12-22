@@ -1,6 +1,7 @@
 package com.greenloop.order.client;
 
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.feign.UnreserveProductsRequest;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import org.springframework.cloud.openfeign.FeignClient;

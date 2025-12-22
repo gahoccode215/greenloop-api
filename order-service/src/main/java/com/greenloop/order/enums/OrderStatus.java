@@ -5,19 +5,15 @@ public enum OrderStatus {
     CONFIRMED("Đã xác nhận"),
     PROCESSING("Đang xử lý"),
     READY_TO_SHIP("Chờ lấy hàng"),
-
-    SHIPPING("Đã lấy hàng"),             // GoShip status 903
-    DELIVERING("Đang giao hàng"),            // GoShip status 904
-
-    DELIVERED("Đã giao hàng"),               // GoShip status 905
-    COMPLETED("Hoàn thành"),                 // Đã đối soát, kết thúc
-
-    DELIVERY_FAILED("Giao thất bại"),        // GoShip status 906
-    RETURNING("Đang hoàn trả"),              // GoShip status 907
-    RETURNED("Đã hoàn trả"),                 // GoShip status 908
-
-    CANCELLED("Đã hủy"),                     // Customer/Staff hủy hoặc GoShip 914
-    LOST("Thất lạc");                        // GoShip status 917
+    SHIPPING("Đã lấy hàng"),
+    DELIVERING("Đang giao hàng"),
+    DELIVERED("Đã giao hàng"),
+    COMPLETED("Hoàn thành"),
+    DELIVERY_FAILED("Giao thất bại"),
+    RETURNING("Đang hoàn trả"),
+    RETURNED("Đã hoàn trả"),
+    CANCELLED("Đã hủy"),
+    LOST("Thất lạc");
 
     private final String description;
 

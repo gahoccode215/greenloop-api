@@ -42,7 +42,7 @@ public class TransactionDetailResponse {
     private Long eventId;
     private String eventName;
 
-    // ========== CUSTOMER INFO ==========
+    // ========== ROLE_CUSTOMER INFO ==========
     private Boolean isGuestPurchase;
     private String guestName;
     private String guestPhone;

@@ -29,10 +29,6 @@ public class OrderOfflineController {
     private final OrderOfflineService orderOfflineService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(
-            summary = "Create offline order",
-            description = "Tạo đơn hàng offline tại sự kiện. CASH hoàn thành ngay, BANK_TRANSFER tạo link PayOS để khách quét QR."
-    )
     @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponseDTO<OrderOfflineResponse>> createOrderOffline(
             @Valid @RequestPart("order") CreateOrderOfflineRequest request,
@@ -96,9 +92,7 @@ public class OrderOfflineController {
         );
     }
 
-    /**
-     * Tạo message phù hợp theo payment method
-     */
+
     private String buildSuccessMessage(String paymentMethod, OrderOfflineResponse response) {
         if ("CASH".equals(paymentMethod)) {
             return String.format("Đơn hàng offline %s hoàn thành. Thanh toán tiền mặt: %,dđ",

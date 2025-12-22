@@ -1047,14 +1047,17 @@ public class EventServiceImpl implements EventService {
             .build();
 
     try {
-        Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
-        if (result == null || !result) {
-            ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        }
-        log.info("Eco points updated successfully via Reward Service for user {}", registration.getUserId());
-    } catch (Exception e) {
+      Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+      if (result == null || !result) {
         ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
-        log.info("Failed to update eco points via Reward Service, queued for retry: {}", e.getMessage());
+      }
+      log.info(
+          "Eco points updated successfully via Reward Service for user {}",
+          registration.getUserId());
+    } catch (Exception e) {
+      ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+      log.info(
+          "Failed to update eco points via Reward Service, queued for retry: {}", e.getMessage());
     }
 
     notificationProducer.sendNotificationMessage(

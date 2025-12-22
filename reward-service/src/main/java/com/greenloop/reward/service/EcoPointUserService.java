@@ -10,10 +10,4 @@ public interface EcoPointUserService {
   EcoPointUserResponse getEcoPointOfUser(Long userId);
 
   EcoPointLeaderboardResponse getEcoPointUserDTOByUser();
-
-  void addEcoPointsForOfflineOrder(
-      Long customerId, Integer points, String orderId, String orderCode);
-
-  void addEcoPointsForOnlineOrder(
-      Long customerId, Integer points, String orderId, String orderCode);
 }

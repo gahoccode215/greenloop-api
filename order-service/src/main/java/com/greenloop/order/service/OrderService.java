@@ -24,9 +24,7 @@ public interface OrderService {
     ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
     Order buildAndSaveOrder(CreateOrderRequest request);
     void handleLostOrder(String orderId, String reason);
-
     CheckoutResponse directCheckout(Long userId, DirectCheckoutRequest request);
-
     ShippingEstimateResponse estimateShippingForDirectCheckout(
             DirectShippingEstimateRequest request);
 }

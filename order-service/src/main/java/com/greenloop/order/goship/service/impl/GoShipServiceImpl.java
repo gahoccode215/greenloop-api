@@ -109,12 +109,6 @@ public class GoShipServiceImpl implements GoShipService {
         return goShipClient.createShipment(goshipRequest);
     }
 
-    @Override
-    public void cancelShipment(String goshipShipmentId) {
-        goShipClient.cancelShipment(goshipShipmentId);
-    }
-
-
     private CreateShipmentRequest.AddressData buildWarehouseAddressFromDB(
             WarehouseSetting warehouse) {
 

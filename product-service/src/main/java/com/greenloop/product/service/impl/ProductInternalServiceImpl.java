@@ -1,5 +1,6 @@
 package com.greenloop.product.service.impl;
 
+import com.greenloop.product.dto.feign.UnreserveProductsRequest;
 import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.EventProductMappingResponse;
 import com.greenloop.product.dto.response.ProductAssetResponse;
@@ -19,7 +20,6 @@ import com.greenloop.product.repository.ProductRepository;
 import com.greenloop.product.service.ProductInternalService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ProductInternalServiceImpl implements ProductInternalService {
 
     private final ProductRepository productRepository;
@@ -38,8 +37,6 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
     @Override
     public void validateProductsForOfflineOrder(Long eventId, List<Long> productIds) {
-        log.info("Validating {} products for offline order at event {}", productIds.size(), eventId);
-
         for (Long productId : productIds) {
             Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new ProductNotFoundException(
@@ -88,31 +85,22 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                         ErrorCode.PRODUCT_NOT_DISPLAYED
                 );
             }
-
-            log.debug("Product {} validated successfully for event {}", productId, eventId);
         }
-
-        log.info("All {} products validated successfully for event {}", productIds.size(), eventId);
     }
 
     @Override
     public ProductResponse getProductById(Long productId) {
-        log.info("Fetching product details for productId: {}", productId);
-
-        // 1. Lấy Product entity
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(
                         "Không tìm thấy sản phẩm với ID: " + productId));
 
-        // 2. Lấy DonationItem nếu có
         DonationItem donationItem = null;
         if (product.getDonationItemId() != null) {
             donationItem = donationItemRepository.findById(product.getDonationItemId())
                     .orElse(null);
         }
 
-        // 3. Map sang ProductResponse
-        ProductResponse response = ProductResponse.builder()
+        return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
                 .name(product.getName())
@@ -135,18 +123,11 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
-
-        log.debug("Product details fetched successfully: id={}, name={}, ecoPointValue={}",
-                product.getId(), product.getName(), product.getEcoPointValue());
-
-        return response;
     }
+
     @Override
     @Transactional
     public void reserveProducts(ReserveProductsRequest request) {
-        log.info("Reserving {} products for order {}",
-                request.getProducts().size(), request.getOrderId());
-
         for (ReserveProductsRequest.ProductReserve item : request.getProducts()) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new ProductNotFoundException(
@@ -161,32 +142,20 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
             product.setStatus(ProductStatus.RESERVED);
             productRepository.save(product);
-
-            log.info("Product {} reserved for order {}",
-                    product.getCode(), request.getOrderId());
         }
     }
 
     @Override
     @Transactional
     public void unreserveProducts(UnreserveProductsRequest request) {
-        log.info("Unreserving {} products for cancelled order {}",
-                request.getProducts().size(), request.getOrderId());
-
-        for (UnreserveProductsRequest.ProductUnreserve item : request.getProducts()) {
-            Product product = productRepository.findById(item.getProductId())
+        for (Long productId : request.getProductIds()) {
+            Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new ProductNotFoundException(
-                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+                            "Không tìm thấy sản phẩm với ID: " + productId));
 
             if (product.getStatus() == ProductStatus.RESERVED) {
                 product.setStatus(ProductStatus.AVAILABLE);
                 productRepository.save(product);
-
-                log.info("Product {} unreserved back to AVAILABLE",
-                        product.getCode());
-            } else {
-                log.warn("Product {} is not RESERVED, current status: {}",
-                        product.getCode(), product.getStatus());
             }
         }
     }
@@ -194,9 +163,6 @@ public class ProductInternalServiceImpl implements ProductInternalService {
     @Override
     @Transactional
     public void markProductsAsSold(MarkProductsSoldRequest request) {
-        log.info("Marking {} products as SOLD for completed order {}",
-                request.getProducts().size(), request.getOrderId());
-
         for (MarkProductsSoldRequest.ProductSold item : request.getProducts()) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new ProductNotFoundException(
@@ -205,18 +171,47 @@ public class ProductInternalServiceImpl implements ProductInternalService {
             if (product.getStatus() == ProductStatus.RESERVED) {
                 product.setStatus(ProductStatus.SOLD);
                 productRepository.save(product);
-
-                log.info("Product {} marked as SOLD", product.getCode());
-            } else {
-                log.warn("Product {} is not RESERVED, current status: {}",
-                        product.getCode(), product.getStatus());
             }
         }
     }
 
-    /**
-     * Map Event Mappings sang DTO
-     */
+    @Override
+    @Transactional
+    public void updateProductStatus(UpdateProductStatusRequest request) {
+        for (UpdateProductStatusRequest.ProductStatusUpdate update : request.getProductUpdates()) {
+            Product product = productRepository.findById(update.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + update.getProductId()));
+
+            ProductStatus newStatus = ProductStatus.valueOf(update.getNewStatus());
+            product.setStatus(newStatus);
+            productRepository.save(product);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void markOfflineProductsAsSold(MarkOfflineProductsSoldRequest request) {
+        for (MarkOfflineProductsSoldRequest.ProductSold productSold : request.getProducts()) {
+            Long productId = productSold.getProductId();
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID " + productId));
+
+            product.setStatus(ProductStatus.SOLD);
+            productRepository.save(product);
+
+            EventProductMapping mapping = eventProductMappingRepository
+                    .findByEventIdAndProductId(request.getEventId(), productId)
+                    .orElseThrow(() -> new RuntimeException(
+                            String.format("EventProductMapping not found for eventId: %d, productId: %d",
+                                    request.getEventId(), productId)));
+
+            mapping.setStatus(EventMappingStatus.SOLD_OUT);
+            eventProductMappingRepository.save(mapping);
+        }
+    }
+
     private List<EventProductMappingResponse> mapEventMappings(Product product) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -231,84 +226,14 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                         .build())
                 .collect(Collectors.toList());
     }
-    @Override
-    @Transactional
-    public void updateProductStatus(UpdateProductStatusRequest request) {
-        log.info("Updating status for {} products in order {}",
-                request.getProductUpdates().size(), request.getOrderCode());
 
-        for (UpdateProductStatusRequest.ProductStatusUpdate update : request.getProductUpdates()) {
-            Product product = productRepository.findById(update.getProductId())
-                    .orElseThrow(() -> new ProductNotFoundException(
-                            "Không tìm thấy sản phẩm với ID: " + update.getProductId()));
-
-            // Validate old status (warning only, không block)
-            if (!product.getStatus().name().equals(update.getOldStatus())) {
-                log.warn("Product {} current status {} does not match expected old status {}",
-                        product.getCode(), product.getStatus(), update.getOldStatus());
-            }
-
-            // Update to new status
-            ProductStatus newStatus = ProductStatus.valueOf(update.getNewStatus());
-            product.setStatus(newStatus);
-            productRepository.save(product);
-
-            log.info("Updated product {} from {} to {}",
-                    product.getCode(), update.getOldStatus(), update.getNewStatus());
-        }
-
-        log.info("Successfully updated status for {} products in order {}",
-                request.getProductUpdates().size(), request.getOrderCode());
-    }
-
-
-    @Override
-    @Transactional
-    public void markOfflineProductsAsSold(MarkOfflineProductsSoldRequest request) {
-        log.info("Marking OFFLINE products as SOLD and event mapping as SOLD_OUT for order: {}, event: {}",
-                request.getOrderId(), request.getEventId());
-
-        for (MarkOfflineProductsSoldRequest.ProductSold productSold : request.getProducts()) {
-            Long productId = productSold.getProductId();
-
-            // 1. Đổi Product status = SOLD
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID " + productId));
-
-            product.setStatus(ProductStatus.SOLD);
-            productRepository.save(product);
-
-            log.info("Product {} marked as SOLD for offline order: {}",
-                    productId, request.getOrderId());
-
-            // 2. Đổi EventProductMapping status = SOLD_OUT
-            EventProductMapping mapping = eventProductMappingRepository
-                    .findByEventIdAndProductId(request.getEventId(), productId)
-                    .orElseThrow(() -> new RuntimeException(
-                            String.format("EventProductMapping not found for eventId: %d, productId: %d",
-                                    request.getEventId(), productId)));
-
-            mapping.setStatus(EventMappingStatus.SOLD_OUT);
-            eventProductMappingRepository.save(mapping);
-
-            log.info("EventProductMapping updated to SOLD_OUT for event: {}, product: {}",
-                    request.getEventId(), productId);
-        }
-
-        log.info("Completed marking {} offline products as SOLD with event mapping SOLD_OUT",
-                request.getProducts().size());
-    }
-
-    /**
-     * Map ProductAssets sang DTO
-     */
     private List<ProductAssetResponse> mapProductAssets(Set<ProductAsset> assets) {
         if (assets == null) {
             return List.of();
         }
 
         return assets.stream()
-                .filter(ProductAsset::getIsActive) // Chỉ lấy asset active
+                .filter(ProductAsset::getIsActive)
                 .map(asset -> ProductAssetResponse.builder()
                         .productAssetId(asset.getId())
                         .productAssetUrl(asset.getImageUrl())

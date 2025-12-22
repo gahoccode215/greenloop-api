@@ -38,7 +38,6 @@ import java.math.BigDecimal;
 public class OrderController {
 
     private final OrderService orderService;
-    private final GoShipService goShipService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
@@ -205,8 +204,6 @@ public class OrderController {
                 ApiResponseDTO.success("Hoàn thành đơn hàng thành công", null, HttpStatus.OK)
         );
     }
-
-
     @PostMapping("/{orderId}/cancel")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER', 'CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<Void>> cancelOrder(
@@ -214,20 +211,9 @@ public class OrderController {
             @RequestParam(required = false) String reason,
             Authentication authentication
             ) {
-
         Long userId = extractUserId(authentication);
         String userRole = extractRole(authentication);
-
-        log.info("Staff {} (role: {}) cancelling order {}", userId, userRole, orderId);
-
-        Order order = orderService.getOrderEntityById(orderId);
-
-        if (order.getGoshipShipmentId() != null) {
-            goShipService.cancelShipment(order.getGoshipShipmentId());
-        }
-
         orderService.cancelOrder(orderId, reason, userId, userRole);
-
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Hủy đơn hàng thành công", null, HttpStatus.OK)
         );

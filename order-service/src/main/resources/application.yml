@@ -24,18 +24,6 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-  cloud:
-    stream:
-      bindings:
-        orderOfflineCreatedProduct-out-0:
-          destination: order-offline-created-product
-          producer:
-            required-groups: product-service
-        orderOfflineCreatedReward-out-0:
-          destination: order-offline-created-reward
-          producer:
-            required-groups: reward-service
-
   rabbitmq:
     host: ${RABBITMQ_HOST:35.198.237.130}
     port: ${RABBITMQ_PORT:5672}

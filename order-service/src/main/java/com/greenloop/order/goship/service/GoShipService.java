@@ -11,5 +11,4 @@ public interface GoShipService {
 
     CreateShipmentResponse createShipmentForOrder(String orderId, CreateShipmentRequestDTO staffRequest);
 
-    void cancelShipment(String goshipShipmentId);
 }
