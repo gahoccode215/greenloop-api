@@ -27,7 +27,8 @@ public class SecurityConfig {
             "/api/v1/products/**",
             "/api/v1/categories/**",
             "/api/v1/donations/**",
-            "/api/v1/internal/**"
+            "/api/v1/internal/**",
+            "/api/v1/categories"
     };
 
     @Bean
