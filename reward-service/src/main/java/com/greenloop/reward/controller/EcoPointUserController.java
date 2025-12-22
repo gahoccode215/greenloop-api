@@ -66,14 +66,20 @@ public class EcoPointUserController {
 
   @PostMapping("/internal/update-eco-point-user")
   @Hidden
-  public ResponseEntity<Boolean> updateEcoPointUserBalanceInternal(
-      @RequestBody EcoPointTransactionDTO request,
-      @RequestHeader(value = "API_SECRET_HEADER", required = false) String apiSecret) {
-    if (!"greenloopsecret".equals(apiSecret)) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-    }
-    ecoPointUserService.updateEcoPointUserBalance(request);
-    return ResponseEntity.ok(true);
+    public ResponseEntity<Boolean> updateEcoPointUserBalanceInternal(
+          @RequestBody EcoPointTransactionDTO request,
+          @RequestHeader(value = "API_SECRET_HEADER", required = false) String apiSecret) {
+      if (!"greenloopsecret".equals(apiSecret)) {
+          return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+      }
+
+      boolean result = ecoPointUserService.updateEcoPointUserBalance(request);
+
+      if (result) {
+          return ResponseEntity.ok(true);
+      } else {
+          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+      }
   }
 
   @GetMapping("/leaderboard")

@@ -3,9 +3,7 @@ package com.greenloop.reward.service;
 import com.greenloop.reward.dto.request.CreateVoucherCampaignRequest;
 import com.greenloop.reward.dto.request.CreateVoucherRequest;
 import com.greenloop.reward.dto.request.RedeemVoucherRequest;
-import com.greenloop.reward.dto.response.UserVoucherResponse;
-import com.greenloop.reward.dto.response.VoucherCampaignResponse;
-import com.greenloop.reward.dto.response.VoucherResponse;
+import com.greenloop.reward.dto.response.*;
 import com.greenloop.reward.enums.VoucherStatus;
 import com.greenloop.reward.enums.VoucherType;
 import java.math.BigDecimal;
@@ -62,4 +60,24 @@ public interface VoucherService {
   UserVoucherResponse validateVoucherUsage(Long voucherId);
 
   void redeemVoucher(RedeemVoucherRequest request);
+
+    List<VoucherExportDTO> getExportDataVoucher(
+            Long campaignId,
+            VoucherStatus status,
+            VoucherType type,
+            LocalDateTime expiryDateFrom,
+            LocalDateTime expiryDateTo,
+            Integer minPointToRedeem,
+            Integer maxPointToRedeem,
+            boolean includeExpired
+    );
+
+    List<VoucherCampaignExportDTO> getExportDataCampaign(
+            LocalDateTime startDateFrom,
+            LocalDateTime startDateTo,
+            LocalDateTime endDateFrom,
+            LocalDateTime endDateTo,
+            boolean includeExpired,
+            boolean includeVoucherDetails
+    );
 }

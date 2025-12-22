@@ -3,16 +3,21 @@ package com.greenloop.product.controller;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
 import com.greenloop.product.dto.response.*;
+import com.greenloop.product.enums.ConditionGrade;
 import com.greenloop.product.enums.DonationItemStatus;
 import com.greenloop.product.service.DonationService;
+import com.greenloop.product.utils.ExcelExportUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +25,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -36,7 +44,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<Long>builder()
                         .data(donationService.createDonation(request, multipartFile))
-                        .message("Donation created successfully")
+                        .message("Tạo Đơn Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -52,7 +60,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<List<DonationResponse>>builder()
                         .data(donations)
-                        .message("Donations retrieved successfully")
+                        .message("Lấy Danh Sách Đơn Trao Đổi Theo Sự Kiện Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -67,7 +75,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<DonationDetailResponse>builder()
                         .data(donation)
-                        .message("Donation retrieved successfully")
+                        .message("Lấy Thông Tin Đơn Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build()
@@ -82,7 +90,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<List<DonationResponse>>builder()
                         .data(myDonations)
-                        .message("My donations retrieved successfully")
+                        .message("Lấy Danh Sách Đơn Trao Đổi Của Tôi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -99,7 +107,7 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<UpdateDonationItemStatusResponse>builder()
                         .data(response)
-                        .message("Donation item statuses updated successfully")
+                        .message("Cập Nhật Trạng Thái Vật Phẩm Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
@@ -136,10 +144,76 @@ public class DonationController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<PageResponseDTO<DonationItemDetailResponse>>builder()
                         .data(donationItems)
-                        .message("Donation items retrieved successfully")
+                        .message("Lấy Danh Sách Vật Phẩm Trao Đổi Thành Công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
     }
 
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_MANAGER')")
+    @Operation(summary = "Export Donations Data", description = "Export donations to Excel")
+    public void exportDonations(
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) DonationItemStatus itemStatus,
+            @RequestParam(required = false) ConditionGrade conditionGrade,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "true") boolean includeItems,
+            HttpServletResponse response) throws IOException {
+
+        try {
+            List<DonationExportDTO> exportData = donationService.getExportData(
+                    eventId, userId, itemStatus, conditionGrade, categoryId,
+                    startDate, endDate, includeItems);
+
+            ExcelExportUtil.prepareExcelResponse(response, "donations_export");
+
+            try (Workbook workbook = ExcelExportUtil.createWorkbook()) {
+                Sheet sheet = ExcelExportUtil.createSheet(workbook, "Donations");
+
+                // Create header
+                ExcelExportUtil.createHeaderRow(sheet,
+                        "ID Trao Đổi", "Mã Đơn Trao Đổi", "ID Người Dùng", "ID Sự Kiện", "Mã Sự Kiện", "Tên Sự Kiện",
+                        "Ghi Chú Trao Đổi", "Người Kiểm Tra", "Tên Người Kiểm Tra", "Thời Gian Tạo",
+                        "ID Vật Phẩm", "Mã Vật Phẩm", "Tên Vật Phẩm", "Mô Tả Vật Phẩm", "Tên Danh Mục",
+                        "Mức Độ Tình Trạng", "Giá Trị Điểm Eco", "Trạng Thái Vật Phẩm", "ID Sản Phẩm Chuyển Đổi", "Đường Dẫn Hình Ảnh");
+
+                // Write data
+                int rowNum = 1;
+                for (DonationExportDTO dto : exportData) {
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
+
+                    row.createCell(colNum++).setCellValue(dto.getDonationId() != null ? dto.getDonationId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationCode() != null ? dto.getDonationCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getUserId() != null ? dto.getUserId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventId() != null ? dto.getEventId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventCode() != null ? dto.getEventCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEventName() != null ? dto.getEventName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationNote() != null ? dto.getDonationNote() : "");
+                    row.createCell(colNum++).setCellValue(dto.getInspectedBy() != null ? dto.getInspectedBy() : "");
+                    row.createCell(colNum++).setCellValue(dto.getInspectorName() != null ? dto.getInspectorName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getDonationCreatedAt() != null ? dto.getDonationCreatedAt() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemId() != null ? dto.getItemId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemCode() != null ? dto.getItemCode() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemName() != null ? dto.getItemName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemDescription() != null ? dto.getItemDescription() : "");
+                    row.createCell(colNum++).setCellValue(dto.getCategoryName() != null ? dto.getCategoryName() : "");
+                    row.createCell(colNum++).setCellValue(dto.getConditionGrade() != null ? dto.getConditionGrade() : "");
+                    row.createCell(colNum++).setCellValue(dto.getEcoPointValue() != null ? dto.getEcoPointValue() : "");
+                    row.createCell(colNum++).setCellValue(dto.getItemStatus() != null ? dto.getItemStatus() : "");
+                    row.createCell(colNum++).setCellValue(dto.getConvertProductId() != null ? dto.getConvertProductId() : "");
+                    row.createCell(colNum++).setCellValue(dto.getImageUrl() != null ? dto.getImageUrl() : "");
+                }
+
+                workbook.write(response.getOutputStream());
+            }
+        } catch (Exception e) {
+            log.error("Error exporting donations data", e);
+            ExcelExportUtil.handleError(response, "Lỗi khi xuất dữ liệu trao đổi.");
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.greenloop.product.service.impl;
 
 import com.greenloop.product.dto.event.EcoPointTransactionDTO;
+import com.greenloop.product.dto.event.NotificationEvent;
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.DonationItemCreateRequest;
 import com.greenloop.product.dto.request.EcoPointInfoRequest;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.security.core.GrantedAuthority;
@@ -51,11 +53,14 @@ public class DonationServiceImpl implements DonationService {
     private final String ecoPointRedisKey = "eco_point_rule_";
     private final EcoPointDonationProducer ecoPointDonationProducer;
     private final Map<Long, String> eventNameCache = new ConcurrentHashMap<>();
+    private final NotificationProducer notificationProducer;
+
 
 
     private final String donationEcoPointBindingName = "ecoPointDonation-out-0";
 
     @Override
+    @Transactional
     public Long createDonation(DonationCreateRequest request, List<MultipartFile> files) {
         Long currentUserId = getCurrentUserId();
         log.info("Create Donation by Current user ID: {}", currentUserId);
@@ -106,24 +111,51 @@ public class DonationServiceImpl implements DonationService {
         EcoPointTransactionDTO ecoPointTransaction = EcoPointTransactionDTO.builder()
                 .userId(request.getUserId())
                 .points(donation.getDonationItems().stream().mapToInt(DonationItem::getEcoPointValue).sum())
-                .description("Eco points for donation ID: " + savedDonation.getId())
+                .description("Cộng điểm trao đổi của đơn với ID là: " + savedDonation.getId())
                 .sourceType(SourceType.DONATION)
                 .sourceId(savedDonation.getId())
                 .type(EcoPointType.EARNED)
                 .build();
         log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
-        ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+        boolean ecoPointUpdated = false;
+
         try {
             Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
-            if(!result) {
+            ecoPointUpdated = Boolean.TRUE.equals(result);
+
+            if (!ecoPointUpdated) {
                 ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+                log.warn(
+                        "Eco point update failed, queued for retry. donationId={}",
+                        savedDonation.getId());
             }
-        }
-        catch (Exception e) {
-            log.error("Error sending EcoPointTransactionDTO to reward service: {}", e.getMessage(), e);
+        } catch (Exception e) {
             ecoPointDonationProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+            log.error(
+                    "Reward service error, eco point queued for retry. donationId={}",
+                    savedDonation.getId(),
+                    e);
         }
-//        log.info("Sending EcoPointTransactionDTO to stream: {}", ecoPointTransaction);
+
+        String notificationMessage;
+
+        if (ecoPointUpdated) {
+            notificationMessage =
+                    "Bạn đã quyên góp thành công và nhận được "
+                            + ecoPointTransaction.getPoints()
+                            + " điểm Eco Point.";
+        } else {
+            notificationMessage =
+                    "Bạn đã quyên góp thành công. Hệ thống đang xử lý cộng điểm Eco Point và sẽ cập nhật sớm nhất.";
+        }
+
+        notificationProducer.sendNotificationMessage(
+                NotificationEvent.builder()
+                        .userId(request.getUserId())
+                        .title("Quyên góp thành công")
+                        .message(notificationMessage)
+                        .build());
+
         return savedDonation.getId();
     }
 
@@ -355,6 +387,14 @@ public class DonationServiceImpl implements DonationService {
                 log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
             }
 
+            if(ecoPointRule.getIsActive() == null || !ecoPointRule.getIsActive()) {
+                log.warn("Eco point rule for action type DONATION and category ID {} is inactive", itemReq.getCategoryId());
+                throw new BusinessException(
+                        "Quy tắc Eco Point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.",
+                        ErrorCode.ECO_POINT_RULE_INACTIVE
+                );
+            }
+
             if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
                 log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
                 throw new BusinessException(ErrorCode.ECO_POINT_VALUE_OUT_OF_BOUNDS);
@@ -398,6 +438,108 @@ public class DonationServiceImpl implements DonationService {
         String datePart = now.format(DateTimeFormatter.ofPattern("ddMMyy"));
         String secondPart = String.format("%06d", now.getSecond());
         return "DN_PRO_" + categoryId + "_" + datePart + "_" + secondPart;
+    }
+
+
+    @Override
+    public List<DonationExportDTO> getExportData(
+            Long eventId,
+            Long userId,
+            DonationItemStatus itemStatus,
+            ConditionGrade conditionGrade,
+            Long categoryId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            boolean includeItems) {
+
+        Specification<Donation> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            if (eventId != null) {
+                predicates.add(cb.equal(root.get("eventId"), eventId));
+            }
+            if (userId != null) {
+                predicates.add(cb.equal(root.get("userId"), userId));
+            }
+            if (startDate != null && endDate != null) {
+                predicates.add(cb.between(root.get("createdAt"), startDate, endDate));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        List<Donation> donations = donationRepository.findAll((Sort) spec);
+        List<DonationExportDTO> exportList = new ArrayList<>();
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (Donation donation : donations) {
+            EventResponse event = null;
+            try {
+                event = eventServiceFeign.getInfoEventId(donation.getEventId());
+            } catch (Exception e) {
+                log.error("Error fetching event: {}", donation.getEventId(), e);
+            }
+
+            UserProfileResponse inspector = null;
+            try {
+                inspector = userServiceFeign.getUserInfoById(donation.getInspectedBy());
+            } catch (Exception e) {
+                log.error("Error fetching inspector: {}", donation.getInspectedBy(), e);
+            }
+
+            if (!includeItems || donation.getDonationItems().isEmpty()) {
+                exportList.add(DonationExportDTO.builder()
+                        .donationId(String.valueOf(donation.getId()))
+                        .donationCode(donation.getCode())
+                        .userId(String.valueOf(donation.getUserId()))
+                        .eventId(String.valueOf(donation.getEventId()))
+                        .eventCode(event != null ? event.getCode() : "")
+                        .eventName(event != null ? event.getName() : "")
+                        .donationNote(donation.getNote() != null ? donation.getNote() : "")
+                        .inspectedBy(String.valueOf(donation.getInspectedBy()))
+                        .inspectorName(inspector != null ? inspector.getFullName() : "")
+                        .donationCreatedAt(donation.getCreatedAt().format(dateFormatter))
+                        .build());
+            } else {
+                boolean isFirstRow = true;
+                List<DonationItem> filteredItems = donation.getDonationItems().stream()
+                        .filter(item -> itemStatus == null || item.getStatus() == itemStatus)
+                        .filter(item -> conditionGrade == null || item.getConditionGrade() == conditionGrade)
+                        .filter(item -> categoryId == null ||
+                                (item.getCategory() != null && item.getCategory().getId().equals(categoryId)))
+                        .collect(Collectors.toList());
+
+                for (DonationItem item : filteredItems) {
+                    exportList.add(DonationExportDTO.builder()
+                            .donationId(isFirstRow ? String.valueOf(donation.getId()) : "")
+                            .donationCode(isFirstRow ? donation.getCode() : "")
+                            .userId(isFirstRow ? String.valueOf(donation.getUserId()) : "")
+                            .eventId(isFirstRow ? String.valueOf(donation.getEventId()) : "")
+                            .eventCode(isFirstRow && event != null ? event.getCode() : "")
+                            .eventName(isFirstRow && event != null ? event.getName() : "")
+                            .donationNote(isFirstRow && donation.getNote() != null ? donation.getNote() : "")
+                            .inspectedBy(isFirstRow ? String.valueOf(donation.getInspectedBy()) : "")
+                            .inspectorName(isFirstRow && inspector != null ? inspector.getFullName() : "")
+                            .donationCreatedAt(isFirstRow ? donation.getCreatedAt().format(dateFormatter) : "")
+                            // Item info - all rows
+                            .itemId(String.valueOf(item.getId()))
+                            .itemCode(item.getCode())
+                            .itemName(item.getName())
+                            .itemDescription(item.getDescription() != null ? item.getDescription() : "")
+                            .categoryName(item.getCategory() != null ? item.getCategory().getName() : "")
+                            .conditionGrade(item.getConditionGrade() != null ? item.getConditionGrade().name() : "")
+                            .ecoPointValue(item.getEcoPointValue() != null ? String.valueOf(item.getEcoPointValue()) : "")
+                            .itemStatus(item.getStatus().name())
+                            .convertProductId(item.getConvertProductId() != null ?
+                                    String.valueOf(item.getConvertProductId()) : "")
+                            .imageUrl(item.getImageUrl() != null ? item.getImageUrl() : "")
+                            .build());
+                    isFirstRow = false;
+                }
+            }
+        }
+
+        return exportList;
     }
 
 }

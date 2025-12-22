@@ -15,11 +15,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -124,7 +126,9 @@ public class ProductServiceImpl implements ProductService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime limit = displayFrom.minusDays(1);
-        return now.isBefore(limit);
+        return now.isAfter(displayFrom)
+                && (active.getDisplayTo() == null || now.isBefore(active.getDisplayTo()));
+
     }
 
 
@@ -173,6 +177,10 @@ public class ProductServiceImpl implements ProductService {
 
         DonationItem donation = donationItemRepository.findByCode(request.getDonationItemCode())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy Donation Code: " + request.getDonationItemCode(), ErrorCode.DONATION_ITEM_NOT_FOUND));
+
+        if (donation.getConvertProductId() != null) {
+            throw new BusinessException(ErrorCode.DONATION_ITEM_ALREADY_CONVERTED);
+        }
 
 
         Product product = Product.builder()
@@ -496,6 +504,14 @@ public class ProductServiceImpl implements ProductService {
             log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
         }
 
+        if(ecoPointRule.getIsActive() == null || !ecoPointRule.getIsActive()) {
+            log.warn("Eco point rule for action type DONATION and category ID {} is inactive", itemReq.getCategoryId());
+            throw new BusinessException(
+                    "Quy tắc Eco Point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.",
+                    ErrorCode.ECO_POINT_RULE_INACTIVE
+            );
+        }
+
         if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
             log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
             throw new BusinessException(
@@ -573,6 +589,167 @@ public class ProductServiceImpl implements ProductService {
                         .productAssetUrl(asset.getImageUrl())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+
+    @Override
+    public List<ProductExportDTO> getExportData(
+            ProductStatus status,
+            ProductType type,
+            ConditionGrade conditionGrade,
+            Long categoryId,
+            Long donationItemId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            BigDecimal minPrice,
+            BigDecimal maxPrice) {
+
+        Specification<Product> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+            if (conditionGrade != null) {
+                predicates.add(cb.equal(root.get("conditionGrade"), conditionGrade));
+            }
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            }
+            if (donationItemId != null) {
+                predicates.add(cb.equal(root.get("donationItemId"), donationItemId));
+            }
+            if (startDate != null && endDate != null) {
+                predicates.add(cb.between(root.get("createdAt"), startDate, endDate));
+            }
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+            }
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        List<Product> products = productRepository.findAll(spec);
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        return products.stream().map(product -> {
+            // Get donation item code if exists
+            String donationCode = "";
+            if (product.getDonationItemId() != null) {
+                try {
+                    DonationItem item = donationItemRepository.findById(product.getDonationItemId())
+                            .orElse(null);
+                    if (item != null && item.getDonation() != null) {
+                        donationCode = item.getDonation().getCode();
+                    }
+                } catch (Exception e) {
+                    log.error("Error fetching donation item: {}", product.getDonationItemId(), e);
+                }
+            }
+
+            String imageUrls = product.getAssets().stream()
+                    .map(ProductAsset::getImageUrl)
+                    .collect(Collectors.joining("; "));
+
+            return ProductExportDTO.builder()
+                    .productId(String.valueOf(product.getId()))
+                    .productCode(product.getCode())
+                    .productName(product.getName())
+                    .description(product.getDescription() != null ? product.getDescription() : "")
+                    .categoryName(product.getCategory() != null ? product.getCategory().getName() : "")
+                    .donationItemId(product.getDonationItemId() != null ?
+                            String.valueOf(product.getDonationItemId()) : "")
+                    .donationCode(donationCode)
+                    .price(product.getPrice() != null ? product.getPrice().toString() : "")
+                    .ecoPointValue(product.getEcoPointValue() != null ?
+                            String.valueOf(product.getEcoPointValue()) : "")
+                    .conditionGrade(product.getConditionGrade() != null ?
+                            product.getConditionGrade().name() : "")
+                    .status(product.getStatus().name())
+                    .type(product.getType().name())
+                    .createdAt(product.getCreatedAt().format(dateFormatter))
+                    .updatedAt(product.getUpdatedAt().format(dateFormatter))
+                    .imageUrls(imageUrls)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<EventProductMappingExportDTO> getExportData(
+            Long eventId,
+            Long productId,
+            EventMappingStatus mappingStatus,
+            ProductStatus productStatus,
+            LocalDateTime startDate,
+            LocalDateTime endDate) {
+
+        Specification<EventProductMapping> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            if (eventId != null) {
+                predicates.add(cb.equal(root.get("eventId"), eventId));
+            }
+            if (productId != null) {
+                predicates.add(cb.equal(root.get("product").get("id"), productId));
+            }
+            if (mappingStatus != null) {
+                predicates.add(cb.equal(root.get("status"), mappingStatus));
+            }
+            if (productStatus != null) {
+                predicates.add(cb.equal(root.get("product").get("status"), productStatus));
+            }
+            if (startDate != null && endDate != null) {
+                predicates.add(cb.between(root.get("displayFrom"), startDate, endDate));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        List<EventProductMapping> mappings = eventProductMappingRepository.findAll((Sort) spec);
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        return mappings.stream().map(mapping -> {
+            Product product = mapping.getProduct();
+
+            // Get event info
+            EventResponse event = null;
+            try {
+                event = eventServiceFeign.getInfoEventId(mapping.getEventId());
+            } catch (Exception e) {
+                log.error("Error fetching event: {}", mapping.getEventId(), e);
+            }
+
+            return EventProductMappingExportDTO.builder()
+                    .mappingId(String.valueOf(mapping.getId()))
+                    .eventId(String.valueOf(mapping.getEventId()))
+                    .eventCode(event != null ? event.getCode() : "")
+                    .eventName(event != null ? event.getName() : "")
+                    .eventStartTime(event != null && event.getStartTime() != null ?
+                            event.getStartTime().format(dateFormatter) : "")
+                    .eventEndTime(event != null && event.getEndTime() != null ?
+                            event.getEndTime().format(dateFormatter) : "")
+                    .eventStatus(event != null ? event.getStatus().name() : "")
+                    .productId(String.valueOf(product.getId()))
+                    .productCode(product.getCode())
+                    .productName(product.getName())
+                    .productPrice(product.getPrice() != null ? product.getPrice().toString() : "")
+                    .productStatus(product.getStatus().name())
+                    .productType(product.getType().name())
+                    .categoryName(product.getCategory() != null ? product.getCategory().getName() : "")
+                    .displayFrom(mapping.getDisplayFrom() != null ?
+                            mapping.getDisplayFrom().format(dateFormatter) : "")
+                    .displayTo(mapping.getDisplayTo() != null ?
+                            mapping.getDisplayTo().format(dateFormatter) : "")
+                    .mappingStatus(mapping.getStatus().name())
+                    .createdAt(mapping.getCreatedAt().format(dateFormatter))
+                    .build();
+        }).collect(Collectors.toList());
     }
 
 }
