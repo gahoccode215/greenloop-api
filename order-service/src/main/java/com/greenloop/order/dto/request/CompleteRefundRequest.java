@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApproveReturnRequestRequest {
+public class CompleteRefundRequest {
+
     private String note;
 }

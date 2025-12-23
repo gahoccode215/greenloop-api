@@ -11,4 +11,5 @@ public interface GoShipService {
 
     CreateShipmentResponse createShipmentForOrder(String orderId, CreateShipmentRequestDTO staffRequest);
 
+    CreateShipmentResponse createReturnShipment(Long returnRequestId, CreateShipmentRequestDTO staffRequest);
 }

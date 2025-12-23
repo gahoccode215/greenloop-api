@@ -115,6 +115,10 @@ public class ReturnRequest {
     @Column(name = "inspection_note", columnDefinition = "TEXT")
     private String inspectionNote;
 
+    @Column(name = "refund_proof_image")
+    private String refundProofImage; // URL ảnh bill chuyển khoản
+
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "inspection_images", columnDefinition = "JSON")
     private List<String> inspectionImages;

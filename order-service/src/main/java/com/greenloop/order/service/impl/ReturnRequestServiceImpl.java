@@ -1,9 +1,12 @@
 package com.greenloop.order.service.impl;
 
-import com.greenloop.order.dto.request.CreateReturnRequestRequest;
-import com.greenloop.order.dto.request.ReturnRequestFilterRequest;
+import com.greenloop.order.client.ProductClient;
+import com.greenloop.order.constant.ProductStatusConstant;
+import com.greenloop.order.dto.request.*;
+import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.PageResponseDTO;
 import com.greenloop.order.dto.response.ReturnRequestResponse;
+import com.greenloop.order.dto.response.ReturnShipmentInfoResponse;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.OrderItem;
 import com.greenloop.order.entity.ReturnItem;
@@ -14,6 +17,8 @@ import com.greenloop.order.exception.InvalidReturnRequestException;
 import com.greenloop.order.exception.OrderNotFoundException;
 import com.greenloop.order.exception.ReturnRequestExpiredException;
 import com.greenloop.order.exception.ReturnRequestNotFoundException;
+import com.greenloop.order.goship.dto.CreateShipmentResponse;
+import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.repository.ReturnRequestRepository;
 import com.greenloop.order.repository.specification.ReturnRequestSpecification;
@@ -48,6 +53,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     private final ReturnRequestRepository returnRequestRepository;
     private final OrderRepository orderRepository;
     private final CloudinaryService cloudinaryService;
+    private final GoShipService goShipService;
+    private final ProductClient productClient;
 
     @Override
     @Transactional
@@ -198,6 +205,320 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
 
         return PageResponseUtil.toPageResponse(responsePage);
     }
+
+    @Override
+    @Transactional
+    public ReturnRequestResponse approveReturnRequest(Long returnRequestId, Long staffId,
+                                                      ApproveReturnRequestRequest request) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        if (returnRequest.getStatus() != ReturnRequestStatus.PENDING_APPROVAL) {
+            throw new InvalidReturnRequestException(
+                    "Không thể phê duyệt yêu cầu trả hàng ở trạng thái: "
+                            + returnRequest.getStatus().getDescription());
+        }
+
+        returnRequest.setStatus(ReturnRequestStatus.APPROVED);
+        returnRequest.setApprovedBy(staffId);
+        returnRequest.setApprovedAt(LocalDateTime.now());
+
+        ReturnRequest saved = returnRequestRepository.save(returnRequest);
+
+        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
+
+        log.info("ReturnRequest {} approved by staff {}. Note: {}",
+                returnRequestId, staffId, request.getNote());
+
+        return mapToResponse(saved, order);
+    }
+
+
+    @Override
+    @Transactional
+    public ReturnRequestResponse rejectReturnRequest(Long returnRequestId, Long staffId,
+                                                     RejectReturnRequestRequest request) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        if (returnRequest.getStatus() != ReturnRequestStatus.PENDING_APPROVAL) {
+            throw new InvalidReturnRequestException(
+                    "Không thể từ chối yêu cầu trả hàng ở trạng thái: "
+                            + returnRequest.getStatus().getDescription());
+        }
+
+        returnRequest.setStatus(ReturnRequestStatus.REJECTED);
+        returnRequest.setRejectedBy(staffId);
+        returnRequest.setRejectedAt(LocalDateTime.now());
+        returnRequest.setRejectedReason(request.getRejectedReason());
+
+        ReturnRequest saved = returnRequestRepository.save(returnRequest);
+
+        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
+
+        log.info("ReturnRequest {} rejected by staff {}. Reason: {}",
+                returnRequestId, staffId, request.getRejectedReason());
+
+        return mapToResponse(saved, order);
+    }
+
+    @Override
+    @Transactional
+    public ReturnShipmentInfoResponse shipReturnRequest(Long returnRequestId, Long staffId,
+                                                        CreateReturnShipmentRequest request) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        ReturnRequestStatus oldStatus = returnRequest.getStatus();
+
+        if (oldStatus != ReturnRequestStatus.APPROVED) {
+            throw new InvalidReturnRequestException(
+                    "Chỉ có thể tạo vận đơn cho yêu cầu đã được phê duyệt. Trạng thái hiện tại: "
+                            + oldStatus.getDescription());
+        }
+
+        if (returnRequest.getReturnShipmentId() != null) {
+            throw new InvalidReturnRequestException(
+                    "Yêu cầu trả hàng đã có vận đơn: " + returnRequest.getReturnShipmentId());
+        }
+
+        // Convert CreateReturnShipmentRequest -> CreateShipmentRequestDTO
+        CreateShipmentRequestDTO shipmentRequestDTO = CreateShipmentRequestDTO.builder()
+                .weight(request.getWeight())
+                .width(request.getWidth())
+                .height(request.getHeight())
+                .length(request.getLength())
+                .metadata(request.getMetadata())
+                .reason(request.getReason())
+                .codAmount(0L)
+                .totalAmount(0L)
+                .payer(request.getPayer())
+                .warehouseAddress(request.getCustomerAddress() != null ?
+                        CreateShipmentRequestDTO.AddressOverrideDTO.builder()
+                                .name(request.getCustomerAddress().getName())
+                                .phone(request.getCustomerAddress().getPhone())
+                                .street(request.getCustomerAddress().getStreet())
+                                .wardCode(request.getCustomerAddress().getWardCode())
+                                .districtId(request.getCustomerAddress().getDistrictId())
+                                .cityId(request.getCustomerAddress().getCityId())
+                                .build() : null)
+                .customerAddress(request.getWarehouseAddress() != null ?
+                        CreateShipmentRequestDTO.AddressOverrideDTO.builder()
+                                .name(request.getWarehouseAddress().getName())
+                                .phone(request.getWarehouseAddress().getPhone())
+                                .street(request.getWarehouseAddress().getStreet())
+                                .wardCode(request.getWarehouseAddress().getWardCode())
+                                .districtId(request.getWarehouseAddress().getDistrictId())
+                                .cityId(request.getWarehouseAddress().getCityId())
+                                .build() : null)
+                .build();
+
+        CreateShipmentResponse shipmentResponse = goShipService
+                .createReturnShipment(returnRequestId, shipmentRequestDTO);
+
+        returnRequest.setStatus(ReturnRequestStatus.RETURNING);
+        returnRequest.setReturnShipmentId(shipmentResponse.getId());
+        returnRequest.setReturnTrackingUrl(shipmentResponse.getTrackingNumber());
+        returnRequest.setReturnCarrier(shipmentResponse.getCarrier());
+        returnRequest.setReturnShippingStatus(901);
+
+        if (shipmentResponse.getFee() != null) {
+            try {
+                returnRequest.setActualReturnShippingFee(new BigDecimal(shipmentResponse.getFee()));
+            } catch (NumberFormatException e) {
+                log.warn("Cannot parse fee: {}", shipmentResponse.getFee());
+                returnRequest.setActualReturnShippingFee(BigDecimal.ZERO);
+            }
+        }
+
+
+        returnRequest.setUpdatedAt(LocalDateTime.now());
+
+        returnRequestRepository.save(returnRequest);
+
+        log.info("ReturnRequest {} ready to return. Shipment ID: {}. Carrier: {}. Previous status: {}. Reason: {}",
+                returnRequestId, shipmentResponse.getId(), shipmentResponse.getCarrier(),
+                oldStatus, request.getReason());
+
+        return ReturnShipmentInfoResponse.builder()
+                .shipmentId(shipmentResponse.getId())
+                .trackingNumber(shipmentResponse.getTrackingNumber())
+                .carrier(shipmentResponse.getCarrier())
+                .fee(shipmentResponse.getFee() != null ? shipmentResponse.getFee().toString() : null)
+                .createdAt(shipmentResponse.getCreatedAt() != null ?
+                        shipmentResponse.getCreatedAt().toString() : null)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ReturnRequestResponse inspectAndApprove(Long returnRequestId, Long staffId,
+                                                   InspectReturnRequest request,
+                                                   List<MultipartFile> inspectionImages) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        if (returnRequest.getStatus() != ReturnRequestStatus.RETURNED_TO_WAREHOUSE) {
+            throw new InvalidReturnRequestException(
+                    "Chỉ có thể kiểm tra hàng ở trạng thái đã nhận về kho. Trạng thái hiện tại: "
+                            + returnRequest.getStatus().getDescription());
+        }
+
+        List<String> imageUrls = uploadImages(inspectionImages);
+
+        returnRequest.setInspectionNote(request.getInspectionNote());
+        returnRequest.setInspectionImages(imageUrls);
+        returnRequest.setInspectedBy(staffId);
+        returnRequest.setInspectedAt(LocalDateTime.now());
+        returnRequest.setActualReturnShippingFee(request.getActualReturnShippingFee());
+        returnRequest.setRefundAmount(request.getRefundAmount());
+        returnRequest.setStatus(ReturnRequestStatus.INSPECTED_APPROVED);
+
+        ReturnRequest saved = returnRequestRepository.save(returnRequest);
+
+        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
+
+        log.info("ReturnRequest {} inspection APPROVED by staff {}. Refund amount: {}",
+                returnRequestId, staffId, request.getRefundAmount());
+
+        return mapToResponse(saved, order);
+    }
+
+    @Override
+    @Transactional
+    public ReturnRequestResponse inspectAndReject(Long returnRequestId, Long staffId,
+                                                  InspectReturnRequest request,
+                                                  List<MultipartFile> inspectionImages) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        if (returnRequest.getStatus() != ReturnRequestStatus.RETURNED_TO_WAREHOUSE) {
+            throw new InvalidReturnRequestException(
+                    "Chỉ có thể kiểm tra hàng ở trạng thái đã nhận về kho. Trạng thái hiện tại: "
+                            + returnRequest.getStatus().getDescription());
+        }
+
+        List<String> imageUrls = uploadImages(inspectionImages);
+
+        returnRequest.setInspectionNote(request.getInspectionNote());
+        returnRequest.setInspectionImages(imageUrls);
+        returnRequest.setInspectedBy(staffId);
+        returnRequest.setInspectedAt(LocalDateTime.now());
+        returnRequest.setStatus(ReturnRequestStatus.INSPECTED_REJECTED);
+
+        ReturnRequest saved = returnRequestRepository.save(returnRequest);
+
+        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
+
+        log.info("ReturnRequest {} inspection REJECTED by staff {}. Note: {}",
+                returnRequestId, staffId, request.getInspectionNote());
+
+        return mapToResponse(saved, order);
+    }
+
+    @Override
+    @Transactional
+    public ReturnRequestResponse completeRefund(Long returnRequestId, Long staffId,
+                                                CompleteRefundRequest request,
+                                                MultipartFile refundProofImage) {
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        if (returnRequest.getStatus() != ReturnRequestStatus.INSPECTED_APPROVED) {
+            throw new InvalidReturnRequestException(
+                    "Chỉ có thể hoàn tiền cho yêu cầu đã được kiểm tra và chấp nhận. Trạng thái hiện tại: "
+                            + returnRequest.getStatus().getDescription());
+        }
+
+        // Upload ảnh bill chuyển khoản - DÙNG GIỐNG uploadImages()
+        if (refundProofImage != null && !refundProofImage.isEmpty()) {
+            try {
+                Map<String, String> uploadResult = cloudinaryService.uploadImage(
+                        refundProofImage.getBytes(),
+                        "GreenLoop/ReturnRequests");
+
+                String imageUrl = cloudinaryService.getImageUrl(uploadResult.get("asset_id"));
+                returnRequest.setRefundProofImage(imageUrl);
+
+                log.info("Uploaded refund proof image for ReturnRequest {}: {}",
+                        returnRequestId, imageUrl);
+
+            } catch (Exception e) {
+                log.error("Error uploading refund proof image", e);
+                throw new RuntimeException("Failed to upload refund proof image", e);
+            }
+        }
+
+        updateProductStatusToAvailable(returnRequest);
+
+        returnRequest.setStatus(ReturnRequestStatus.COMPLETED);
+        returnRequest.setCompletedAt(LocalDateTime.now());
+
+        ReturnRequest saved = returnRequestRepository.save(returnRequest);
+
+        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
+
+        log.info("ReturnRequest {} refund completed by staff {}. Amount: {}. Note: {}",
+                returnRequestId, staffId, returnRequest.getRefundAmount(), request.getNote());
+
+        return mapToResponse(saved, order);
+    }
+
+
+
+    private void updateProductStatusToAvailable(ReturnRequest returnRequest) {
+        Order order = orderRepository.findById(returnRequest.getOrderId())
+                .orElseThrow(() -> new OrderNotFoundException(returnRequest.getOrderId()));
+
+        log.info("Updating products to AVAILABLE for ReturnRequest {}",
+                returnRequest.getReturnRequestId());
+
+        // Lấy danh sách productId từ returnItems
+        List<UpdateProductStatusRequest.ProductStatusUpdate> productUpdates =
+                returnRequest.getReturnItems().stream()
+                        .map(item -> UpdateProductStatusRequest.ProductStatusUpdate.builder()
+                                .productId(item.getProductId())
+                                .oldStatus(ProductStatusConstant.SOLD)
+                                .newStatus(ProductStatusConstant.AVAILABLE)
+                                .build())
+                        .collect(Collectors.toList());
+
+        UpdateProductStatusRequest request = UpdateProductStatusRequest.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode() + "-RETURN-" + returnRequest.getReturnRequestId())
+                .productUpdates(productUpdates)
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = productClient.updateProductStatus(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to update product status to AVAILABLE for ReturnRequest: {}",
+                        returnRequest.getReturnRequestId());
+            } else {
+                log.info("Updated {} products: SOLD -> AVAILABLE for ReturnRequest: {}",
+                        productUpdates.size(), returnRequest.getReturnRequestId());
+            }
+        } catch (Exception e) {
+            log.error("Error calling product service to update status to AVAILABLE", e);
+            throw new RuntimeException("Không thể cập nhật trạng thái sản phẩm: " + e.getMessage());
+        }
+    }
+
+
+
 
     private void validateReturnRequest(Order order, Long customerId,
                                        CreateReturnRequestRequest request,

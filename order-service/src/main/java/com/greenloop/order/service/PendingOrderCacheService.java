@@ -7,5 +7,4 @@ public interface PendingOrderCacheService {
     PendingOrderRedis getPendingOrder(String orderId);
     String findOrderIdByPaymentCode(Long paymentOrderCode);
     void deletePendingOrder(String orderId, Long paymentOrderCode);
-    boolean exists(String orderId);
 }

@@ -9,7 +9,6 @@ import java.util.List;
 
 public interface ShippingCalculationService {
 
-
     ShippingEstimateResponse calculateShippingFee(
             List<CartItem> cartItems,
             BigDecimal productTotal,

@@ -24,9 +24,7 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
     @Override
     @Transactional(readOnly = true)
     public List<ShipmentSimulatorResponse> getActiveShipments() {
-        log.info("Fetching active shipments for simulator");
 
-        // Lấy các đơn hàng đang active (chưa hoàn thành/hủy/thất lạc/hoàn trả)
         List<Order> activeOrders = orderRepository.findActiveShipments(
                 List.of(
                         OrderStatus.READY_TO_SHIP,    // Chờ lấy hàng
@@ -38,16 +36,12 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                 )
         );
 
-        log.info("Found {} active shipments", activeOrders.size());
-
         return activeOrders.stream()
                 .map(this::mapToSimulatorResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Map Order entity sang ShipmentSimulatorResponse
-     */
+
     private ShipmentSimulatorResponse mapToSimulatorResponse(Order order) {
         ShipmentSimulatorResponse.ShipmentSimulatorResponseBuilder builder =
                 ShipmentSimulatorResponse.builder()
@@ -74,7 +68,6 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                         .expectedDeliveryTime(order.getExpectedDeliveryTime())
                         .updatedAt(order.getUpdatedAt());
 
-        // Map thông tin shipping address nếu có
         if (order.getShippingAddress() != null) {
             builder.receiverName(order.getShippingAddress().getReceiverName())
                     .receiverPhone(order.getShippingAddress().getReceiverPhone())

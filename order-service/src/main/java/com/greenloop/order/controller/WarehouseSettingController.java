@@ -27,9 +27,7 @@ public class WarehouseSettingController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF','MANAGER')")
     public ResponseEntity<ApiResponseDTO<WarehouseSettingResponse>> getWarehouse() {
-
         WarehouseSettingResponse warehouse = warehouseSettingService.getWarehouseResponse();
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Lấy thông tin kho thành công",
                 warehouse,
@@ -39,14 +37,9 @@ public class WarehouseSettingController {
 
 
     @PutMapping
-    @Operation(
-            summary = "Update warehouse information",
-            description = "Cập nhật thông tin cấu hình kho hàng (địa chỉ, tên, SĐT, etc.)"
-    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponseDTO<WarehouseSettingResponse>> updateWarehouse(
             @Valid @RequestBody WarehouseSettingRequest request) {
-
         WarehouseSetting warehouse = WarehouseSetting.builder()
                 .name(request.getName())
                 .phone(request.getPhone())
@@ -58,9 +51,7 @@ public class WarehouseSettingController {
                 .cityId(request.getCityId())
                 .cityName(request.getCityName())
                 .build();
-
         WarehouseSettingResponse updated = warehouseSettingService.updateWarehouse(warehouse);
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Cập nhật thông tin kho thành công",
                 updated,

@@ -2,13 +2,16 @@ package com.greenloop.order.goship.service.impl;
 
 import com.greenloop.order.dto.request.CreateShipmentRequestDTO;
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.ReturnRequest;
 import com.greenloop.order.entity.ShippingAddress;
 import com.greenloop.order.entity.WarehouseSetting; // THÊM
 import com.greenloop.order.exception.OrderNotFoundException;
+import com.greenloop.order.exception.ReturnRequestNotFoundException;
 import com.greenloop.order.goship.client.GoShipClient;
 import com.greenloop.order.goship.dto.*;
 import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.repository.OrderRepository;
+import com.greenloop.order.repository.ReturnRequestRepository;
 import com.greenloop.order.service.WarehouseSettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +27,7 @@ public class GoShipServiceImpl implements GoShipService {
     private final GoShipClient goShipClient;
     private final OrderRepository orderRepository;
     private final WarehouseSettingService warehouseSettingService;
+    private final ReturnRequestRepository returnRequestRepository;
 
     @Override
     public List<RateResponse> calculateShippingRates(CalculateRateRequest request) {
@@ -109,6 +113,80 @@ public class GoShipServiceImpl implements GoShipService {
         return goShipClient.createShipment(goshipRequest);
     }
 
+    @Override
+    public CreateShipmentResponse createReturnShipment(Long returnRequestId,
+                                                       CreateShipmentRequestDTO staffRequest) {
+        log.info("Creating GoShip return shipment for ReturnRequest: {}", returnRequestId);
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
+
+        Order order = orderRepository.findById(returnRequest.getOrderId())
+                .orElseThrow(() -> new OrderNotFoundException(returnRequest.getOrderId()));
+
+        WarehouseSetting warehouse = warehouseSettingService.getWarehouse();
+        ShippingAddress address = order.getShippingAddress();
+
+        // FROM: Customer address (nơi lấy hàng)
+        CreateShipmentRequest.AddressData fromAddr =
+                (staffRequest.getWarehouseAddress() != null)
+                        ? buildAddressFromOverride(staffRequest.getWarehouseAddress())
+                        : buildCustomerAddressFromOrder(address);
+
+        // TO: Warehouse address (nơi nhận hàng trả về)
+        CreateShipmentRequest.AddressData toAddr =
+                (staffRequest.getCustomerAddress() != null)
+                        ? buildAddressFromOverride(staffRequest.getCustomerAddress())
+                        : buildWarehouseAddressFromDB(warehouse);
+
+        String weight = (staffRequest.getWeight() != null && !staffRequest.getWeight().isBlank())
+                ? staffRequest.getWeight() :
+                (order.getParcelWeight() != null ? order.getParcelWeight() : "1000");
+
+        String width = (staffRequest.getWidth() != null && !staffRequest.getWidth().isBlank())
+                ? staffRequest.getWidth() :
+                (order.getParcelWidth() != null ? order.getParcelWidth() : "20");
+
+        String height = (staffRequest.getHeight() != null && !staffRequest.getHeight().isBlank())
+                ? staffRequest.getHeight() :
+                (order.getParcelHeight() != null ? order.getParcelHeight() : "20");
+
+        String length = (staffRequest.getLength() != null && !staffRequest.getLength().isBlank())
+                ? staffRequest.getLength() :
+                (order.getParcelLength() != null ? order.getParcelLength() : "20");
+
+        String metadata = (staffRequest.getMetadata() != null && !staffRequest.getMetadata().isBlank())
+                ? staffRequest.getMetadata() : "ReturnRequest #" + returnRequestId;
+
+        CreateShipmentRequest.ParcelData parcel = CreateShipmentRequest.ParcelData.builder()
+                .cod(0L)
+                .amount(0L)
+                .weight(weight)
+                .width(width)
+                .height(height)
+                .length(length)
+                .metadata(metadata)
+                .build();
+
+        CreateShipmentRequest goshipRequest = CreateShipmentRequest.builder()
+                .shipment(CreateShipmentRequest.ShipmentData.builder()
+                        .rate(order.getSelectedRateId())
+                        .orderId("RR-" + returnRequestId + "-" + order.getOrderCode())
+                        .payer(staffRequest.getPayer())
+                        .addressFrom(fromAddr)
+                        .addressTo(toAddr)
+                        .parcel(parcel)
+                        .build())
+                .build();
+
+        log.info("Creating return shipment: FROM customer TO warehouse for order: {}",
+                order.getOrderCode());
+
+        return goShipClient.createShipment(goshipRequest);
+    }
+
+
     private CreateShipmentRequest.AddressData buildWarehouseAddressFromDB(
             WarehouseSetting warehouse) {
 
@@ -139,9 +217,6 @@ public class GoShipServiceImpl implements GoShipService {
                 .build();
     }
 
-    /**
-     * Build địa chỉ từ override của staff
-     */
     private CreateShipmentRequest.AddressData buildAddressFromOverride(
             CreateShipmentRequestDTO.AddressOverrideDTO override) {
 

@@ -6,12 +6,16 @@ import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.ReturnRequest;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
+import com.greenloop.order.enums.ReturnRequestStatus;
 import com.greenloop.order.exception.OrderNotFoundException;
+import com.greenloop.order.exception.ReturnRequestNotFoundException;
 import com.greenloop.order.goship.dto.GoShipWebhookPayload;
 import com.greenloop.order.repository.OrderRepository;
+import com.greenloop.order.repository.ReturnRequestRepository;
 import com.greenloop.order.service.OrderService;
 import com.greenloop.order.service.TransactionService;
 import com.greenloop.order.util.OrderStatusSyncMapper;
@@ -30,6 +34,7 @@ import java.util.stream.Collectors;
 public class GoShipWebhookService {
 
     private final OrderRepository orderRepository;
+    private final ReturnRequestRepository returnRequestRepository;
     private final OrderService orderService;
     private final ProductClient productClient;
     private final TransactionService transactionService;
@@ -37,6 +42,13 @@ public class GoShipWebhookService {
 
     @Transactional
     public void handleWebhook(GoShipWebhookPayload payload) {
+        // KIỂM TRA IS_RETURN để phân luồng
+        if (payload.getIsReturn() != null && payload.getIsReturn() == 1) {
+            handleReturnWebhook(payload);
+            return;
+        }
+
+        // XỬ LÝ ORDER BÌNH THƯỜNG
         String orderId = payload.getOrderId();
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(
@@ -65,16 +77,107 @@ public class GoShipWebhookService {
         handleProductStatusChange(order, newShippingStatus, payload);
     }
 
-    /**
-     * Xử lý thay đổi trạng thái sản phẩm theo GoShip status
-     */
+    // THÊM METHOD MỚI CHO RETURN WEBHOOK
+    @Transactional
+    public void handleReturnWebhook(GoShipWebhookPayload payload) {
+        String orderId = payload.getOrderId();
+
+        log.info("Processing return webhook for orderId: {}", orderId);
+
+        // orderId format: "RR-{returnRequestId}-{orderCode}"
+        if (!orderId.startsWith("RR-")) {
+            log.warn("Invalid return order ID format: {}", orderId);
+            return;
+        }
+
+        String[] parts = orderId.split("-", 3);
+        if (parts.length < 2) {
+            log.warn("Cannot parse return request ID from: {}", orderId);
+            return;
+        }
+
+        Long returnRequestId;
+        try {
+            returnRequestId = Long.parseLong(parts[1]);
+        } catch (NumberFormatException e) {
+            log.error("Invalid return request ID format: {}", parts[1]);
+            return;
+        }
+
+        ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
+                .orElseThrow(() -> new ReturnRequestNotFoundException(
+                        "ReturnRequest not found for GoShip shipment: " + payload.getGcode()));
+
+        Integer newShippingStatus = Integer.parseInt(payload.getStatus());
+
+        log.info("GoShip return webhook received. ReturnRequest: {}, Status: {} ({})",
+                returnRequestId, newShippingStatus, payload.getStatusText());
+
+        if (payload.getTrackingUrl() != null) {
+            returnRequest.setReturnTrackingUrl(payload.getTrackingUrl());
+        }
+        returnRequest.setReturnShippingStatus(newShippingStatus);
+
+        handleReturnShippingStatusChange(returnRequest, newShippingStatus, payload);
+
+        returnRequest.setUpdatedAt(LocalDateTime.now());
+        returnRequestRepository.save(returnRequest);
+    }
+
+    // THÊM METHOD XỬ LÝ RETURN SHIPPING STATUS
+    private void handleReturnShippingStatusChange(ReturnRequest returnRequest,
+                                                  Integer goshipStatus,
+                                                  GoShipWebhookPayload payload) {
+        switch (goshipStatus) {
+            case 903: // Đã lấy hàng từ customer
+                log.info("GoShip picked up return items for ReturnRequest {}",
+                        returnRequest.getReturnRequestId());
+                break;
+
+            case 904: // Đang vận chuyển về kho
+                log.info("Return items in transit for ReturnRequest {}",
+                        returnRequest.getReturnRequestId());
+                break;
+
+            case 905: // Giao hàng thành công (đã về kho)
+                log.info("Return items delivered to warehouse for ReturnRequest {}",
+                        returnRequest.getReturnRequestId());
+
+                // Tự động chuyển sang RETURNED_TO_WAREHOUSE
+                if (returnRequest.getStatus() == ReturnRequestStatus.RETURNING) {
+                    returnRequest.setStatus(ReturnRequestStatus.RETURNED_TO_WAREHOUSE);
+                    returnRequest.setReturnedAt(LocalDateTime.now());
+                    log.info("ReturnRequest {} auto-updated to RETURNED_TO_WAREHOUSE",
+                            returnRequest.getReturnRequestId());
+                }
+                break;
+
+            case 906: // Giao hàng thất bại
+            case 915: // Hoàn về người gửi (customer giữ lại)
+                log.warn("Return delivery failed for ReturnRequest {}. Status: {} ({})",
+                        returnRequest.getReturnRequestId(), goshipStatus, payload.getStatusText());
+                break;
+
+            case 917: // Thất lạc hàng
+                log.error("Return items LOST for ReturnRequest {}",
+                        returnRequest.getReturnRequestId());
+                break;
+
+            default:
+                log.debug("ReturnRequest {} shipping status updated to {}",
+                        returnRequest.getReturnRequestId(), goshipStatus);
+                break;
+        }
+    }
+
+    // CÁC METHOD CŨ GIỮ NGUYÊN...
     private void handleProductStatusChange(Order order, Integer goshipStatus, GoShipWebhookPayload payload) {
         String newProductStatus;
         String oldProductStatus;
 
         switch (goshipStatus) {
-            case 903: // Đã lấy hàng - xuất kho
-            case 904: // Đang vận chuyển
+            case 903:
+            case 904:
                 oldProductStatus = ProductStatusConstant.RESERVED;
                 newProductStatus = ProductStatusConstant.IN_TRANSIT;
 
@@ -84,27 +187,21 @@ public class GoShipWebhookService {
                 updateProductStatusViaFeign(order, oldProductStatus, newProductStatus);
                 break;
 
-            case 917: // Thất lạc hàng
+            case 917:
                 oldProductStatus = ProductStatusConstant.IN_TRANSIT;
                 newProductStatus = ProductStatusConstant.LOST;
 
                 log.error("Order {} products marked as LOST", order.getOrderCode());
 
                 updateProductStatusViaFeign(order, oldProductStatus, newProductStatus);
-
-                // Xử lý business cho LOST (COD/PayOS, thông báo, khiếu nại...)
                 orderService.handleLostOrder(order.getOrderId(), payload.getMessage());
                 break;
 
             default:
-                // Các status khác không update product
                 break;
         }
     }
 
-    /**
-     * ✅ Update product status qua Product Service (FEIGN)
-     */
     private void updateProductStatusViaFeign(Order order, String oldStatus, String newStatus) {
         log.info("Updating product status via Feign for order {}: {} -> {}",
                 order.getOrderCode(), oldStatus, newStatus);
@@ -138,25 +235,18 @@ public class GoShipWebhookService {
         }
     }
 
-    /**
-     * Xử lý payment status và tính eco points cho delivered orders
-     */
     private void handlePaymentStatusForDelivered(Order order, Integer goshipStatus,
                                                  GoShipWebhookPayload payload) {
-        // Status 905: Giao hàng thành công
         if (goshipStatus == 905) {
-            // 1. Tính tổng eco points từ OrderItem
             int totalEcoPoints = order.getOrderItems().stream()
                     .mapToInt(item -> item.getEcoPoint() != null ? item.getEcoPoint() : 0)
                     .sum();
 
-            // 2. Lưu vào earnedEcoPoints
             order.setEarnedEcoPoints(totalEcoPoints);
 
             log.info("Order {} earned {} eco points",
                     order.getOrderCode(), totalEcoPoints);
 
-            // 3. Nếu là COD và chưa thanh toán thì đánh dấu đã thanh toán
             if (order.getPaymentMethod() == PaymentMethod.COD
                     && order.getPaymentStatus() == PaymentStatus.UNPAID) {
 
@@ -166,32 +256,21 @@ public class GoShipWebhookService {
                         order.getOrderCode(), payload.getCod());
             }
 
-            // ✅ Xử lý order completed qua Feign
             processOrderCompleted(order, totalEcoPoints);
         }
     }
 
-    /**
-     * ✅ Xử lý khi order completed (THAY CHO publishOrderCompletedEvents)
-     */
     private void processOrderCompleted(Order order, int totalEcoPoints) {
         log.info("Processing completed order {}", order.getOrderCode());
 
-        // 1. ✅ Tạo transaction cho COD (nếu chưa có)
         transactionService.completeTransaction(order.getOrderId());
-
-        // 2. ✅ Mark products as SOLD via Feign
         markProductsAsSoldViaFeign(order);
 
-        // 3. ✅ Add eco points via Feign
         if (totalEcoPoints > 0) {
             addEcoPointsViaFeign(order, totalEcoPoints);
         }
     }
 
-    /**
-     * ✅ Mark products as SOLD qua Product Service
-     */
     private void markProductsAsSoldViaFeign(Order order) {
         log.info("Marking products as SOLD via Feign for order: {}", order.getOrderCode());
 
