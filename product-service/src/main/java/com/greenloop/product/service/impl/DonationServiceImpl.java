@@ -468,7 +468,9 @@ public class DonationServiceImpl implements DonationService {
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
 
-        List<Donation> donations = donationRepository.findAll((Sort) spec);
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        List<Donation> donations = donationRepository.findAll(spec, sort);
+
         List<DonationExportDTO> exportList = new ArrayList<>();
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
