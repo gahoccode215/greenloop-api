@@ -1,6 +1,5 @@
 package com.greenloop.order.service.impl;
 
-import com.greenloop.order.dto.simulator.ReturnShipmentSimulatorResponse;
 import com.greenloop.order.dto.simulator.ShipmentSimulatorResponse;
 import com.greenloop.order.entity.Order;
 import com.greenloop.order.entity.ReturnRequest;
@@ -15,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,7 +28,9 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShipmentSimulatorResponse> getActiveShipments() {
+    public List<ShipmentSimulatorResponse> getAllActiveShipments() {
+        List<ShipmentSimulatorResponse> result = new ArrayList<>();
+
         List<Order> activeOrders = orderRepository.findActiveShipments(
                 List.of(
                         OrderStatus.READY_TO_SHIP,
@@ -40,14 +42,10 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                 )
         );
 
-        return activeOrders.stream()
-                .map(this::mapToSimulatorResponse)
+        List<ShipmentSimulatorResponse> orderShipments = activeOrders.stream()
+                .map(this::mapOrderToResponse)
                 .collect(Collectors.toList());
-    }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ReturnShipmentSimulatorResponse> getActiveReturnShipments() {
         List<ReturnRequest> activeReturnRequests = returnRequestRepository
                 .findByStatusIn(List.of(
                         ReturnRequestStatus.READY_TO_RETURN,
@@ -55,14 +53,18 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                         ReturnRequestStatus.RETURNED_TO_WAREHOUSE
                 ));
 
-        return activeReturnRequests.stream()
+        List<ShipmentSimulatorResponse> returnShipments = activeReturnRequests.stream()
                 .filter(rr -> rr.getReturnShipmentId() != null)
-                .map(this::mapToReturnSimulatorResponse)
+                .map(this::mapReturnToResponse)
                 .collect(Collectors.toList());
+
+        result.addAll(orderShipments);
+        result.addAll(returnShipments);
+
+        return result;
     }
 
-
-    private ShipmentSimulatorResponse mapToSimulatorResponse(Order order) {
+    private ShipmentSimulatorResponse mapOrderToResponse(Order order) {
         ShipmentSimulatorResponse.ShipmentSimulatorResponseBuilder builder =
                 ShipmentSimulatorResponse.builder()
                         .orderId(order.getOrderId())
@@ -89,13 +91,19 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                         .updatedAt(order.getUpdatedAt());
 
         if (order.getShippingAddress() != null) {
-            builder.receiverName(order.getShippingAddress().getReceiverName())
+            builder.note(order.getShippingAddress().getNote())
+                    .senderName(order.getShippingAddress().getWarehouseName())
+                    .senderPhone(order.getShippingAddress().getWarehousePhone())
+                    .senderAddress(order.getShippingAddress().getWarehouseAddress())
+                    .senderWardName(order.getShippingAddress().getWarehouseWardName())
+                    .senderDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .senderCityName(order.getShippingAddress().getWarehouseCityName())
+                    .receiverName(order.getShippingAddress().getReceiverName())
                     .receiverPhone(order.getShippingAddress().getReceiverPhone())
                     .receiverAddress(order.getShippingAddress().getReceiverAddress())
                     .receiverWardName(order.getShippingAddress().getReceiverWardName())
                     .receiverDistrictName(order.getShippingAddress().getReceiverDistrictName())
                     .receiverCityName(order.getShippingAddress().getReceiverCityName())
-                    .note(order.getShippingAddress().getNote())
                     .warehouseName(order.getShippingAddress().getWarehouseName())
                     .warehousePhone(order.getShippingAddress().getWarehousePhone())
                     .warehouseAddress(order.getShippingAddress().getWarehouseAddress())
@@ -107,20 +115,26 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
         return builder.build();
     }
 
-    private ReturnShipmentSimulatorResponse mapToReturnSimulatorResponse(ReturnRequest returnRequest) {
+    private ShipmentSimulatorResponse mapReturnToResponse(ReturnRequest returnRequest) {
         Order order = orderRepository.findById(returnRequest.getOrderId()).orElse(null);
 
-        ReturnShipmentSimulatorResponse.ReturnShipmentSimulatorResponseBuilder builder =
-                ReturnShipmentSimulatorResponse.builder()
+        ShipmentSimulatorResponse.ShipmentSimulatorResponseBuilder builder =
+                ShipmentSimulatorResponse.builder()
                         .returnRequestId(returnRequest.getReturnRequestId())
                         .orderId(returnRequest.getOrderId())
                         .orderCode(order != null ? order.getOrderCode() : null)
                         .customerId(returnRequest.getCustomerId())
                         .returnShipmentId(returnRequest.getReturnShipmentId())
+                        .goshipShipmentId(returnRequest.getReturnShipmentId())
                         .returnTrackingUrl(returnRequest.getReturnTrackingUrl())
+                        .goshipTrackingUrl(returnRequest.getReturnTrackingUrl())
                         .returnCarrier(returnRequest.getReturnCarrier())
+                        .carrier(returnRequest.getReturnCarrier())
                         .currentReturnShippingStatus(returnRequest.getReturnShippingStatus())
+                        .currentShippingStatus(returnRequest.getReturnShippingStatus())
                         .currentReturnShippingStatusText(ShippingStatusMapper.getStatusText(
+                                returnRequest.getReturnShippingStatus()))
+                        .currentShippingStatusText(ShippingStatusMapper.getStatusText(
                                 returnRequest.getReturnShippingStatus()))
                         .returnRequestStatus(returnRequest.getStatus().name())
                         .returnRequestStatusText(returnRequest.getStatus().getDescription())
@@ -142,12 +156,24 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                     .pickupWardName(order.getShippingAddress().getReceiverWardName())
                     .pickupDistrictName(order.getShippingAddress().getReceiverDistrictName())
                     .pickupCityName(order.getShippingAddress().getReceiverCityName())
+                    .senderName(order.getShippingAddress().getReceiverName())
+                    .senderPhone(order.getShippingAddress().getReceiverPhone())
+                    .senderAddress(order.getShippingAddress().getReceiverAddress())
+                    .senderWardName(order.getShippingAddress().getReceiverWardName())
+                    .senderDistrictName(order.getShippingAddress().getReceiverDistrictName())
+                    .senderCityName(order.getShippingAddress().getReceiverCityName())
                     .warehouseName(order.getShippingAddress().getWarehouseName())
                     .warehousePhone(order.getShippingAddress().getWarehousePhone())
                     .warehouseAddress(order.getShippingAddress().getWarehouseAddress())
                     .warehouseWardName(order.getShippingAddress().getWarehouseWardName())
                     .warehouseDistrictName(order.getShippingAddress().getWarehouseDistrictName())
-                    .warehouseCityName(order.getShippingAddress().getWarehouseCityName());
+                    .warehouseCityName(order.getShippingAddress().getWarehouseCityName())
+                    .receiverName(order.getShippingAddress().getWarehouseName())
+                    .receiverPhone(order.getShippingAddress().getWarehousePhone())
+                    .receiverAddress(order.getShippingAddress().getWarehouseAddress())
+                    .receiverWardName(order.getShippingAddress().getWarehouseWardName())
+                    .receiverDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .receiverCityName(order.getShippingAddress().getWarehouseCityName());
         }
 
         return builder.build();

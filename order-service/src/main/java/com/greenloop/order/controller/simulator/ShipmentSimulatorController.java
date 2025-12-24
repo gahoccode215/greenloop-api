@@ -1,7 +1,6 @@
 package com.greenloop.order.controller.simulator;
 
 import com.greenloop.order.dto.response.ApiResponseDTO;
-import com.greenloop.order.dto.simulator.ReturnShipmentSimulatorResponse;
 import com.greenloop.order.dto.simulator.ShipmentSimulatorResponse;
 import com.greenloop.order.service.ShipmentSimulatorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,30 +17,19 @@ import java.util.List;
 @RequestMapping("/api/v1/simulator/shipments")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Shipment Simulator", description = "APIs mô phỏng vận đơn để test GoShip webhook")
 public class ShipmentSimulatorController {
 
     private final ShipmentSimulatorService simulatorService;
 
     @GetMapping
-//    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'MANAGER')")
-    public ResponseEntity<ApiResponseDTO<List<ShipmentSimulatorResponse>>> getActiveShipments() {
-        List<ShipmentSimulatorResponse> shipments = simulatorService.getActiveShipments();
+    @Operation(summary = "Lấy tất cả vận đơn đang active (gộp Order + ReturnRequest)")
+    public ResponseEntity<ApiResponseDTO<List<ShipmentSimulatorResponse>>> getAllActiveShipments() {
+        List<ShipmentSimulatorResponse> shipments = simulatorService.getAllActiveShipments();
         return ResponseEntity.ok(
                 ApiResponseDTO.success(
                         String.format("Lấy danh sách %d vận đơn thành công", shipments.size()),
                         shipments,
-                        HttpStatus.OK
-                )
-        );
-    }
-    @GetMapping("/returns")
-    @Operation(summary = "Lấy danh sách vận đơn trả hàng đang active")
-    public ResponseEntity<ApiResponseDTO<List<ReturnShipmentSimulatorResponse>>> getActiveReturnShipments() {
-        List<ReturnShipmentSimulatorResponse> returnShipments = simulatorService.getActiveReturnShipments();
-        return ResponseEntity.ok(
-                ApiResponseDTO.success(
-                        String.format("Lấy danh sách %d vận đơn trả hàng thành công", returnShipments.size()),
-                        returnShipments,
                         HttpStatus.OK
                 )
         );
