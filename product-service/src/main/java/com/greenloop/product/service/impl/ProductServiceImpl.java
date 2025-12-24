@@ -504,13 +504,13 @@ public class ProductServiceImpl implements ProductService {
             log.warn("Eco point rule for action type DONATION and category ID {} not found", itemReq.getCategoryId());
         }
 
-        if(ecoPointRule.getIsActive() == null || !ecoPointRule.getIsActive()) {
-            log.warn("Eco point rule for action type DONATION and category ID {} is inactive", itemReq.getCategoryId());
-            throw new BusinessException(
-                    "Quy tắc Eco Point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.",
-                    ErrorCode.ECO_POINT_RULE_INACTIVE
-            );
-        }
+//        if(ecoPointRule.getIsActive() == null || !ecoPointRule.getIsActive()) {
+//            log.warn("Eco point rule for action type DONATION and category ID {} is inactive", itemReq.getCategoryId());
+//            throw new BusinessException(
+//                    "Quy tắc Eco Point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.",
+//                    ErrorCode.ECO_POINT_RULE_INACTIVE
+//            );
+//        }
 
         if (itemReq.getEcoPointValue() < ecoPointRule.getMinPoints() || itemReq.getEcoPointValue() > ecoPointRule.getMaxPoints()) {
             log.warn("Eco point value {} is out of bounds for category ID {}", itemReq.getEcoPointValue(), itemReq.getCategoryId());
