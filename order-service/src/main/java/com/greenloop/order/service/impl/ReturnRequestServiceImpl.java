@@ -288,7 +288,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                     "Yêu cầu trả hàng đã có vận đơn: " + returnRequest.getReturnShipmentId());
         }
 
-        // Convert CreateReturnShipmentRequest -> CreateShipmentRequestDTO
         CreateShipmentRequestDTO shipmentRequestDTO = CreateShipmentRequestDTO.builder()
                 .weight(request.getWeight())
                 .width(request.getWidth())
@@ -322,7 +321,7 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         CreateShipmentResponse shipmentResponse = goShipService
                 .createReturnShipment(returnRequestId, shipmentRequestDTO);
 
-        returnRequest.setStatus(ReturnRequestStatus.RETURNING);
+        returnRequest.setStatus(ReturnRequestStatus.READY_TO_RETURN);
         returnRequest.setReturnShipmentId(shipmentResponse.getId());
         returnRequest.setReturnTrackingUrl(shipmentResponse.getTrackingNumber());
         returnRequest.setReturnCarrier(shipmentResponse.getCarrier());
@@ -337,14 +336,11 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
             }
         }
 
-
         returnRequest.setUpdatedAt(LocalDateTime.now());
-
         returnRequestRepository.save(returnRequest);
 
-        log.info("ReturnRequest {} ready to return. Shipment ID: {}. Carrier: {}. Previous status: {}. Reason: {}",
-                returnRequestId, shipmentResponse.getId(), shipmentResponse.getCarrier(),
-                oldStatus, request.getReason());
+        log.info("ReturnRequest {} ready to return. Shipment ID: {}. Carrier: {}. Previous status: {}",
+                returnRequestId, shipmentResponse.getId(), shipmentResponse.getCarrier(), oldStatus);
 
         return ReturnShipmentInfoResponse.builder()
                 .shipmentId(shipmentResponse.getId())
@@ -355,6 +351,7 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                         shipmentResponse.getCreatedAt().toString() : null)
                 .build();
     }
+
 
     @Override
     @Transactional
@@ -442,7 +439,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                             + returnRequest.getStatus().getDescription());
         }
 
-        // Upload ảnh bill chuyển khoản - DÙNG GIỐNG uploadImages()
         if (refundProofImage != null && !refundProofImage.isEmpty()) {
             try {
                 Map<String, String> uploadResult = cloudinaryService.uploadImage(
@@ -469,9 +465,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
 
         Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
-        log.info("ReturnRequest {} refund completed by staff {}. Amount: {}. Note: {}",
-                returnRequestId, staffId, returnRequest.getRefundAmount(), request.getNote());
 
         return mapToResponse(saved, order);
     }
@@ -528,27 +521,32 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                     "Bạn không có quyền tạo yêu cầu trả hàng cho đơn này");
         }
 
-        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
+        if (order.getOrderStatus() != OrderStatus.DELIVERED) {
             throw new InvalidReturnRequestException(
                     "Chỉ có thể trả hàng cho đơn đã giao thành công. Trạng thái hiện tại: "
                             + order.getOrderStatus().getDescription());
         }
 
-        LocalDateTime completedTime = order.getUpdatedAt();
-        if (completedTime == null) {
-            completedTime = order.getCreatedAt();
+        if (order.getDeliveredAt() == null) {
+            throw new InvalidReturnRequestException("Đơn hàng chưa có thông tin giao hàng");
         }
 
-        long daysSinceCompleted = ChronoUnit.DAYS.between(completedTime, LocalDateTime.now());
-        if (daysSinceCompleted > RETURN_DAYS_LIMIT) {
+        long daysSinceDelivered = ChronoUnit.DAYS.between(order.getDeliveredAt(), LocalDateTime.now());
+        if (daysSinceDelivered > RETURN_DAYS_LIMIT) {
             throw new ReturnRequestExpiredException(
                     String.format("Đơn hàng đã quá thời hạn trả hàng (%d ngày). Thời hạn cho phép: %d ngày",
-                            daysSinceCompleted, RETURN_DAYS_LIMIT));
+                            daysSinceDelivered, RETURN_DAYS_LIMIT));
         }
 
+        if (order.getCanCreateReturnRequest() != null && !order.getCanCreateReturnRequest()) {
+            throw new InvalidReturnRequestException(
+                    "Đơn hàng này không được phép tạo yêu cầu trả hàng (đã hoàn thành)");
+        }
+
+        // Validate orderItemIds
         List<Long> orderItemIds = order.getOrderItems().stream()
                 .map(OrderItem::getOrderItemId)
-                .collect(Collectors.toList());
+                .toList();
 
         for (Long orderItemId : request.getReturnOrderItemIds()) {
             if (!orderItemIds.contains(orderItemId)) {
@@ -565,6 +563,7 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         List<ReturnRequestStatus> activeStatuses = Arrays.asList(
                 ReturnRequestStatus.PENDING_APPROVAL,
                 ReturnRequestStatus.APPROVED,
+                ReturnRequestStatus.READY_TO_RETURN,
                 ReturnRequestStatus.RETURNING,
                 ReturnRequestStatus.RETURNED_TO_WAREHOUSE,
                 ReturnRequestStatus.INSPECTED_APPROVED
@@ -578,6 +577,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                     "Đơn hàng này đã có yêu cầu trả hàng đang được xử lý");
         }
     }
+
+
 
     private List<OrderItem> getReturnOrderItems(Order order, List<Long> returnOrderItemIds) {
         return order.getOrderItems().stream()

@@ -39,6 +39,11 @@ public class OrderResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    private LocalDateTime deliveredAt;
+    private LocalDateTime completedAt;
+    private Boolean canCreateReturnRequest;
+    private Long remainingReturnHours;
+
     private OrderType orderType;
     private Long eventId;
     private String eventName;

@@ -1,6 +1,7 @@
 package com.greenloop.order.controller.simulator;
 
 import com.greenloop.order.dto.response.ApiResponseDTO;
+import com.greenloop.order.dto.simulator.ReturnShipmentSimulatorResponse;
 import com.greenloop.order.dto.simulator.ShipmentSimulatorResponse;
 import com.greenloop.order.service.ShipmentSimulatorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,18 @@ public class ShipmentSimulatorController {
                 ApiResponseDTO.success(
                         String.format("Lấy danh sách %d vận đơn thành công", shipments.size()),
                         shipments,
+                        HttpStatus.OK
+                )
+        );
+    }
+    @GetMapping("/returns")
+    @Operation(summary = "Lấy danh sách vận đơn trả hàng đang active")
+    public ResponseEntity<ApiResponseDTO<List<ReturnShipmentSimulatorResponse>>> getActiveReturnShipments() {
+        List<ReturnShipmentSimulatorResponse> returnShipments = simulatorService.getActiveReturnShipments();
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        String.format("Lấy danh sách %d vận đơn trả hàng thành công", returnShipments.size()),
+                        returnShipments,
                         HttpStatus.OK
                 )
         );

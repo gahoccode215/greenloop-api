@@ -124,6 +124,15 @@ public class Order {
     @Column(name = "payment_proof_image_url", length = 500)
     private String paymentProofImageUrl;
 
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "can_create_return_request")
+    private Boolean canCreateReturnRequest = true;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();

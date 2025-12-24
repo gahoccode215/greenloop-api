@@ -17,9 +17,7 @@ public interface ReturnRequestRepository extends JpaRepository<ReturnRequest, Lo
 
     Page<ReturnRequest> findByCustomerId(Long customerId, Pageable pageable);
 
-    Page<ReturnRequest> findByStatus(ReturnRequestStatus status, Pageable pageable);
-
-    Optional<ReturnRequest> findByReturnShipmentId(String returnShipmentId);
-
     boolean existsByOrderIdAndStatusIn(String orderId, List<ReturnRequestStatus> statuses);
+
+    List<ReturnRequest> findByStatusIn(List<ReturnRequestStatus> statuses);
 }

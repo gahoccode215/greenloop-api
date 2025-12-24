@@ -26,7 +26,8 @@ public class SecurityConfig {
             "/api/v1/goship/shipments/**",
             "/api/v1/simulator/shipments/**",
             "/api/v1/orders/payment/payos-webhook",
-            "/api/v1/goship/webhooks"
+            "/api/v1/goship/webhooks",
+            "/api/v1/simulator/shipments/returns"
     };
 
     private final HeaderAuthFilter headerAuthFilter;

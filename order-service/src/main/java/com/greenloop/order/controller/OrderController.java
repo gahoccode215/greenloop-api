@@ -191,6 +191,22 @@ public class OrderController {
         );
     }
 
+    @PostMapping("/my-orders/{orderId}/complete")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponseDTO<String>> completeMyOrder(
+            @PathVariable String orderId,
+            Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        orderService.completeOrderByCustomer(orderId, userId);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Hoàn thành đơn hàng thành công",
+                        null,
+                        HttpStatus.OK
+                )
+        );
+    }
+
 
     @PostMapping("/{orderId}/complete")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")

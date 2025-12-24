@@ -35,6 +35,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.payos.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -375,31 +376,21 @@ public class OrderServiceImpl implements OrderService {
     public ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         OrderStatus oldStatus = order.getOrderStatus();
-
         if (!oldStatus.canTransitionTo(OrderStatus.READY_TO_SHIP)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
                     OrderStatus.READY_TO_SHIP.getDescription()
             );
         }
-
         CreateShipmentResponse shipmentResponse = goShipService.createShipmentForOrder(orderId, request);
-
         order.setOrderStatus(OrderStatus.READY_TO_SHIP);
         order.setGoshipShipmentId(shipmentResponse.getId());
         order.setGoshipTrackingUrl(shipmentResponse.getTrackingNumber());
         order.setCarrier(shipmentResponse.getCarrier());
         order.setUpdatedAt(LocalDateTime.now());
         order.setShippingStatus(901);
-
         orderRepository.save(order);
-
-
-        log.info("Order {} ready to ship. Shipment ID: {}. Carrier: {}. Previous status: {}. Reason: {}",
-                orderId, shipmentResponse.getId(), shipmentResponse.getCarrier(), oldStatus, request.getReason());
-
         return ShipmentInfoResponse.builder()
                 .shipmentId(shipmentResponse.getId())
                 .trackingNumber(shipmentResponse.getTrackingNumber())
@@ -446,44 +437,69 @@ public class OrderServiceImpl implements OrderService {
                 order.getOrderCode());
     }
 
-
     @Override
     @Transactional
     public void completeOrder(String orderId, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         OrderStatus oldStatus = order.getOrderStatus();
         if (!oldStatus.canTransitionTo(OrderStatus.COMPLETED)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
                     OrderStatus.COMPLETED.getDescription());
         }
+        completeOrderInternal(order, "STAFF:" + (reason != null ? reason : "No reason"));
+    }
 
+    @Override
+    @Transactional
+    public void completeOrderByCustomer(String orderId, Long customerId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (!order.getCustomerId().equals(customerId)) {
+            throw new UnauthorizedOrderAccessException(orderId, customerId);
+        }
+
+        if (order.getOrderStatus() != OrderStatus.DELIVERED) {
+            throw new InvalidOrderStatusException(
+                    order.getOrderStatus().getDescription(),
+                    "Chỉ có thể hoàn thành đơn hàng ở trạng thái Đã giao hàng"
+            );
+        }
+
+        if (order.getDeliveredAt() == null) {
+            throw new OrderNotDeliveredException(orderId);
+        }
+        LocalDateTime deadline = order.getDeliveredAt().plusDays(7);
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(deadline)) {
+            throw new OrderCompletionExpiredException(orderId, 7);
+        }
+        completeOrderInternal(order, "CUSTOMER:" + customerId);
+    }
+
+
+    @Override
+    @Transactional
+    public void completeOrderInternal(Order order, String completedBy) {
         int totalEcoPoints = order.getOrderItems().stream()
                 .mapToInt(item -> item.getEcoPoint() != null ? item.getEcoPoint() : 0)
                 .sum();
-
         order.setEarnedEcoPoints(totalEcoPoints);
         order.setOrderStatus(OrderStatus.COMPLETED);
+        order.setCompletedAt(LocalDateTime.now());
+        order.setCanCreateReturnRequest(false);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
-
-        log.info("Order {} completed. Previous status: {}. Reason: {}",
-                orderId, oldStatus, reason);
-
-        transactionService.completeTransaction(orderId);
+        transactionService.completeTransaction(order.getOrderId());
         markProductsAsSoldViaFeign(order);
-
         if (totalEcoPoints > 0) {
             addEcoPointsViaFeign(order, totalEcoPoints);
         }
     }
 
     private void addEcoPointsViaFeign(Order order, int totalEcoPoints) {
-        log.info("Adding {} eco points via Feign for order: {}",
-                totalEcoPoints, order.getOrderCode());
-
         AddEcoPointsRequest request = AddEcoPointsRequest.builder()
                 .orderId(order.getOrderId())
                 .orderCode(order.getOrderCode())
@@ -506,54 +522,38 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-
     @Override
     @Transactional
     public void processOrder(String orderId, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         OrderStatus oldStatus = order.getOrderStatus();
-
         if (!oldStatus.canTransitionTo(OrderStatus.PROCESSING)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
                     OrderStatus.PROCESSING.getDescription()
             );
         }
-
         order.setOrderStatus(OrderStatus.PROCESSING);
         order.setUpdatedAt(LocalDateTime.now());
-
         orderRepository.save(order);
-
-        log.info("Order {} processing started. Previous status: {}. Reason: {}",
-                orderId, oldStatus, reason);
     }
-
 
     @Override
     @Transactional
     public void confirmOrder(String orderId, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         OrderStatus oldStatus = order.getOrderStatus();
-
         if (!oldStatus.canTransitionTo(OrderStatus.CONFIRMED)) {
             throw new InvalidOrderStatusException(
                     oldStatus.getDescription(),
                     OrderStatus.CONFIRMED.getDescription()
             );
         }
-
         order.setOrderStatus(OrderStatus.CONFIRMED);
         order.setUpdatedAt(LocalDateTime.now());
-
         orderRepository.save(order);
-
-        log.info("Order {} confirmed. Previous status: {}. Reason: {}",
-                orderId, oldStatus, reason);
     }
 
     @Override
@@ -703,8 +703,6 @@ public class OrderServiceImpl implements OrderService {
         );
     }
 
-
-
     private OrderResponse mapToOrderResponse(Order order) {
         OrderResponse response = OrderResponse.builder()
                 .orderId(order.getOrderId())
@@ -732,9 +730,13 @@ public class OrderServiceImpl implements OrderService {
                 .goshipTrackingUrl(order.getGoshipTrackingUrl())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
+                .deliveredAt(order.getDeliveredAt())
+                .completedAt(order.getCompletedAt())
                 .earnedEcoPoints(order.getEarnedEcoPoints())
                 .eventId(order.getEventId())
                 .build();
+
+        calculateReturnRequestEligibility(order, response);
 
         if (order.getCustomerId() != null) {
             try {
@@ -794,6 +796,45 @@ public class OrderServiceImpl implements OrderService {
         return response;
     }
 
+    private void calculateReturnRequestEligibility(Order order, OrderResponse response) {
+        // Mặc định không được khiếu nại
+        response.setCanCreateReturnRequest(false);
+        response.setRemainingReturnHours(null);
+
+        // Kiểm tra các điều kiện
+        // 1. Đơn phải ở trạng thái DELIVERED
+        if (order.getOrderStatus() != OrderStatus.DELIVERED) {
+            return;
+        }
+
+        // 2. Phải có deliveredAt
+        if (order.getDeliveredAt() == null) {
+            return;
+        }
+
+        // 3. Flag canCreateReturnRequest phải true (chưa complete)
+        if (order.getCanCreateReturnRequest() == null || !order.getCanCreateReturnRequest()) {
+            return;
+        }
+
+        // 4. Kiểm tra còn trong 7 ngày
+        LocalDateTime deadline = order.getDeliveredAt().plusDays(7);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isAfter(deadline)) {
+            return; // Quá 7 ngày
+        }
+
+        // Nếu đủ điều kiện → cho phép khiếu nại
+        response.setCanCreateReturnRequest(true);
+
+        // Tính số giờ còn lại
+        long remainingHours = java.time.Duration.between(now, deadline).toHours();
+        response.setRemainingReturnHours(remainingHours);
+    }
+
+
+
     private ProductDTO validateAndGetProduct(Long productId) {
         ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(productId);
 
@@ -809,7 +850,6 @@ public class OrderServiceImpl implements OrderService {
 
         return product;
     }
-
 
     private OrderItemRequest buildOrderItemFromProduct(ProductDTO product) {
         Integer ecoPoint = product.getEcoPointValue() != null ? product.getEcoPointValue() : 0;

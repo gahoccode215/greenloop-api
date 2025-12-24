@@ -21,6 +21,8 @@ public interface OrderService {
     void confirmOrder(String orderId, String reason);
     void processOrder(String orderId, String reason);
     void completeOrder(String orderId, String reason);
+    void completeOrderByCustomer(String orderId, Long customerId);
+    void completeOrderInternal(Order order, String completedBy);
     ShipmentInfoResponse shipOrder(String orderId, CreateShipmentRequestDTO request);
     Order buildAndSaveOrder(CreateOrderRequest request);
     void handleLostOrder(String orderId, String reason);

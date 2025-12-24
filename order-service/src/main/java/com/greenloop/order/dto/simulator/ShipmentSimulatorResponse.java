@@ -8,9 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Response trả về danh sách vận đơn cho Shipper Simulator
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
