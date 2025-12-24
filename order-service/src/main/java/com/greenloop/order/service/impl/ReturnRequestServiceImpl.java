@@ -7,10 +7,7 @@ import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.PageResponseDTO;
 import com.greenloop.order.dto.response.ReturnRequestResponse;
 import com.greenloop.order.dto.response.ReturnShipmentInfoResponse;
-import com.greenloop.order.entity.Order;
-import com.greenloop.order.entity.OrderItem;
-import com.greenloop.order.entity.ReturnItem;
-import com.greenloop.order.entity.ReturnRequest;
+import com.greenloop.order.entity.*;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.ReturnRequestStatus;
 import com.greenloop.order.exception.InvalidReturnRequestException;
@@ -24,6 +21,7 @@ import com.greenloop.order.repository.ReturnRequestRepository;
 import com.greenloop.order.repository.specification.ReturnRequestSpecification;
 import com.greenloop.order.service.CloudinaryService;
 import com.greenloop.order.service.ReturnRequestService;
+import com.greenloop.order.service.TransactionService;
 import com.greenloop.order.util.PageResponseUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,24 +53,19 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     private final CloudinaryService cloudinaryService;
     private final GoShipService goShipService;
     private final ProductClient productClient;
+    private final TransactionService transactionService;
 
     @Override
     @Transactional
     public ReturnRequestResponse createReturnRequest(Long customerId, String orderId,
                                                      CreateReturnRequestRequest request,
                                                      List<MultipartFile> images) {
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         validateReturnRequest(order, customerId, request, images);
-
         List<OrderItem> returnOrderItems = getReturnOrderItems(order, request.getReturnOrderItemIds());
-
         BigDecimal originalAmount = calculateOriginalAmount(returnOrderItems);
-
         List<String> imageUrls = uploadImages(images);
-
         ReturnRequest returnRequest = ReturnRequest.builder()
                 .orderId(orderId)
                 .customerId(customerId)
@@ -85,7 +78,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                 .originalAmount(originalAmount)
                 .requestedAt(LocalDateTime.now())
                 .build();
-
         List<ReturnItem> returnItems = returnOrderItems.stream()
                 .map(orderItem -> ReturnItem.builder()
                         .returnRequest(returnRequest)
@@ -96,11 +88,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                         .ecoPoint(orderItem.getEcoPoint())
                         .build())
                 .collect(Collectors.toList());
-
         returnRequest.setReturnItems(returnItems);
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
         return mapToResponse(saved, order);
     }
 
@@ -110,10 +99,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
-
         Order order = orderRepository.findById(returnRequest.getOrderId())
                 .orElseThrow(() -> new OrderNotFoundException(returnRequest.getOrderId()));
-
         return mapToResponse(returnRequest, order);
     }
 
@@ -121,30 +108,24 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     @Transactional(readOnly = true)
     public PageResponseDTO<ReturnRequestResponse> getReturnRequestsByOrder(
             String orderId, Integer page, Integer size, String sortBy, String sortDirection) {
-
         Sort sort = Sort.by(
                 "DESC".equalsIgnoreCase(sortDirection)
                         ? Sort.Direction.DESC
                         : Sort.Direction.ASC,
                 sortBy != null ? sortBy : "createdAt"
         );
-
         Pageable pageable = PageRequest.of(
                 page != null ? page : 0,
                 size != null ? size : 10,
                 sort
         );
-
         Page<ReturnRequest> returnRequestPage = returnRequestRepository
                 .findByOrderId(orderId, pageable);
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         Page<ReturnRequestResponse> responsePage = returnRequestPage.map(rr ->
                 mapToResponse(rr, order)
         );
-
         return PageResponseUtil.toPageResponse(responsePage);
     }
 
@@ -152,57 +133,46 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     @Transactional(readOnly = true)
     public PageResponseDTO<ReturnRequestResponse> getReturnRequestsByCustomer(
             Long customerId, Integer page, Integer size, String sortBy, String sortDirection) {
-
         Sort sort = Sort.by(
                 "DESC".equalsIgnoreCase(sortDirection)
                         ? Sort.Direction.DESC
                         : Sort.Direction.ASC,
                 sortBy != null ? sortBy : "createdAt"
         );
-
         Pageable pageable = PageRequest.of(
                 page != null ? page : 0,
                 size != null ? size : 10,
                 sort
         );
-
         Page<ReturnRequest> returnRequestPage = returnRequestRepository
                 .findByCustomerId(customerId, pageable);
-
         Page<ReturnRequestResponse> responsePage = returnRequestPage.map(rr -> {
             Order order = orderRepository.findById(rr.getOrderId()).orElse(null);
             return mapToResponse(rr, order);
         });
-
         return PageResponseUtil.toPageResponse(responsePage);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponseDTO<ReturnRequestResponse> getAllReturnRequests(ReturnRequestFilterRequest filter) {
-
         Specification<ReturnRequest> spec = ReturnRequestSpecification.filterReturnRequests(filter);
-
         Sort sort = Sort.by(
                 "DESC".equalsIgnoreCase(filter.getSortDirection())
                         ? Sort.Direction.DESC
                         : Sort.Direction.ASC,
                 filter.getSortBy() != null ? filter.getSortBy() : "createdAt"
         );
-
         Pageable pageable = PageRequest.of(
                 filter.getPage() != null ? filter.getPage() : 0,
                 filter.getSize() != null ? filter.getSize() : 10,
                 sort
         );
-
         Page<ReturnRequest> returnRequestPage = returnRequestRepository.findAll(spec, pageable);
-
         Page<ReturnRequestResponse> responsePage = returnRequestPage.map(rr -> {
             Order order = orderRepository.findById(rr.getOrderId()).orElse(null);
             return mapToResponse(rr, order);
         });
-
         return PageResponseUtil.toPageResponse(responsePage);
     }
 
@@ -210,7 +180,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     @Transactional
     public ReturnRequestResponse approveReturnRequest(Long returnRequestId, Long staffId,
                                                       ApproveReturnRequestRequest request) {
-
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
@@ -220,18 +189,11 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                     "Không thể phê duyệt yêu cầu trả hàng ở trạng thái: "
                             + returnRequest.getStatus().getDescription());
         }
-
         returnRequest.setStatus(ReturnRequestStatus.APPROVED);
         returnRequest.setApprovedBy(staffId);
         returnRequest.setApprovedAt(LocalDateTime.now());
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
         Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
-        log.info("ReturnRequest {} approved by staff {}. Note: {}",
-                returnRequestId, staffId, request.getNote());
-
         return mapToResponse(saved, order);
     }
 
@@ -240,29 +202,20 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     @Transactional
     public ReturnRequestResponse rejectReturnRequest(Long returnRequestId, Long staffId,
                                                      RejectReturnRequestRequest request) {
-
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
-
         if (returnRequest.getStatus() != ReturnRequestStatus.PENDING_APPROVAL) {
             throw new InvalidReturnRequestException(
                     "Không thể từ chối yêu cầu trả hàng ở trạng thái: "
                             + returnRequest.getStatus().getDescription());
         }
-
         returnRequest.setStatus(ReturnRequestStatus.REJECTED);
         returnRequest.setRejectedBy(staffId);
         returnRequest.setRejectedAt(LocalDateTime.now());
         returnRequest.setRejectedReason(request.getRejectedReason());
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
         Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
-        log.info("ReturnRequest {} rejected by staff {}. Reason: {}",
-                returnRequestId, staffId, request.getRejectedReason());
-
         return mapToResponse(saved, order);
     }
 
@@ -274,20 +227,16 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
-
         ReturnRequestStatus oldStatus = returnRequest.getStatus();
-
         if (oldStatus != ReturnRequestStatus.APPROVED) {
             throw new InvalidReturnRequestException(
                     "Chỉ có thể tạo vận đơn cho yêu cầu đã được phê duyệt. Trạng thái hiện tại: "
                             + oldStatus.getDescription());
         }
-
         if (returnRequest.getReturnShipmentId() != null) {
             throw new InvalidReturnRequestException(
                     "Yêu cầu trả hàng đã có vận đơn: " + returnRequest.getReturnShipmentId());
         }
-
         CreateShipmentRequestDTO shipmentRequestDTO = CreateShipmentRequestDTO.builder()
                 .weight(request.getWeight())
                 .width(request.getWidth())
@@ -317,31 +266,22 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                                 .cityId(request.getWarehouseAddress().getCityId())
                                 .build() : null)
                 .build();
-
         CreateShipmentResponse shipmentResponse = goShipService
                 .createReturnShipment(returnRequestId, shipmentRequestDTO);
-
         returnRequest.setStatus(ReturnRequestStatus.READY_TO_RETURN);
         returnRequest.setReturnShipmentId(shipmentResponse.getId());
         returnRequest.setReturnTrackingUrl(shipmentResponse.getTrackingNumber());
         returnRequest.setReturnCarrier(shipmentResponse.getCarrier());
         returnRequest.setReturnShippingStatus(901);
-
         if (shipmentResponse.getFee() != null) {
             try {
                 returnRequest.setActualReturnShippingFee(new BigDecimal(shipmentResponse.getFee()));
             } catch (NumberFormatException e) {
-                log.warn("Cannot parse fee: {}", shipmentResponse.getFee());
                 returnRequest.setActualReturnShippingFee(BigDecimal.ZERO);
             }
         }
-
         returnRequest.setUpdatedAt(LocalDateTime.now());
         returnRequestRepository.save(returnRequest);
-
-        log.info("ReturnRequest {} ready to return. Shipment ID: {}. Carrier: {}. Previous status: {}",
-                returnRequestId, shipmentResponse.getId(), shipmentResponse.getCarrier(), oldStatus);
-
         return ReturnShipmentInfoResponse.builder()
                 .shipmentId(shipmentResponse.getId())
                 .trackingNumber(shipmentResponse.getTrackingNumber())
@@ -370,7 +310,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         }
 
         List<String> imageUrls = uploadImages(inspectionImages);
-
         returnRequest.setInspectionNote(request.getInspectionNote());
         returnRequest.setInspectionImages(imageUrls);
         returnRequest.setInspectedBy(staffId);
@@ -378,14 +317,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         returnRequest.setActualReturnShippingFee(request.getActualReturnShippingFee());
         returnRequest.setRefundAmount(request.getRefundAmount());
         returnRequest.setStatus(ReturnRequestStatus.INSPECTED_APPROVED);
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
         Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
-        log.info("ReturnRequest {} inspection APPROVED by staff {}. Refund amount: {}",
-                returnRequestId, staffId, request.getRefundAmount());
-
         return mapToResponse(saved, order);
     }
 
@@ -394,7 +327,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     public ReturnRequestResponse inspectAndReject(Long returnRequestId, Long staffId,
                                                   InspectReturnRequest request,
                                                   List<MultipartFile> inspectionImages) {
-
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
@@ -404,22 +336,14 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
                     "Chỉ có thể kiểm tra hàng ở trạng thái đã nhận về kho. Trạng thái hiện tại: "
                             + returnRequest.getStatus().getDescription());
         }
-
         List<String> imageUrls = uploadImages(inspectionImages);
-
         returnRequest.setInspectionNote(request.getInspectionNote());
         returnRequest.setInspectionImages(imageUrls);
         returnRequest.setInspectedBy(staffId);
         returnRequest.setInspectedAt(LocalDateTime.now());
         returnRequest.setStatus(ReturnRequestStatus.INSPECTED_REJECTED);
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
         Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
-        log.info("ReturnRequest {} inspection REJECTED by staff {}. Note: {}",
-                returnRequestId, staffId, request.getInspectionNote());
-
         return mapToResponse(saved, order);
     }
 
@@ -428,17 +352,14 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
     public ReturnRequestResponse completeRefund(Long returnRequestId, Long staffId,
                                                 CompleteRefundRequest request,
                                                 MultipartFile refundProofImage) {
-
         ReturnRequest returnRequest = returnRequestRepository.findById(returnRequestId)
                 .orElseThrow(() -> new ReturnRequestNotFoundException(
                         "Không tìm thấy yêu cầu trả hàng: " + returnRequestId));
-
         if (returnRequest.getStatus() != ReturnRequestStatus.INSPECTED_APPROVED) {
             throw new InvalidReturnRequestException(
                     "Chỉ có thể hoàn tiền cho yêu cầu đã được kiểm tra và chấp nhận. Trạng thái hiện tại: "
                             + returnRequest.getStatus().getDescription());
         }
-
         if (refundProofImage != null && !refundProofImage.isEmpty()) {
             try {
                 Map<String, String> uploadResult = cloudinaryService.uploadImage(
@@ -447,38 +368,27 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
 
                 String imageUrl = cloudinaryService.getImageUrl(uploadResult.get("asset_id"));
                 returnRequest.setRefundProofImage(imageUrl);
-
-                log.info("Uploaded refund proof image for ReturnRequest {}: {}",
-                        returnRequestId, imageUrl);
-
             } catch (Exception e) {
                 log.error("Error uploading refund proof image", e);
                 throw new RuntimeException("Failed to upload refund proof image", e);
             }
         }
-
         updateProductStatusToAvailable(returnRequest);
+        Order order = orderRepository.findById(returnRequest.getOrderId())
+                .orElseThrow(() -> new OrderNotFoundException(returnRequest.getOrderId()));
 
+        transactionService
+                .createRefundTransactionForReturnRequest(returnRequest, order);
         returnRequest.setStatus(ReturnRequestStatus.COMPLETED);
         returnRequest.setCompletedAt(LocalDateTime.now());
-
         ReturnRequest saved = returnRequestRepository.save(returnRequest);
-
-        Order order = orderRepository.findById(saved.getOrderId()).orElse(null);
-
         return mapToResponse(saved, order);
     }
-
-
 
     private void updateProductStatusToAvailable(ReturnRequest returnRequest) {
         Order order = orderRepository.findById(returnRequest.getOrderId())
                 .orElseThrow(() -> new OrderNotFoundException(returnRequest.getOrderId()));
 
-        log.info("Updating products to AVAILABLE for ReturnRequest {}",
-                returnRequest.getReturnRequestId());
-
-        // Lấy danh sách productId từ returnItems
         List<UpdateProductStatusRequest.ProductStatusUpdate> productUpdates =
                 returnRequest.getReturnItems().stream()
                         .map(item -> UpdateProductStatusRequest.ProductStatusUpdate.builder()
@@ -509,9 +419,6 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
             throw new RuntimeException("Không thể cập nhật trạng thái sản phẩm: " + e.getMessage());
         }
     }
-
-
-
 
     private void validateReturnRequest(Order order, Long customerId,
                                        CreateReturnRequestRequest request,

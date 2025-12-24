@@ -11,10 +11,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DirectCheckoutRequest {
-    private Long productId;                    // ID sản phẩm muốn mua
-    private String selectedRateId;             // Đơn vị vận chuyển
-    private CheckoutShippingAddressRequest shippingAddress;  // Địa chỉ giao hàng
-    private Long voucherUserId;                // Voucher (optional)
-    private PaymentMethod paymentMethod;       // COD hoặc PAYOS
-    private String platform;                   // "web" hoặc "mobile" (cho PayOS)
+    private Long productId;
+    private String selectedRateId;
+    private CheckoutShippingAddressRequest shippingAddress;
+    private Long voucherUserId;
+    private PaymentMethod paymentMethod;
+    private String platform;
 }

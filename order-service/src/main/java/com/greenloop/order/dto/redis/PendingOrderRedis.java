@@ -22,32 +22,26 @@ public class PendingOrderRedis implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // Order info
     private String orderId;
     private String orderCode;
     private Long customerId;
     private Long eventId;
     private OrderType orderType;
 
-    // Payment info
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
     private String paymentUrl;
 
-    // Pricing
     private BigDecimal subTotal;
     private BigDecimal discountAmount;
     private BigDecimal totalPrice;
     private BigDecimal shippingFee;
 
-    // Voucher
     private Long voucherUserId;
     private String voucherCode;
 
-    // Items
     private List<OrderItemRequest> items;
 
-    // Shipping (online orders)
     private CheckoutShippingAddressRequest shippingAddress;
     private String selectedRateId;
     private String carrier;
@@ -58,12 +52,10 @@ public class PendingOrderRedis implements Serializable {
     private String parcelLength;
     private Integer shippingStatus;
 
-    // Guest info (offline orders)
     private Boolean isGuestPurchase;
     private String guestName;
     private String guestPhone;
 
-    // Metadata
     private Integer earnedEcoPoints;
     private String note;
     private LocalDateTime createdAt;

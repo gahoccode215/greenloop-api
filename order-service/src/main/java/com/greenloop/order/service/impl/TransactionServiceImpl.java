@@ -5,12 +5,14 @@ import com.greenloop.order.dto.response.PageResponseDTO;
 import com.greenloop.order.dto.response.TransactionDetailResponse;
 import com.greenloop.order.dto.response.TransactionReportResponse;
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.ReturnRequest;
 import com.greenloop.order.entity.Transaction;
 import com.greenloop.order.enums.*;
 import com.greenloop.order.repository.TransactionRepository;
 import com.greenloop.order.repository.specification.TransactionSpecification;
 import com.greenloop.order.service.TransactionService;
 import com.greenloop.order.util.PageResponseUtil;
+import com.greenloop.order.util.TransactionCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,9 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,13 +37,25 @@ import java.util.stream.Collectors;
 public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final TransactionCodeGenerator transactionCodeGenerator;
 
     @Override
     @Transactional
-    public Transaction createTransactionFromOrder(Order order) {
-        log.info("Creating transaction for order: {}", order.getOrderCode());
+    public Transaction createTransactionForOnlineOrder(Order order) {
+        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
+            return null;
+        }
 
-        String transactionCode = generateTransactionCode();
+        if (order.getOrderType() != OrderType.ONLINE) {
+            return null;
+        }
+
+        Optional<Transaction> existing = transactionRepository.findByOrderId(order.getOrderId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        String transactionCode = transactionCodeGenerator.generateTransactionCode();
 
         Transaction transaction = Transaction.builder()
                 .transactionCode(transactionCode)
@@ -49,7 +63,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .orderCode(order.getOrderCode())
                 .customerId(order.getCustomerId())
                 .transactionType(TransactionType.PAYMENT)
-                .orderType(order.getOrderType())
+                .orderType(OrderType.ONLINE)
                 .amount(order.getTotalPrice())
                 .productTotal(order.getSubTotal())
                 .shippingFee(order.getShippingFee())
@@ -60,45 +74,97 @@ public class TransactionServiceImpl implements TransactionService {
                 .paymentMethod(order.getPaymentMethod())
                 .paymentOrderCode(order.getPaymentOrderCode())
                 .paymentTransactionId(order.getPaymentTransactionId())
-                .status(order.getPaymentStatus() == PaymentStatus.PAID
-                        ? TransactionStatus.COMPLETED
-                        : TransactionStatus.PENDING)
+                .status(TransactionStatus.COMPLETED)
                 .description(buildDescription(order))
                 .transactionDate(LocalDateTime.now())
+                .completedDate(LocalDateTime.now())
                 .eventId(order.getEventId())
                 .isGuestPurchase(order.getIsGuestPurchase())
                 .guestName(order.getGuestName())
                 .guestPhone(order.getGuestPhone())
                 .build();
 
-        if (order.getPaymentStatus() == PaymentStatus.PAID) {
-            transaction.setCompletedDate(LocalDateTime.now());
+        Transaction saved = transactionRepository.save(transaction);
+        return saved;
+    }
+
+
+    @Override
+    @Transactional
+    public Transaction createTransactionForOfflineOrder(Order order) {
+        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
+            return null;
         }
 
+        if (order.getOrderType() != OrderType.OFFLINE) {
+            return null;
+        }
+
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            return null;
+        }
+
+        Optional<Transaction> existing = transactionRepository.findByOrderId(order.getOrderId());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        String transactionCode = transactionCodeGenerator.generateTransactionCode();
+
+        Transaction transaction = Transaction.builder()
+                .transactionCode(transactionCode)
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .transactionType(TransactionType.PAYMENT)
+                .orderType(OrderType.OFFLINE)
+                .amount(order.getTotalPrice())
+                .productTotal(order.getSubTotal())
+                .shippingFee(BigDecimal.ZERO)
+                .discountAmount(order.getDiscountAmount())
+                .voucherCode(order.getVoucherCode())
+                .voucherDiscount(order.getDiscountAmount())
+                .shippingDiscount(BigDecimal.ZERO)
+                .paymentMethod(order.getPaymentMethod())
+                .paymentOrderCode(order.getPaymentOrderCode())
+                .paymentTransactionId(order.getPaymentTransactionId())
+                .status(TransactionStatus.COMPLETED)
+                .description(buildDescription(order))
+                .transactionDate(LocalDateTime.now())
+                .completedDate(LocalDateTime.now())
+                .eventId(order.getEventId())
+                .isGuestPurchase(order.getIsGuestPurchase())
+                .guestName(order.getGuestName())
+                .guestPhone(order.getGuestPhone())
+                .build();
+
         Transaction saved = transactionRepository.save(transaction);
-        log.info("Transaction created: {} for order: {}", transactionCode, order.getOrderCode());
         return saved;
     }
 
     @Override
     @Transactional
-    public void completeTransaction(String orderId) {
-        log.info("Completing transaction for order: {}", orderId);
+    public Transaction createRefundTransactionForReturnRequest(
+            ReturnRequest returnRequest,
+            Order order) {
+//        if (returnRequest.getStatus() != ReturnRequestStatus.COMPLETED) {
+//            return null;
+//        }
 
-        transactionRepository.findByOrderId(orderId).ifPresent(transaction -> {
-            transaction.setStatus(TransactionStatus.COMPLETED);
-            transaction.setCompletedDate(LocalDateTime.now());
-            transactionRepository.save(transaction);
-            log.info("Transaction completed: {}", transaction.getTransactionCode());
-        });
-    }
+        if (returnRequest.getRefundAmount() == null ||
+                returnRequest.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("Cannot create refund transaction with invalid refund amount: {}",
+                    returnRequest.getRefundAmount());
+            return null;
+        }
 
-    @Override
-    @Transactional
-    public Transaction createRefundTransaction(Order order, String reason) {
-        log.info("Creating refund transaction for order: {}", order.getOrderCode());
+        Optional<Transaction> existing = transactionRepository
+                .findByOrderIdAndTransactionType(order.getOrderId(), TransactionType.REFUND);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
 
-        String transactionCode = generateTransactionCode();
+        String transactionCode = transactionCodeGenerator.generateRefundCode();
 
         Transaction refundTransaction = Transaction.builder()
                 .transactionCode(transactionCode)
@@ -107,29 +173,50 @@ public class TransactionServiceImpl implements TransactionService {
                 .customerId(order.getCustomerId())
                 .transactionType(TransactionType.REFUND)
                 .orderType(order.getOrderType())
-                .amount(order.getTotalPrice().negate())
-                .productTotal(order.getSubTotal())
-                .shippingFee(order.getShippingFee())
-                .discountAmount(order.getDiscountAmount())
+                .amount(returnRequest.getRefundAmount().negate())
+                .productTotal(returnRequest.getOriginalAmount())
+                .shippingFee(returnRequest.getActualReturnShippingFee() != null
+                        ? returnRequest.getActualReturnShippingFee()
+                        : BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .voucherDiscount(BigDecimal.ZERO)
+                .shippingDiscount(BigDecimal.ZERO)
+
                 .paymentMethod(order.getPaymentMethod())
+                .paymentOrderCode(order.getPaymentOrderCode())
+                .paymentTransactionId(order.getPaymentTransactionId())
+
                 .status(TransactionStatus.REFUNDED)
-                .description("Hoàn tiền đơn hàng " + order.getOrderCode() + " - " + reason)
+
+                .description(buildRefundDescription(order, returnRequest))
+
                 .transactionDate(LocalDateTime.now())
                 .refundedDate(LocalDateTime.now())
+
                 .eventId(order.getEventId())
+                .isGuestPurchase(order.getIsGuestPurchase())
+                .guestName(order.getGuestName())
+                .guestPhone(order.getGuestPhone())
                 .build();
 
         Transaction saved = transactionRepository.save(refundTransaction);
-        log.info("Refund transaction created: {}", transactionCode);
+
         return saved;
     }
+
+    private String buildRefundDescription(Order order, ReturnRequest returnRequest) {
+        return String.format("Hoàn tiền đơn hàng %s - Yêu cầu trả hàng #%d (%s)",
+                order.getOrderCode(),
+                returnRequest.getReturnRequestId(),
+                returnRequest.getReturnReason().getDescription());
+    }
+
+
 
     @Override
     @Transactional(readOnly = true)
     public TransactionReportResponse getDetailedTransactionReport(
             LocalDateTime from, LocalDateTime to, TransactionFilterRequest filter) {
-
-        log.info("Generating detailed report from {} to {}", from, to);
 
         Specification<Transaction> spec = TransactionSpecification.filterTransactions(from, to, filter);
         List<Transaction> transactions = transactionRepository.findAll(spec);
@@ -176,33 +263,23 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional(readOnly = true)
     public TransactionDetailResponse getTransactionById(Long id) {
-        log.info("Getting transaction by id: {}", id);
-
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
-
         return mapToDetailResponse(transaction);
     }
 
-    // ========================================
-    // ========== PRIVATE HELPERS ==========
-    // ========================================
-
-    /**
-     * ✅ FIX: Xử lý null cho amount
-     */
     private TransactionReportResponse.OverallSummary calculateOverallSummary(List<Transaction> transactions) {
         BigDecimal totalInflow = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
-                .filter(amount -> amount != null) // ✅ FIX
+                .filter(amount -> amount != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalOutflow = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.REFUND
                         && t.getStatus() == TransactionStatus.REFUNDED)
-                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return TransactionReportResponse.OverallSummary.builder()
@@ -236,9 +313,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    /**
-     * ✅ FIX: Xử lý null và division by zero
-     */
     private TransactionReportResponse.OnlineOfflineData calculateOnlineOfflineData(
             List<Transaction> transactions, BigDecimal totalInflow) {
 
@@ -246,15 +320,14 @@ public class TransactionServiceImpl implements TransactionService {
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
-                .filter(amount -> amount != null) // ✅ FIX
+                .filter(amount -> amount != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal outflow = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // ✅ FIX: Check null và zero
         double percentage = 0.0;
         if (totalInflow != null && totalInflow.compareTo(BigDecimal.ZERO) > 0) {
             percentage = inflow.divide(totalInflow, 4, RoundingMode.HALF_UP)
@@ -270,9 +343,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    /**
-     * ✅ FIX: Xử lý null trong payment breakdown
-     */
     private TransactionReportResponse.PaymentBreakdown calculatePaymentBreakdown(
             List<Transaction> transactions, BigDecimal totalInflow) {
 
@@ -288,15 +358,14 @@ public class TransactionServiceImpl implements TransactionService {
                             .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                                     && t.getStatus() == TransactionStatus.COMPLETED)
                             .map(Transaction::getAmount)
-                            .filter(amount -> amount != null) // ✅ FIX
+                            .filter(amount -> amount != null)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     BigDecimal outflow = list.stream()
                             .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
+                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                    // ✅ FIX: Check null và zero
                     double percentage = 0.0;
                     if (totalInflow != null && totalInflow.compareTo(BigDecimal.ZERO) > 0) {
                         percentage = inflow.divide(totalInflow, 4, RoundingMode.HALF_UP)
@@ -319,9 +388,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    /**
-     * ✅ FIX: Xử lý null trong event breakdown
-     */
     private List<TransactionReportResponse.EventBreakdown> calculateEventBreakdown(
             List<Transaction> transactions) {
 
@@ -338,12 +404,12 @@ public class TransactionServiceImpl implements TransactionService {
                             .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                                     && t.getStatus() == TransactionStatus.COMPLETED)
                             .map(Transaction::getAmount)
-                            .filter(amount -> amount != null) // ✅ FIX
+                            .filter(amount -> amount != null)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     BigDecimal refund = list.stream()
                             .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
+                            .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     TransactionReportResponse.PaymentMethodSplit split = calculatePaymentMethodSplit(list);
@@ -377,57 +443,51 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    /**
-     * ✅ FIX: Filter null amount
-     */
     private BigDecimal sumByPaymentMethod(List<Transaction> transactions, PaymentMethod method) {
         return transactions.stream()
                 .filter(t -> t.getPaymentMethod() == method
                         && t.getStatus() == TransactionStatus.COMPLETED)
                 .map(Transaction::getAmount)
-                .filter(amount -> amount != null) // ✅ FIX
+                .filter(amount -> amount != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /**
-     * ✅ FIX: Xử lý null cho tất cả BigDecimal fields
-     */
     private TransactionReportResponse.DetailedAmounts calculateDetailedAmounts(
             List<Transaction> transactions) {
 
         BigDecimal productRevenue = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getProductTotal() != null ? t.getProductTotal() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getProductTotal() != null ? t.getProductTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal shippingFee = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getShippingFee() != null ? t.getShippingFee() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getShippingFee() != null ? t.getShippingFee() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal discount = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getDiscountAmount() != null ? t.getDiscountAmount() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getDiscountAmount() != null ? t.getDiscountAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal voucherDiscount = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getVoucherDiscount() != null ? t.getVoucherDiscount() : BigDecimal.ZERO) // ✅ FIX (đã có sẵn)
+                .map(t -> t.getVoucherDiscount() != null ? t.getVoucherDiscount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal shippingDiscount = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.PAYMENT
                         && t.getStatus() == TransactionStatus.COMPLETED)
-                .map(t -> t.getShippingDiscount() != null ? t.getShippingDiscount() : BigDecimal.ZERO) // ✅ FIX (đã có sẵn)
+                .map(t -> t.getShippingDiscount() != null ? t.getShippingDiscount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal refund = transactions.stream()
                 .filter(t -> t.getTransactionType() == TransactionType.REFUND)
-                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO) // ✅ FIX
+                .map(t -> t.getAmount() != null ? t.getAmount().abs() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return TransactionReportResponse.DetailedAmounts.builder()
@@ -485,12 +545,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     private String buildDescription(Order order) {
-        String orderType = order.getOrderType() == OrderType.ONLINE ? "online" : "offline";
+        String orderType = order.getOrderType() == OrderType.ONLINE ? "ONLINE" : "OFFLINE";
         return String.format("Thanh toán đơn hàng %s (%s)", order.getOrderCode(), orderType);
-    }
-
-    private String generateTransactionCode() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        return "TXN" + timestamp + String.format("%04d", (int)(Math.random() * 10000));
     }
 }

@@ -31,15 +31,7 @@ public class PaymentWebhookController {
             @RequestBody Webhook webhookBody,
             HttpServletRequest request) {
         try {
-            // 1. Verify webhook signature từ PayOS
             WebhookData webhookData = payOS.webhooks().verify(webhookBody);
-
-            log.info("Received PayOS webhook - PaymentOrderCode: {}, Code: {}, Reference: {}",
-                    webhookData.getOrderCode(),
-                    webhookData.getCode(),
-                    webhookData.getDesc());
-
-            // 2. Test webhook từ PayOS
             if (webhookData.getOrderCode() == 123L) {
                 log.info("Received PayOS test webhook. Returning success response.");
                 return ResponseEntity.ok(
@@ -50,10 +42,7 @@ public class PaymentWebhookController {
                         )
                 );
             }
-
-            // 3. Delegate sang Service xử lý
             String message = paymentWebhookService.processPayOSWebhook(webhookData);
-
             return ResponseEntity.ok(
                     ApiResponseDTO.success(
                             message,

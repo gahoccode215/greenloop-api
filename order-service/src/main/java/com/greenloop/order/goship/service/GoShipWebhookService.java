@@ -166,7 +166,7 @@ public class GoShipWebhookService {
                 oldProductStatus = ProductStatusConstant.IN_TRANSIT;
                 newProductStatus = ProductStatusConstant.LOST;
                 updateProductStatusViaFeign(order, oldProductStatus, newProductStatus);
-                orderService.handleLostOrder(order.getOrderId(), payload.getMessage());
+//                orderService.handleLostOrder(order.getOrderId(), payload.getMessage());
                 break;
 
             default:

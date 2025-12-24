@@ -78,3 +78,7 @@ greenloop:
 order:
   redis:
     pending-order-ttl: 900
+
+rabbitmq:
+  exchangeName: greenloop.exchange
+  notification-routing-key: notificationQueueRoutingKey

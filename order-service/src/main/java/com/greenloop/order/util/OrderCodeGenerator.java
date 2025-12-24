@@ -15,11 +15,6 @@ public class OrderCodeGenerator {
 
     private final OrderRepository orderRepository;
 
-    /**
-     * Generate order code cho đơn hàng ONLINE
-     * Format: ONL-YYYYMMDD-XXXXX
-     * Example: ONL-20251206-00001
-     */
     public String generateOrderOnlineCode() {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(FULL_DATE_FORMATTER);
@@ -31,11 +26,6 @@ public class OrderCodeGenerator {
         return String.format("ONL-%s-%s", datePart, sequence);
     }
 
-    /**
-     * Generate order code cho đơn hàng OFFLINE
-     * Format: OFF-YYYYMMDD-XXXXX
-     * Example: OFF-20251206-00001
-     */
     public String generateOrderOfflineCode() {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(FULL_DATE_FORMATTER);

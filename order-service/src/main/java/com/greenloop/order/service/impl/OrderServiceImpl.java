@@ -222,13 +222,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Order buildAndSaveOrder(CreateOrderRequest request) {
-        log.info("Creating order {} for customer {}",
-                request.getOrderCode(), request.getCustomerId());
-
         if (request.getTotalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidOrderPriceException();
         }
-
         Order order = Order.builder()
                 .orderId(request.getOrderId())
                 .orderCode(request.getOrderCode())
@@ -255,10 +251,8 @@ public class OrderServiceImpl implements OrderService {
                 .parcelLength(request.getParcelLength())
                 .createdAt(LocalDateTime.now())
                 .build();
-
         if (request.getShippingAddress() != null) {
             WarehouseSetting warehouse = warehouseSettingService.getWarehouse();
-
             ShippingAddress shippingAddress = ShippingAddress.builder()
                     .receiverName(request.getShippingAddress().getReceiverName())
                     .receiverPhone(request.getShippingAddress().getReceiverPhone())
@@ -280,10 +274,8 @@ public class OrderServiceImpl implements OrderService {
                     .warehouseCityName(warehouse.getCityName())
                     .warehouseCityId(warehouse.getCityId())
                     .build();
-
             order.setShippingAddress(shippingAddress);
         }
-
         if (request.getOrderItems() != null && !request.getOrderItems().isEmpty()) {
             List<OrderItem> orderItems = request.getOrderItems().stream()
                     .map(itemReq -> OrderItem.builder()
@@ -295,14 +287,9 @@ public class OrderServiceImpl implements OrderService {
                             .order(order)
                             .build())
                     .collect(Collectors.toList());
-
             order.setOrderItems(orderItems);
         }
-
         Order savedOrder = orderRepository.save(order);
-
-        log.info("Order created successfully: {}", savedOrder.getOrderCode());
-
         return savedOrder;
     }
 
@@ -363,10 +350,8 @@ public class OrderServiceImpl implements OrderService {
                 filter.getSize() != null ? filter.getSize() : 10,
                 sort
         );
-
         Page<Order> orderPage = orderRepository.findAll(spec, pageable);
         Page<OrderResponse> responsePage = orderPage.map(this::mapToOrderResponse);
-
         return PageResponseUtil.toPageResponse(responsePage);
     }
 
@@ -401,43 +386,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void handleLostOrder(String orderId, String reason) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-
-        log.error("Processing LOST order: {} | PaymentMethod: {} | Reason: {}",
-                order.getOrderCode(), order.getPaymentMethod(), reason);
-
-        // Xử lý payment theo method
-        if (order.getPaymentMethod() == PaymentMethod.COD) {
-            log.info("Lost order {} is COD - No refund needed. Customer has not paid yet.",
-                    order.getOrderCode());
-            // COD: Khách chưa trả tiền, không cần hoàn tiền
-
-        } else if (order.getPaymentMethod() == PaymentMethod.PAYOS
-                && order.getPaymentStatus() == PaymentStatus.PAID) {
-            // TODO: Xử lý PayOS refund sau
-            log.warn("Lost order {} requires PayOS refund - Not implemented yet",
-                    order.getOrderCode());
-        }
-
-        // Product đã được update sang LOST ở GoShipWebhookService.handleProductStatusChange()
-        // Hàng thật sự bị mất, không trả về AVAILABLE
-
-        // Thông báo khách hàng
-//        notifyCustomerLostOrder(order, reason);
-
-        // Alert staff để khiếu nại GoShip
-//        alertStaffLostOrder(order, reason);
-
-        orderRepository.save(order);
-
-        log.warn("Lost order {} processed. Product marked as LOST in inventory.",
-                order.getOrderCode());
-    }
-
-    @Override
-    @Transactional
     public void completeOrder(String orderId, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
@@ -455,18 +403,15 @@ public class OrderServiceImpl implements OrderService {
     public void completeOrderByCustomer(String orderId, Long customerId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-
         if (!order.getCustomerId().equals(customerId)) {
             throw new UnauthorizedOrderAccessException(orderId, customerId);
         }
-
         if (order.getOrderStatus() != OrderStatus.DELIVERED) {
             throw new InvalidOrderStatusException(
                     order.getOrderStatus().getDescription(),
                     "Chỉ có thể hoàn thành đơn hàng ở trạng thái Đã giao hàng"
             );
         }
-
         if (order.getDeliveredAt() == null) {
             throw new OrderNotDeliveredException(orderId);
         }
@@ -490,8 +435,8 @@ public class OrderServiceImpl implements OrderService {
         order.setCompletedAt(LocalDateTime.now());
         order.setCanCreateReturnRequest(false);
         order.setUpdatedAt(LocalDateTime.now());
+        transactionService.createTransactionForOnlineOrder(order);
         orderRepository.save(order);
-        transactionService.completeTransaction(order.getOrderId());
         markProductsAsSoldViaFeign(order);
         if (totalEcoPoints > 0) {
             addEcoPointsViaFeign(order, totalEcoPoints);
@@ -507,7 +452,6 @@ public class OrderServiceImpl implements OrderService {
                 .orderAmount(order.getTotalPrice())
                 .earnedAt(LocalDateTime.now())
                 .build();
-
         try {
             ApiResponseDTO<Void> response = rewardClient.addEcoPoints(request);
             if (!response.isSuccess()) {
@@ -578,34 +522,26 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public CheckoutResponse directCheckout(Long userId, DirectCheckoutRequest request) {
-
         ProductDTO product = validateAndGetProduct(request.getProductId());
-
         OrderItemRequest orderItem = buildOrderItemFromProduct(product);
         List<OrderItemRequest> orderItems = Collections.singletonList(orderItem);
         BigDecimal productTotal = product.getPrice();
-
         CartItem tempCartItem = buildTempCartItemFromProduct(product);
         List<CartItem> tempCartItems = Collections.singletonList(tempCartItem);
-
         ShippingEstimateResponse estimate = shippingCalculationService.calculateShippingFee(
                 tempCartItems,
                 productTotal,
                 String.valueOf(request.getShippingAddress().getCityId()),
                 String.valueOf(request.getShippingAddress().getDistrictId())
         );
-
         if (estimate.getAvailableOptions().isEmpty()) {
             throw new ShippingRateNotFoundException("Không tìm thấy đơn vị vận chuyển phù hợp");
         }
-
         ShippingEstimateResponse.ShippingOption selectedOption = estimate.getAvailableOptions().stream()
                 .filter(option -> option.getRateId().equals(request.getSelectedRateId()))
                 .findFirst()
                 .orElseThrow(() -> new InvalidShippingRateException(request.getSelectedRateId()));
-
         BigDecimal originalShippingFee = selectedOption.getFee();
-
         VoucherDiscountResult voucherResult = voucherDiscountService.validateAndCalculateOnline(
                 request.getVoucherUserId(),
                 productTotal,
@@ -618,25 +554,18 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal shippingDiscount = voucherResult.getShippingDiscount() != null
                 ? voucherResult.getShippingDiscount()
                 : BigDecimal.ZERO;
-
         BigDecimal finalShippingFee = originalShippingFee.subtract(shippingDiscount);
         if (finalShippingFee.compareTo(BigDecimal.ZERO) < 0) {
             finalShippingFee = BigDecimal.ZERO;
         }
-
         BigDecimal subtotalAfterDiscount = productTotal.subtract(productDiscount);
         BigDecimal totalPrice = subtotalAfterDiscount.add(finalShippingFee);
-
         LocalDateTime expectedDeliveryTime = calculateExpectedDeliveryTime(
                 selectedOption.getEstimatedDelivery());
-
-
         ParcelDimensionDTO parcelDimensions = shippingCalculationService
                 .calculateParcelDimensions(tempCartItems);
-
         String orderId = UUID.randomUUID().toString();
         String orderCode = orderCodeGenerator.generateOrderOnlineCode();
-
         CheckoutResponse.CheckoutResponseBuilder responseBuilder = CheckoutResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -653,7 +582,6 @@ public class OrderServiceImpl implements OrderService {
                 .selectedCarrier(selectedOption.getCarrierName())
                 .estimatedDelivery(selectedOption.getEstimatedDelivery())
                 .createdAt(LocalDateTime.now());
-
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             handleCODCheckout(
                     userId, orderId, orderCode,
@@ -662,7 +590,6 @@ public class OrderServiceImpl implements OrderService {
                     productDiscount.add(shippingDiscount),
                     voucherResult, selectedOption, expectedDeliveryTime, parcelDimensions, true
             );
-
             String message = String.format("Đặt hàng thành công! Tổng thanh toán: %,d đ khi nhận hàng.",
                     totalPrice.longValue());
             responseBuilder.paymentUrl(null).message(message);
@@ -675,12 +602,10 @@ public class OrderServiceImpl implements OrderService {
                     productDiscount.add(shippingDiscount),
                     voucherResult, selectedOption, expectedDeliveryTime, parcelDimensions
             );
-
             String message = String.format("Vui lòng thanh toán %,d đ để hoàn tất đơn hàng.",
                     totalPrice.longValue());
             responseBuilder.paymentUrl(paymentUrl).message(message);
         }
-
         return responseBuilder.build();
     }
 
@@ -688,12 +613,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public ShippingEstimateResponse estimateShippingForDirectCheckout(
             DirectShippingEstimateRequest request) {
-
-        log.info("Estimating shipping for direct checkout - productId: {}", request.getProductId());
-
         ProductDTO product = validateAndGetProduct(request.getProductId());
         CartItem tempCartItem = buildTempCartItemFromProduct(product);
-
         return shippingCalculationService.calculateShippingFee(
                 Collections.singletonList(tempCartItem),
                 product.getPrice(),
@@ -796,38 +717,29 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void calculateReturnRequestEligibility(Order order, OrderResponse response) {
-        // Mặc định không được khiếu nại
         response.setCanCreateReturnRequest(false);
         response.setRemainingReturnHours(null);
-
-        // Kiểm tra các điều kiện
-        // 1. Đơn phải ở trạng thái DELIVERED
         if (order.getOrderStatus() != OrderStatus.DELIVERED) {
             return;
         }
 
-        // 2. Phải có deliveredAt
         if (order.getDeliveredAt() == null) {
             return;
         }
 
-        // 3. Flag canCreateReturnRequest phải true (chưa complete)
         if (order.getCanCreateReturnRequest() == null || !order.getCanCreateReturnRequest()) {
             return;
         }
 
-        // 4. Kiểm tra còn trong 7 ngày
         LocalDateTime deadline = order.getDeliveredAt().plusDays(7);
         LocalDateTime now = LocalDateTime.now();
 
         if (now.isAfter(deadline)) {
-            return; // Quá 7 ngày
+            return;
         }
 
-        // Nếu đủ điều kiện → cho phép khiếu nại
         response.setCanCreateReturnRequest(true);
 
-        // Tính số giờ còn lại
         long remainingHours = java.time.Duration.between(now, deadline).toHours();
         response.setRemainingReturnHours(remainingHours);
     }
@@ -1037,7 +949,6 @@ public class OrderServiceImpl implements OrderService {
             }
         } catch (Exception e) {
             log.error("Error calling reward service to mark voucher as used", e);
-            // Không throw exception để không làm fail checkout flow
         }
     }
 
@@ -1109,8 +1020,6 @@ public class OrderServiceImpl implements OrderService {
         Order createdOrder = buildAndSaveOrder(orderRequest);
 
         reserveProductsViaFeign(createdOrder);
-
-        transactionService.createTransactionFromOrder(createdOrder);
 
         if(!directCheckout){
             cartService.clearCart(userId);

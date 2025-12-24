@@ -48,18 +48,10 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     public OrderOfflineResponse createOrderOffline(
             CreateOrderOfflineRequest request,
             MultipartFile paymentProofImage) {
-
-        // 1. Validate products trong event
         validateProductsInEvent(request);
-
-        // 2. Lấy thông tin Product và gán ecoPoint vào items
         Map<Long, ProductDTO> productDetailsMap = fetchProductDetailsForOrder(request);
         enrichItemsWithEcoPoints(request.getItems(), productDetailsMap);
-
-        // 3. Tính subtotal
         BigDecimal subtotal = calculateSubtotal(request.getItems());
-
-        // 4. Validate và tính discount từ voucher
         VoucherDiscountResult voucherResult =
                 voucherDiscountService.validateAndCalculateOffline(
                         request.getVoucherUserId(), subtotal);
@@ -67,14 +59,11 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         BigDecimal discountAmount = voucherResult.getDiscountAmount();
         BigDecimal totalPrice = subtotal.subtract(discountAmount);
 
-        // 5. Tính eco points
         Integer earnedEcoPoints = calculateEcoPoints(request);
 
-        // 6. Generate orderId và orderCode
         String orderId = UUID.randomUUID().toString();
         String orderCode = orderCodeGenerator.generateOrderOfflineCode();
 
-        // 7. Rẽ nhánh theo payment method
         if ("CASH".equals(request.getPaymentMethod())) {
             return handleCashPayment(
                     orderId, orderCode, request,
@@ -95,9 +84,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
     }
 
-    /**
-     * Xử lý thanh toán CASH - Lưu thẳng vào Database và hoàn thành ngay
-     */
     private OrderOfflineResponse handleCashPayment(
             String orderId,
             String orderCode,
@@ -108,10 +94,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
             BigDecimal discountAmount,
             VoucherDiscountResult voucherResult,
             Integer earnedEcoPoints) {
-
-        log.info("Processing CASH offline order: {}", orderCode);
-
-        // Build order với status COMPLETED
         Order order = buildOfflineOrder(
                 orderId, orderCode, request,
                 subtotal, totalPrice, discountAmount,
@@ -121,8 +103,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 PaymentMethod.CASH,
                 null
         );
-
-        // Tạo OrderItems
         List<OrderItem> orderItems = request.getItems().stream()
                 .map(item -> OrderItem.builder()
                         .productId(item.getProductId())
@@ -135,19 +115,11 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .collect(Collectors.toList());
 
         order.setOrderItems(orderItems);
-
-        // Lưu vào Database
         Order savedOrder = orderRepository.save(order);
+        transactionService.createTransactionForOfflineOrder(savedOrder);
 
-        // ✅ Tạo transaction
-        transactionService.createTransactionFromOrder(savedOrder);
-
-        // ✅ Xử lý sản phẩm và voucher qua Feign
         processCompletedOfflineOrder(savedOrder);
 
-        log.info("CASH offline order {} completed and saved to DB", orderCode);
-
-        // Trả response
         return buildResponseFromEntity(savedOrder, voucherResult, null);
     }
 
@@ -162,14 +134,9 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
             VoucherDiscountResult voucherResult,
             Integer earnedEcoPoints) {
 
-        log.info("Processing BANK_TRANSFER offline order: {}", orderCode);
-
-        // 1. Tạo payment URL từ PayOS
         String platform = request.getPlatform() != null ? request.getPlatform() : "web";
         PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
                 orderId, totalPrice, platform, true);
-
-        // 2. Convert OrderItemOfflineRequest sang OrderItemRequest cho Redis
         List<OrderItemRequest> orderItemsForRedis = request.getItems().stream()
                 .map(item -> OrderItemRequest.builder()
                         .productId(item.getProductId())
@@ -180,7 +147,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 3. Build PendingOrderRedis - CHƯA LƯU DB
         PendingOrderRedis pendingOrder = PendingOrderRedis.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -204,18 +170,10 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 4. Lưu vào Redis
         try {
             pendingOrderCacheService.savePendingOrder(pendingOrder);
-            log.info("BANK_TRANSFER offline order {} saved to Redis. Waiting for payment...",
-                    orderCode);
         } catch (Exception e) {
-            log.error("CRITICAL: Failed to save pending order {} to Redis. " +
-                            "Order might need manual processing after payment webhook.",
-                    orderCode, e);
         }
-
-        // 5. Trả response kèm paymentUrl
         return OrderOfflineResponse.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -238,20 +196,40 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
 
     private void processCompletedOfflineOrder(Order order) {
-        log.info("Processing completed offline order: {}", order.getOrderCode());
-
-        // 1. Mark products as SOLD via Feign
         markOfflineProductsAsSoldViaFeign(order);
-
-        // 2. Mark voucher as used via Feign (nếu có voucher)
+        int totalEcoPoints = order.getEarnedEcoPoints() != null ? order.getEarnedEcoPoints() : 0;
+        if (totalEcoPoints > 0 && !Boolean.TRUE.equals(order.getIsGuestPurchase())) {
+            addEcoPointsViaFeign(order, totalEcoPoints);
+        }
         if (order.getVoucherUserId() != null) {
             markVoucherAsUsedViaFeign(order);
         }
     }
 
+    private void addEcoPointsViaFeign(Order order, int totalEcoPoints) {
+        AddEcoPointsRequest request = AddEcoPointsRequest.builder()
+                .orderId(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .ecoPoints(totalEcoPoints)
+                .orderAmount(order.getTotalPrice())
+                .earnedAt(LocalDateTime.now())
+                .build();
+
+        try {
+            ApiResponseDTO<Void> response = rewardClient.addEcoPoints(request);
+            if (!response.isSuccess()) {
+                log.error("Failed to add eco points for OFFLINE order: {}", order.getOrderCode());
+            } else {
+                log.info("Added {} eco points successfully for OFFLINE order: {}",
+                        totalEcoPoints, order.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Error calling reward service to add eco points", e);
+        }
+    }
+
     private void markOfflineProductsAsSoldViaFeign(Order order) {
-        log.info("Marking offline products as SOLD and event mapping as SOLD_OUT for order: {}",
-                order.getOrderCode());
 
         List<MarkOfflineProductsSoldRequest.ProductSold> products = order.getOrderItems().stream()
                 .map(item -> MarkOfflineProductsSoldRequest.ProductSold.builder()
@@ -281,9 +259,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
 
 
     private void markVoucherAsUsedViaFeign(Order order) {
-        log.info("Marking voucher as used via Feign for offline order: {}, voucherUserId: {}",
-                order.getOrderCode(), order.getVoucherUserId());
-
         VoucherUsedRequest request = VoucherUsedRequest.builder()
                 .orderId(order.getOrderId())
                 .orderCode(order.getOrderCode())
@@ -293,7 +268,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
                 .discountValue(order.getDiscountAmount())
                 .usedAt(order.getCreatedAt())
                 .build();
-
         try {
             ApiResponseDTO<Void> response = rewardClient.markVoucherAsUsed(request);
             if (!response.isSuccess()) {
@@ -307,17 +281,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
             log.error("Error calling reward service to mark voucher as used", e);
         }
     }
-
-    @Override
-    public void publishOrderOfflineCreatedEventDelayed(Order order) {
-        log.info("Processing delayed offline order after payment: {}", order.getOrderCode());
-
-        transactionService.createTransactionFromOrder(order);
-
-        processCompletedOfflineOrder(order);
-    }
-
-
     private Order buildOfflineOrder(
             String orderId,
             String orderCode,
@@ -331,7 +294,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
             PaymentStatus paymentStatus,
             PaymentMethod paymentMethod,
             Long paymentOrderCode) {
-
         return Order.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)

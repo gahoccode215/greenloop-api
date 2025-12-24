@@ -56,8 +56,6 @@ public class Transaction {
     @Column(name = "amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    // ========== CHI TIẾT BREAKDOWN ==========
-
     @Column(name = "product_total", precision = 15, scale = 2)
     private BigDecimal productTotal;
 
@@ -76,8 +74,6 @@ public class Transaction {
     @Column(name = "shipping_discount", precision = 15, scale = 2)
     private BigDecimal shippingDiscount;
 
-    // ========== THÔNG TIN THANH TOÁN ==========
-
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", length = 50)
     private PaymentMethod paymentMethod;
@@ -88,8 +84,6 @@ public class Transaction {
     @Column(name = "payment_transaction_id", length = 255)
     private String paymentTransactionId;
 
-    // ========== TRẠNG THÁI ==========
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private TransactionStatus status;
@@ -97,15 +91,11 @@ public class Transaction {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    // ========== THÔNG TIN SỰ KIỆN ==========
-
     @Column(name = "event_id")
     private Long eventId;
 
     @Column(name = "event_name", length = 200)
     private String eventName;
-
-    // ========== THÔNG TIN KHÁCH ==========
 
     @Column(name = "is_guest_purchase")
     private Boolean isGuestPurchase;
@@ -115,8 +105,6 @@ public class Transaction {
 
     @Column(name = "guest_phone", length = 20)
     private String guestPhone;
-
-    // ========== THỜI GIAN ==========
 
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
@@ -133,16 +121,14 @@ public class Transaction {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // ========== THÔNG TIN TRẢ HÀNG (MỚI - CHO REFUND) ==========
-
     @Column(name = "return_request_id", length = 36)
-    private String returnRequestId; // Link tới ReturnRequest
+    private String returnRequestId;
 
     @Column(name = "return_shipping_fee", precision = 15, scale = 2)
-    private BigDecimal returnShippingFee; // Phí ship trả hàng (customer chịu)
+    private BigDecimal returnShippingFee;
 
     @Column(name = "transfer_proof_url", length = 500)
-    private String transferProofUrl; // Ảnh bill chuyển khoản
+    private String transferProofUrl;
 
     @PrePersist
     protected void onCreate() {

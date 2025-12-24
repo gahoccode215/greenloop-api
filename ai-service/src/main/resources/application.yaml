@@ -25,7 +25,7 @@ spring:
           chat:
             enabled: true
             options:
-              model: gemini-1.5-flash-exp
+              model: gemini-2.5-flash
 
               temperature: 0.8              # Độ sáng tạo (0.0-1.0), 0.8 phù hợp cho nội dung marketing
               max-output-tokens: 1000       # Số token tối đa cho response

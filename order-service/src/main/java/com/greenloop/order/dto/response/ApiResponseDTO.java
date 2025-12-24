@@ -39,7 +39,6 @@ public class ApiResponseDTO<T> {
         .data(data)
         .build();
   }
-
   public static <T> ApiResponseDTO<T> error(String message, HttpStatus status, String path) {
     return ApiResponseDTO.<T>builder()
         .success(false)
@@ -49,7 +48,6 @@ public class ApiResponseDTO<T> {
         .path(path)
         .build();
   }
-
   public static <T> ApiResponseDTO<T> error(
       String message, HttpStatus status, String path, List<String> errors) {
     return ApiResponseDTO.<T>builder()

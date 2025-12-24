@@ -16,12 +16,10 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderFilterRequest {
-
     private Integer page = 0;
     private Integer size = 10;
     private String sortBy = "createdAt";
     private String sortDirection = "DESC";
-
     private OrderStatus status;
     private PaymentStatus paymentStatus;
     private String searchKeyword;
@@ -30,19 +28,11 @@ public class OrderFilterRequest {
     private String customerName;
     private String fromDate;
     private String toDate;
-
-
-
     private OrderType orderType;
-
     private Long eventId;
-
     private Boolean isGuestPurchase;
-
     private PaymentMethod paymentMethod;
-
     private String createdBy;
-
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
 }
