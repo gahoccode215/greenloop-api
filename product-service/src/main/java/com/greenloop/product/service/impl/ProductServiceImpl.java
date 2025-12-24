@@ -710,8 +710,8 @@ public class ProductServiceImpl implements ProductService {
 
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
-
-        List<EventProductMapping> mappings = eventProductMappingRepository.findAll((Sort) spec);
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        List<EventProductMapping> mappings = eventProductMappingRepository.findAll(spec, sort);
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         return mappings.stream().map(mapping -> {
