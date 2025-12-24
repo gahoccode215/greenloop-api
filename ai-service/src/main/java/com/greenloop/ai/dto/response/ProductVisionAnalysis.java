@@ -13,9 +13,16 @@ import java.util.List;
 @AllArgsConstructor
 public class ProductVisionAnalysis {
 
-    private List<String> labels;           // ["Clothing", "T-shirt", "Blue"]
+    // ========== RAW DATA (từ Vision API) ==========
+    private List<String> labels;           // ["Clothing", "T-shirt", "Blue", "Cotton"]
     private String detectedText;           // Text đọc được từ ảnh
     private List<String> brands;           // ["Nike", "Adidas"]
-    private String suggestedName;          // Tên sản phẩm gợi ý
-    private String suggestedCategory;      // Danh mục gợi ý
+
+    // ========== AUTO-FILL DATA (cho form) ==========
+    private String suggestedName;          // "Áo Thun Nike Xanh Size M"
+    private String suggestedDescription;   // Mô tả chi tiết (max 2000 chars)
+    private String suggestedConditionGrade; // "NEW", "LIKE_NEW", "GOOD", "FAIR", "POOR"
+
+    // ========== ADDITIONAL INFO ==========
+    private Double confidence;             // 0.0-1.0 (độ tin cậy tổng thể)
 }

@@ -151,9 +151,6 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         return buildResponseFromEntity(savedOrder, voucherResult, null);
     }
 
-    /**
-     * Xử lý thanh toán BANK_TRANSFER - Lưu vào Redis, chờ webhook PayOS
-     */
     private OrderOfflineResponse handleBankTransferPayment(
             String orderId,
             String orderCode,
@@ -170,7 +167,7 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
         // 1. Tạo payment URL từ PayOS
         String platform = request.getPlatform() != null ? request.getPlatform() : "web";
         PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
-                orderId, totalPrice, platform);
+                orderId, totalPrice, platform, true);
 
         // 2. Convert OrderItemOfflineRequest sang OrderItemRequest cho Redis
         List<OrderItemRequest> orderItemsForRedis = request.getItems().stream()
@@ -315,14 +312,11 @@ public class OrderOfflineServiceImpl implements OrderOfflineService {
     public void publishOrderOfflineCreatedEventDelayed(Order order) {
         log.info("Processing delayed offline order after payment: {}", order.getOrderCode());
 
-        // ✅ Tạo transaction
         transactionService.createTransactionFromOrder(order);
 
-        // ✅ Xử lý sản phẩm và voucher qua Feign
         processCompletedOfflineOrder(order);
     }
 
-    // ========== BUILD & HELPER METHODS (GIỮ NGUYÊN) ==========
 
     private Order buildOfflineOrder(
             String orderId,

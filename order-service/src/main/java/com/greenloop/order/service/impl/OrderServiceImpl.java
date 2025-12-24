@@ -35,7 +35,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.payos.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -1135,7 +1134,7 @@ public class OrderServiceImpl implements OrderService {
             ParcelDimensionDTO parcelDimensions) {
         String platform = request.getPlatform() != null ? request.getPlatform() : "web";
         PayOSPaymentResponse paymentResponse = payOSPaymentService.createPaymentUrl(
-                orderId, totalPrice, platform);
+                orderId, totalPrice, platform, false);
 
         PendingOrderRedis pendingOrder = PendingOrderRedis.builder()
                 .orderId(orderId)

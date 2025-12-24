@@ -5,6 +5,34 @@ spring:
   application:
     name: ai-service
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB      # Max size cho 1 file
+      max-request-size: 10MB   # Max size cho cả request
+      file-size-threshold: 2KB # Threshold để lưu vào disk
+
+  ai:
+    vertex:
+      ai:
+        gemini:
+          # GCP Project Configuration
+          project-id: ${GOOGLE_CLOUD_PROJECT:greenloop-482114}
+          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+
+          transport: GRPC
+
+          chat:
+            enabled: true
+            options:
+              model: gemini-1.5-flash-exp
+
+              temperature: 0.8              # Độ sáng tạo (0.0-1.0), 0.8 phù hợp cho nội dung marketing
+              max-output-tokens: 1000       # Số token tối đa cho response
+              top-k: 40                     # Top-K sampling
+              top-p: 0.95                   # Nucleus sampling
+
+
 eureka:
   client:
     service-url:
@@ -35,3 +63,5 @@ logging:
   level:
     com.greenloop.ai: DEBUG
     com.google.cloud: INFO
+    org.springframework.ai: DEBUG
+    org.springframework.ai.vertexai: DEBUG
