@@ -207,7 +207,6 @@ public class OrderController {
         );
     }
 
-
     @PostMapping("/{orderId}/complete")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponseDTO<Void>> completeOrder(

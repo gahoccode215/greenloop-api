@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: ai-service
+
+server:
+  port: 8086
+
+google:
+  application:
+    credentials: ${GOOGLE_APPLICATION_CREDENTIALS:src/main/resources/google-credentials.json}
+
+
