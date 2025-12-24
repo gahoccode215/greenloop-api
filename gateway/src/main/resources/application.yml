@@ -44,3 +44,5 @@ springdoc:
         url: /order-service/v3/api-docs
       - name: Notification Service
         url: /notification-service/v3/api-docs
+      - name: AI Service
+        url: /ai-service/v3/api-docs

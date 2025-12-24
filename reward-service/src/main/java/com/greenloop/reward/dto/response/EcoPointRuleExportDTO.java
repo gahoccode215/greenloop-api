@@ -8,15 +8,15 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class EcoPointRuleExportDTO {
-    private String ruleId;
-    private String code;
-    private String name;
-    private String description;
-    private String actionType;
-    private String minPoints;
-    private String maxPoints;
-    private String categoryId;
-    private String categoryName;
-    private String createdAt;
-    private String updatedAt;
+  private String ruleId;
+  private String code;
+  private String name;
+  private String description;
+  private String actionType;
+  private String minPoints;
+  private String maxPoints;
+  private String categoryId;
+  private String categoryName;
+  private String createdAt;
+  private String updatedAt;
 }

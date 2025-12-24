@@ -1,12 +1,37 @@
+server:
+  port: 8086
+
 spring:
   application:
     name: ai-service
 
-server:
-  port: 8086
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
+  instance:
+    ip-address: ${AI_SERVICE_HOST:localhost}
+    prefer-ip-address: true
 
-google:
-  application:
-    credentials: ${GOOGLE_APPLICATION_CREDENTIALS:src/main/resources/google-credentials.json}
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
 
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    config-url: /v3/api-docs/swagger-config
+    disable-swagger-default-url: true
+    urls:
+      - name: Gateway (Production)
+        url: https://${GATEWAY_HOST:api.greenloop.thanhnt-tech.id.vn}/ai-service/v3/api-docs
+      - name: Gateway (Local)
+        url: http://localhost:8080/ai-service/v3/api-docs
+      - name: Direct (Internal)
+        url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
 
+logging:
+  level:
+    com.greenloop.ai: DEBUG
+    com.google.cloud: INFO

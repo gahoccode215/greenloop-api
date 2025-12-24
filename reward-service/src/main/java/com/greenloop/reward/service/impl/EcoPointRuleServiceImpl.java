@@ -11,11 +11,9 @@ import com.greenloop.reward.exception.BusinessException;
 import com.greenloop.reward.repository.EcoPointRuleRepository;
 import com.greenloop.reward.service.CacheService;
 import com.greenloop.reward.service.EcoPointRuleService;
-
+import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,12 +38,11 @@ public class EcoPointRuleServiceImpl implements EcoPointRuleService {
       throw new BusinessException(ErrorCode.ECO_POINT_RULE_ALREADY_EXISTS);
     }
 
-      if (request.getMinPoints() > request.getMaxPoints()) {
-          throw new BusinessException(ErrorCode.ECO_POINT_RULE_INVALID_RANGE);
-      }
+    if (request.getMinPoints() > request.getMaxPoints()) {
+      throw new BusinessException(ErrorCode.ECO_POINT_RULE_INVALID_RANGE);
+    }
 
-
-      boolean ruleExists =
+    boolean ruleExists =
         ecoPointRuleRepository.existsByActionTypeAndCategoryId(
             request.getActionType(), request.getCategoryId());
     if (ruleExists) {
@@ -128,21 +125,17 @@ public class EcoPointRuleServiceImpl implements EcoPointRuleService {
             .findById(id)
             .orElseThrow(() -> new BusinessException(ErrorCode.ECO_POINT_RULE_NOT_FOUND));
 
-      if (request.getMinPoints() > request.getMaxPoints()) {
-          throw new BusinessException(ErrorCode.ECO_POINT_RULE_INVALID_RANGE);
-      }
-      boolean exists =
-              ecoPointRuleRepository.existsByActionTypeAndCategoryId(
-                      request.getActionType(),
-                      request.getCategoryId()
-              );
-      if (exists &&
-              (!rule.getActionType().equals(request.getActionType())
-                      || !rule.getCategoryId().equals(request.getCategoryId()))) {
-          throw new BusinessException(
-                  ErrorCode.ECO_POINT_RULE_FOR_ACTION_AND_CATEGORY_EXISTS
-          );
-      }
+    if (request.getMinPoints() > request.getMaxPoints()) {
+      throw new BusinessException(ErrorCode.ECO_POINT_RULE_INVALID_RANGE);
+    }
+    boolean exists =
+        ecoPointRuleRepository.existsByActionTypeAndCategoryId(
+            request.getActionType(), request.getCategoryId());
+    if (exists
+        && (!rule.getActionType().equals(request.getActionType())
+            || !rule.getCategoryId().equals(request.getCategoryId()))) {
+      throw new BusinessException(ErrorCode.ECO_POINT_RULE_FOR_ACTION_AND_CATEGORY_EXISTS);
+    }
     if (!rule.getCode().equals(request.getCode())) {
       boolean existsByCode = ecoPointRuleRepository.existsByCode(request.getCode());
       if (existsByCode) {
@@ -162,9 +155,9 @@ public class EcoPointRuleServiceImpl implements EcoPointRuleService {
     ecoPointRuleRepository.save(rule);
 
     cacheService.remove(keyBuilder(rule));
-      if (rule.isActive()) {
-          cacheService.store(keyBuilder(rule), mapToResponse(rule));
-      }
+    if (rule.isActive()) {
+      cacheService.store(keyBuilder(rule), mapToResponse(rule));
+    }
     log.info("Eco point rule with ID: {} updated successfully", id);
   }
 
@@ -179,9 +172,9 @@ public class EcoPointRuleServiceImpl implements EcoPointRuleService {
     ecoPointRuleRepository.save(rule);
 
     cacheService.remove(keyBuilder(rule));
-      if (rule.isActive()) {
-          cacheService.store(keyBuilder(rule), mapToResponse(rule));
-      }
+    if (rule.isActive()) {
+      cacheService.store(keyBuilder(rule), mapToResponse(rule));
+    }
     log.info("Eco point rule with ID: {} status changed successfully", id);
   }
 

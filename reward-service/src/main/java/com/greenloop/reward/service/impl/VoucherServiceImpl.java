@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -704,147 +703,172 @@ public class VoucherServiceImpl implements VoucherService {
     return "VCR_" + datePart + randomPart;
   }
 
-    @Override
-    public List<VoucherCampaignExportDTO> getExportDataCampaign(
-            LocalDateTime startDateFrom,
-            LocalDateTime startDateTo,
-            LocalDateTime endDateFrom,
-            LocalDateTime endDateTo,
-            boolean includeExpired,
-            boolean includeVoucherDetails) {
+  @Override
+  public List<VoucherCampaignExportDTO> getExportDataCampaign(
+      LocalDateTime startDateFrom,
+      LocalDateTime startDateTo,
+      LocalDateTime endDateFrom,
+      LocalDateTime endDateTo,
+      boolean includeExpired,
+      boolean includeVoucherDetails) {
 
-        Specification<VoucherCampaign> spec = (root, query, cb) -> {
-            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+    Specification<VoucherCampaign> spec =
+        (root, query, cb) -> {
+          List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
-            if (startDateFrom != null && startDateTo != null) {
-                predicates.add(cb.between(root.get("startDate"), startDateFrom, startDateTo));
-            }
-            if (endDateFrom != null && endDateTo != null) {
-                predicates.add(cb.between(root.get("endDate"), endDateFrom, endDateTo));
-            }
-            if (!includeExpired) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now()));
-            }
+          if (startDateFrom != null && startDateTo != null) {
+            predicates.add(cb.between(root.get("startDate"), startDateFrom, startDateTo));
+          }
+          if (endDateFrom != null && endDateTo != null) {
+            predicates.add(cb.between(root.get("endDate"), endDateFrom, endDateTo));
+          }
+          if (!includeExpired) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("endDate"), LocalDateTime.now()));
+          }
 
-            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+          return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
 
-        List<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec);
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    List<VoucherCampaign> campaigns = voucherCampaignRepository.findAll(spec);
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        return campaigns.stream().map(campaign -> {
-            List<Voucher> vouchers = campaign.getVouchers();
-            long activeVouchers = vouchers.stream()
-                    .filter(v -> v.getStatus() == VoucherStatus.ACTIVE)
-                    .count();
-            long expiredVouchers = vouchers.stream()
-                    .filter(v -> v.getExpiryDate() != null && v.getExpiryDate().isBefore(LocalDateTime.now()))
-                    .count();
-            int totalQuantity = vouchers.stream()
-                    .filter(v -> v.getQuantity() != null)
-                    .mapToInt(Voucher::getQuantity)
-                    .sum();
-            int usedQuantity = vouchers.stream()
-                    .flatMap(v -> v.getVoucherUsers().stream())
-                    .mapToInt(vu -> vu.getQuantity().intValue())
-                    .sum();
+    return campaigns.stream()
+        .map(
+            campaign -> {
+              List<Voucher> vouchers = campaign.getVouchers();
+              long activeVouchers =
+                  vouchers.stream().filter(v -> v.getStatus() == VoucherStatus.ACTIVE).count();
+              long expiredVouchers =
+                  vouchers.stream()
+                      .filter(
+                          v ->
+                              v.getExpiryDate() != null
+                                  && v.getExpiryDate().isBefore(LocalDateTime.now()))
+                      .count();
+              int totalQuantity =
+                  vouchers.stream()
+                      .filter(v -> v.getQuantity() != null)
+                      .mapToInt(Voucher::getQuantity)
+                      .sum();
+              int usedQuantity =
+                  vouchers.stream()
+                      .flatMap(v -> v.getVoucherUsers().stream())
+                      .mapToInt(vu -> vu.getQuantity().intValue())
+                      .sum();
 
-            return VoucherCampaignExportDTO.builder()
-                    .campaignId(String.valueOf(campaign.getId()))
-                    .campaignName(campaign.getName())
-                    .campaignDescription(campaign.getDescription() != null ? campaign.getDescription() : "")
-                    .startDate(campaign.getStartDate().format(dateFormatter))
-                    .endDate(campaign.getEndDate().format(dateFormatter))
-                    .totalVouchers(String.valueOf(vouchers.size()))
-                    .activeVouchers(String.valueOf(activeVouchers))
-                    .expiredVouchers(String.valueOf(expiredVouchers))
-                    .totalQuantity(String.valueOf(totalQuantity))
-                    .usedQuantity(String.valueOf(usedQuantity))
-                    .availableQuantity(String.valueOf(totalQuantity - usedQuantity))
-                    .createdAt(campaign.getCreatedAt().format(dateFormatter))
-                    .updatedAt(campaign.getUpdatedAt().format(dateFormatter))
-                    .build();
-        }).collect(Collectors.toList());
-    }
+              return VoucherCampaignExportDTO.builder()
+                  .campaignId(String.valueOf(campaign.getId()))
+                  .campaignName(campaign.getName())
+                  .campaignDescription(
+                      campaign.getDescription() != null ? campaign.getDescription() : "")
+                  .startDate(campaign.getStartDate().format(dateFormatter))
+                  .endDate(campaign.getEndDate().format(dateFormatter))
+                  .totalVouchers(String.valueOf(vouchers.size()))
+                  .activeVouchers(String.valueOf(activeVouchers))
+                  .expiredVouchers(String.valueOf(expiredVouchers))
+                  .totalQuantity(String.valueOf(totalQuantity))
+                  .usedQuantity(String.valueOf(usedQuantity))
+                  .availableQuantity(String.valueOf(totalQuantity - usedQuantity))
+                  .createdAt(campaign.getCreatedAt().format(dateFormatter))
+                  .updatedAt(campaign.getUpdatedAt().format(dateFormatter))
+                  .build();
+            })
+        .collect(Collectors.toList());
+  }
 
-    @Override
-    public List<VoucherExportDTO> getExportDataVoucher(
-            Long campaignId,
-            VoucherStatus status,
-            VoucherType type,
-            LocalDateTime expiryDateFrom,
-            LocalDateTime expiryDateTo,
-            Integer minPointToRedeem,
-            Integer maxPointToRedeem,
-            boolean includeExpired) {
+  @Override
+  public List<VoucherExportDTO> getExportDataVoucher(
+      Long campaignId,
+      VoucherStatus status,
+      VoucherType type,
+      LocalDateTime expiryDateFrom,
+      LocalDateTime expiryDateTo,
+      Integer minPointToRedeem,
+      Integer maxPointToRedeem,
+      boolean includeExpired) {
 
-        Specification<Voucher> spec = (root, query, cb) -> {
-            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+    Specification<Voucher> spec =
+        (root, query, cb) -> {
+          List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
-            if (campaignId != null) {
-                predicates.add(cb.equal(root.get("campaign").get("id"), campaignId));
-            }
-            if (status != null) {
-                predicates.add(cb.equal(root.get("status"), status));
-            }
-            if (type != null) {
-                predicates.add(cb.equal(root.get("type"), type));
-            }
-            if (expiryDateFrom != null && expiryDateTo != null) {
-                predicates.add(cb.between(root.get("expiryDate"), expiryDateFrom, expiryDateTo));
-            }
-            if (minPointToRedeem != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("pointToRedeem"), minPointToRedeem));
-            }
-            if (maxPointToRedeem != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("pointToRedeem"), maxPointToRedeem));
-            }
-            if (!includeExpired) {
-                predicates.add(cb.or(
-                        cb.isNull(root.get("expiryDate")),
-                        cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now())
-                ));
-            }
+          if (campaignId != null) {
+            predicates.add(cb.equal(root.get("campaign").get("id"), campaignId));
+          }
+          if (status != null) {
+            predicates.add(cb.equal(root.get("status"), status));
+          }
+          if (type != null) {
+            predicates.add(cb.equal(root.get("type"), type));
+          }
+          if (expiryDateFrom != null && expiryDateTo != null) {
+            predicates.add(cb.between(root.get("expiryDate"), expiryDateFrom, expiryDateTo));
+          }
+          if (minPointToRedeem != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("pointToRedeem"), minPointToRedeem));
+          }
+          if (maxPointToRedeem != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get("pointToRedeem"), maxPointToRedeem));
+          }
+          if (!includeExpired) {
+            predicates.add(
+                cb.or(
+                    cb.isNull(root.get("expiryDate")),
+                    cb.greaterThanOrEqualTo(root.get("expiryDate"), LocalDateTime.now())));
+          }
 
-            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+          return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
 
-        List<Voucher> vouchers = voucherRepository.findAll(spec);
-        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    List<Voucher> vouchers = voucherRepository.findAll(spec);
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        return vouchers.stream().map(voucher -> {
-            VoucherCampaign campaign = voucher.getCampaign();
-            int usedQuantity = voucher.getVoucherUsers().stream()
-                    .mapToInt(vu -> vu.getQuantity().intValue())
-                    .sum();
+    return vouchers.stream()
+        .map(
+            voucher -> {
+              VoucherCampaign campaign = voucher.getCampaign();
+              int usedQuantity =
+                  voucher.getVoucherUsers().stream()
+                      .mapToInt(vu -> vu.getQuantity().intValue())
+                      .sum();
 
-            return VoucherExportDTO.builder()
-                    .campaignId(campaign != null ? String.valueOf(campaign.getId()) : "")
-                    .campaignName(campaign != null ? campaign.getName() : "")
-                    .campaignDescription(campaign != null && campaign.getDescription() != null ?
-                            campaign.getDescription() : "")
-                    .campaignStartDate(campaign != null ? campaign.getStartDate().format(dateFormatter) : "")
-                    .campaignEndDate(campaign != null ? campaign.getEndDate().format(dateFormatter) : "")
-                    .voucherId(String.valueOf(voucher.getId()))
-                    .voucherCode(voucher.getCode())
-                    .voucherName(voucher.getName())
-                    .voucherDescription(voucher.getDescription() != null ? voucher.getDescription() : "")
-                    .type(voucher.getType().name())
-                    .value(voucher.getValue().toString())
-                    .minOrderValue(voucher.getMinOrderValue() != null ?
-                            voucher.getMinOrderValue().toString() : "")
-                    .maxDiscount(voucher.getMaxDiscount() != null ?
-                            voucher.getMaxDiscount().toString() : "")
-                    .status(voucher.getStatus().name())
-                    .expiryDate(voucher.getExpiryDate() != null ?
-                            voucher.getExpiryDate().format(dateFormatter) : "")
-                    .quantity(voucher.getQuantity() != null ? String.valueOf(voucher.getQuantity()) : "")
-                    .usedQuantity(String.valueOf(usedQuantity))
-                    .availableQuantity(String.valueOf(voucher.getAvailableQuantity()))
-                    .pointToRedeem(String.valueOf(voucher.getPointToRedeem()))
-                    .createdAt(voucher.getCreatedAt().format(dateFormatter))
-                    .updatedAt(voucher.getUpdatedAt().format(dateFormatter))
-                    .build();
-        }).collect(Collectors.toList());
-    }
+              return VoucherExportDTO.builder()
+                  .campaignId(campaign != null ? String.valueOf(campaign.getId()) : "")
+                  .campaignName(campaign != null ? campaign.getName() : "")
+                  .campaignDescription(
+                      campaign != null && campaign.getDescription() != null
+                          ? campaign.getDescription()
+                          : "")
+                  .campaignStartDate(
+                      campaign != null ? campaign.getStartDate().format(dateFormatter) : "")
+                  .campaignEndDate(
+                      campaign != null ? campaign.getEndDate().format(dateFormatter) : "")
+                  .voucherId(String.valueOf(voucher.getId()))
+                  .voucherCode(voucher.getCode())
+                  .voucherName(voucher.getName())
+                  .voucherDescription(
+                      voucher.getDescription() != null ? voucher.getDescription() : "")
+                  .type(voucher.getType().name())
+                  .value(voucher.getValue().toString())
+                  .minOrderValue(
+                      voucher.getMinOrderValue() != null
+                          ? voucher.getMinOrderValue().toString()
+                          : "")
+                  .maxDiscount(
+                      voucher.getMaxDiscount() != null ? voucher.getMaxDiscount().toString() : "")
+                  .status(voucher.getStatus().name())
+                  .expiryDate(
+                      voucher.getExpiryDate() != null
+                          ? voucher.getExpiryDate().format(dateFormatter)
+                          : "")
+                  .quantity(
+                      voucher.getQuantity() != null ? String.valueOf(voucher.getQuantity()) : "")
+                  .usedQuantity(String.valueOf(usedQuantity))
+                  .availableQuantity(String.valueOf(voucher.getAvailableQuantity()))
+                  .pointToRedeem(String.valueOf(voucher.getPointToRedeem()))
+                  .createdAt(voucher.getCreatedAt().format(dateFormatter))
+                  .updatedAt(voucher.getUpdatedAt().format(dateFormatter))
+                  .build();
+            })
+        .collect(Collectors.toList());
+  }
 }

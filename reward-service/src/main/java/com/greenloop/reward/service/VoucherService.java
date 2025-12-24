@@ -61,23 +61,21 @@ public interface VoucherService {
 
   void redeemVoucher(RedeemVoucherRequest request);
 
-    List<VoucherExportDTO> getExportDataVoucher(
-            Long campaignId,
-            VoucherStatus status,
-            VoucherType type,
-            LocalDateTime expiryDateFrom,
-            LocalDateTime expiryDateTo,
-            Integer minPointToRedeem,
-            Integer maxPointToRedeem,
-            boolean includeExpired
-    );
+  List<VoucherExportDTO> getExportDataVoucher(
+      Long campaignId,
+      VoucherStatus status,
+      VoucherType type,
+      LocalDateTime expiryDateFrom,
+      LocalDateTime expiryDateTo,
+      Integer minPointToRedeem,
+      Integer maxPointToRedeem,
+      boolean includeExpired);
 
-    List<VoucherCampaignExportDTO> getExportDataCampaign(
-            LocalDateTime startDateFrom,
-            LocalDateTime startDateTo,
-            LocalDateTime endDateFrom,
-            LocalDateTime endDateTo,
-            boolean includeExpired,
-            boolean includeVoucherDetails
-    );
+  List<VoucherCampaignExportDTO> getExportDataCampaign(
+      LocalDateTime startDateFrom,
+      LocalDateTime startDateTo,
+      LocalDateTime endDateFrom,
+      LocalDateTime endDateTo,
+      boolean includeExpired,
+      boolean includeVoucherDetails);
 }

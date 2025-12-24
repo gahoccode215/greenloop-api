@@ -76,6 +76,15 @@ public interface EventService {
 
   EventResponse getInfoEvent(Long eventId);
 
-
-    List<EventExportDTO> getExportData(Long eventId, EventStatus status, Integer month, Integer year, LocalDateTime start, LocalDateTime end, boolean includeParticipants, boolean includeStaff, boolean includeCheckin, boolean includeStaffDetails);
+  List<EventExportDTO> getExportData(
+      Long eventId,
+      EventStatus status,
+      Integer month,
+      Integer year,
+      LocalDateTime start,
+      LocalDateTime end,
+      boolean includeParticipants,
+      boolean includeStaff,
+      boolean includeCheckin,
+      boolean includeStaffDetails);
 }

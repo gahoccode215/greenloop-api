@@ -24,5 +24,4 @@ public interface EcoPointTransactionRepository extends JpaRepository<EcoPointTra
   List<Object[]> transactionTrend();
 
   boolean existsBySourceTypeAndSourceId(SourceType sourceType, Long sourceId);
-
 }
