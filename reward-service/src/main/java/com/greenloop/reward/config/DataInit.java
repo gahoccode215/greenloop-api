@@ -120,24 +120,6 @@ public class DataInit implements CommandLineRunner {
                 .categoryId(8L) // Đồ thể thao
                 .build(),
             EcoPointRule.builder()
-                .code("DONATE_FOOTWEAR")
-                .name("Trao đổi Giày Dép")
-                .description("Điểm thưởng khi trao đổi giày, dép cũ")
-                .actionType(EcoActionType.DONATION)
-                .minPoints(100)
-                .maxPoints(400)
-                .categoryId(9L) // Giày dép
-                .build(),
-            EcoPointRule.builder()
-                .code("DONATE_ACCESSORY")
-                .name("Trao đổi Phụ Kiện")
-                .description("Điểm thưởng khi trao đổi túi, mũ nón, khăn choàng")
-                .actionType(EcoActionType.DONATION)
-                .minPoints(10)
-                .maxPoints(60)
-                .categoryId(10L) // Phụ kiện
-                .build(),
-            EcoPointRule.builder()
                 .code("DONATE_OFFICE")
                 .name("Trao đổi TT Công Sở")
                 .description("Điểm thưởng khi trao đổi vest, blazer, trang phục công sở")
@@ -239,24 +221,6 @@ public class DataInit implements CommandLineRunner {
                 .categoryId(8L) // Đồ thể thao
                 .build(),
             EcoPointRule.builder()
-                .code("RESALE_FOOTWEAR")
-                .name("Bán Lại Giày Dép")
-                .description("Điểm thưởng khi bán lại giày, dép cũ")
-                .actionType(EcoActionType.RESALE)
-                .minPoints(180)
-                .maxPoints(400)
-                .categoryId(9L) // Giày dép
-                .build(),
-            EcoPointRule.builder()
-                .code("RESALE_ACCESSORY")
-                .name("Bán Lại Phụ Kiện")
-                .description("Điểm thưởng khi bán lại túi, mũ nón, khăn choàng")
-                .actionType(EcoActionType.RESALE)
-                .minPoints(20)
-                .maxPoints(100)
-                .categoryId(10L) // Phụ kiện
-                .build(),
-            EcoPointRule.builder()
                 .code("RESALE_OFFICE")
                 .name("Bán Lại TT Công Sở")
                 .description("Điểm thưởng khi bán lại vest, blazer, trang phục công sở")
@@ -282,17 +246,6 @@ public class DataInit implements CommandLineRunner {
                 .minPoints(50)
                 .maxPoints(200)
                 .categoryId(13L) // Các loại đồ khác
-                .build(),
-
-            // CHECK_IN Rule - Checkin tại sự kiện (Không có CategoryId)
-            EcoPointRule.builder()
-                .code("EVENT_CHECKIN")
-                .name("Check-in Tại Sự Kiện")
-                .description("Điểm thưởng khi check-in tham gia sự kiện thu gom quần áo cũ")
-                .actionType(EcoActionType.CHECK_IN)
-                .minPoints(50)
-                .maxPoints(100)
-                .categoryId(null)
                 .build());
     ecoPointRuleRepository.saveAll(rules);
     log.info("Initialized {} EcoPoint rules", rules.size());

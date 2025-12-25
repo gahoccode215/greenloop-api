@@ -146,6 +146,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         String transactionCode = transactionCodeGenerator.generateTransactionCode();
 
+
         Transaction transaction = Transaction.builder()
                 .transactionCode(transactionCode)
                 .orderId(order.getOrderId())
@@ -201,6 +202,12 @@ public class TransactionServiceImpl implements TransactionService {
 
         String transactionCode = transactionCodeGenerator.generateRefundCode();
 
+
+        BigDecimal returnShippingFee = returnRequest.getActualReturnShippingFee() != null
+                ? returnRequest.getActualReturnShippingFee()
+                : BigDecimal.ZERO;
+
+        BigDecimal totalLoss = returnRequest.getRefundAmount().add(returnShippingFee);
         Transaction refundTransaction = Transaction.builder()
                 .transactionCode(transactionCode)
                 .orderId(order.getOrderId())
@@ -208,11 +215,9 @@ public class TransactionServiceImpl implements TransactionService {
                 .customerId(order.getCustomerId())
                 .transactionType(TransactionType.REFUND)
                 .orderType(order.getOrderType())
-                .amount(returnRequest.getRefundAmount().negate())
+                .amount(totalLoss.negate())
                 .productTotal(returnRequest.getOriginalAmount())
-                .shippingFee(returnRequest.getActualReturnShippingFee() != null
-                        ? returnRequest.getActualReturnShippingFee()
-                        : BigDecimal.ZERO)
+                .shippingFee(returnShippingFee)
                 .discountAmount(BigDecimal.ZERO)
                 .voucherDiscount(BigDecimal.ZERO)
                 .shippingDiscount(BigDecimal.ZERO)
@@ -227,7 +232,6 @@ public class TransactionServiceImpl implements TransactionService {
 
                 .transactionDate(LocalDateTime.now())
                 .refundedDate(LocalDateTime.now())
-
                 .eventId(order.getEventId())
                 .isGuestPurchase(order.getIsGuestPurchase())
                 .guestName(order.getGuestName())

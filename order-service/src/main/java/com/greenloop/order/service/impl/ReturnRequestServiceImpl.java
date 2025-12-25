@@ -314,7 +314,8 @@ public class ReturnRequestServiceImpl implements ReturnRequestService {
         returnRequest.setInspectionImages(imageUrls);
         returnRequest.setInspectedBy(staffId);
         returnRequest.setInspectedAt(LocalDateTime.now());
-        returnRequest.setActualReturnShippingFee(request.getActualReturnShippingFee());
+//        returnRequest.setActualReturnShippingFee(request.getActualReturnShippingFee());
+        returnRequest.setShopShippingFee(request.getActualReturnShippingFee());
         returnRequest.setRefundAmount(request.getRefundAmount());
         returnRequest.setStatus(ReturnRequestStatus.INSPECTED_APPROVED);
         ReturnRequest saved = returnRequestRepository.save(returnRequest);

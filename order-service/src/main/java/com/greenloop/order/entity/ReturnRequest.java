@@ -55,6 +55,9 @@ public class ReturnRequest {
     @Column(name = "images", columnDefinition = "JSON")
     private List<String> images;
 
+    @Column(name = "shop_shipping_fee", precision = 10, scale = 2)
+    private BigDecimal shopShippingFee;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "return_type", nullable = false, length = 20)
     private ReturnType returnType;
