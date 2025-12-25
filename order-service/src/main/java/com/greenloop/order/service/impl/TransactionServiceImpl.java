@@ -42,13 +42,13 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Transaction createTransactionForOnlineOrder(Order order) {
-        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
-            return null;
-        }
+//        if (order.getOrderStatus() != OrderStatus.COMPLETED) {
+//            return null;
+//        }
 
-        if (order.getOrderType() != OrderType.ONLINE) {
-            return null;
-        }
+//        if (order.getOrderType() != OrderType.ONLINE) {
+//            return null;
+//        }
 
         Optional<Transaction> existing = transactionRepository.findByOrderId(order.getOrderId());
         if (existing.isPresent()) {

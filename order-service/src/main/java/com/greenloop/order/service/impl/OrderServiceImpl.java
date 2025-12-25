@@ -411,8 +411,8 @@ public class OrderServiceImpl implements OrderService {
         order.setCompletedAt(LocalDateTime.now());
         order.setCanCreateReturnRequest(false);
         order.setUpdatedAt(LocalDateTime.now());
-        transactionService.createTransactionForOnlineOrder(order);
         orderRepository.save(order);
+        transactionService.createTransactionForOnlineOrder(order);
         markProductsAsSoldViaFeign(order);
         if (totalEcoPoints > 0) {
             addEcoPointsViaFeign(order, totalEcoPoints);
