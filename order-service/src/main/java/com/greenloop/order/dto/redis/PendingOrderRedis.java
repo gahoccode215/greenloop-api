@@ -36,6 +36,7 @@ public class PendingOrderRedis implements Serializable {
     private BigDecimal discountAmount;
     private BigDecimal totalPrice;
     private BigDecimal shippingFee;
+    private BigDecimal originalShippingFee;
 
     private Long voucherUserId;
     private String voucherCode;

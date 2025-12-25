@@ -56,7 +56,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         String transactionCode = transactionCodeGenerator.generateTransactionCode();
-
+        BigDecimal actualRevenue = calculateActualRevenue(order);
         Transaction transaction = Transaction.builder()
                 .transactionCode(transactionCode)
                 .orderId(order.getOrderId())
@@ -64,9 +64,10 @@ public class TransactionServiceImpl implements TransactionService {
                 .customerId(order.getCustomerId())
                 .transactionType(TransactionType.PAYMENT)
                 .orderType(OrderType.ONLINE)
-                .amount(order.getTotalPrice())
+                .amount(actualRevenue)
+
                 .productTotal(order.getSubTotal())
-                .shippingFee(order.getShippingFee())
+                .shippingFee(order.getOriginalShippingFee())
                 .discountAmount(order.getDiscountAmount())
                 .voucherCode(order.getVoucherCode())
                 .voucherDiscount(order.getDiscountAmount())
@@ -88,6 +89,40 @@ public class TransactionServiceImpl implements TransactionService {
         return saved;
     }
 
+    private BigDecimal calculateActualRevenue(Order order) {
+        BigDecimal totalPrice = order.getTotalPrice(); // Tổng tiền khách phải trả
+
+        if (totalPrice == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // Với COD: Shop chỉ nhận được = Tổng tiền COD - Phí vận chuyển
+        // Vì đơn vị vận chuyển thu tiền từ khách và trừ phí ship trước khi trả shop
+        //
+        // Ví dụ:
+        // - Tiền hàng: 198.000đ
+        // - Voucher: -25.000đ
+        // - Phí ship: 30.400đ
+        // => Khách trả COD: 203.400đ
+        // => Shop nhận: 203.400đ - 30.400đ = 173.000đ
+        if (order.getPaymentMethod() == PaymentMethod.COD) {
+            BigDecimal shippingFee = order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO;
+            BigDecimal actualRevenue = totalPrice.subtract(shippingFee);
+
+            log.info("COD Order {} - Total: {}, Shipping: {}, Actual Revenue: {}",
+                    order.getOrderCode(), totalPrice, shippingFee, actualRevenue);
+
+            return actualRevenue;
+        }
+
+        // Với PayOS hoặc thanh toán online: Shop nhận đủ tiền
+        // Vì khách đã thanh toán trước toàn bộ vào tài khoản shop
+        // Shop sẽ tự trả phí ship riêng cho đơn vị vận chuyển
+        log.info("Online Order {} - Total: {}, Actual Revenue: {}",
+                order.getOrderCode(), totalPrice, totalPrice);
+
+        return totalPrice;
+    }
 
     @Override
     @Transactional

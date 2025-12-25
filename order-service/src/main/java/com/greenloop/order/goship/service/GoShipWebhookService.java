@@ -3,6 +3,7 @@ package com.greenloop.order.goship.service;
 import com.greenloop.order.client.ProductClient;
 import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.constant.ProductStatusConstant;
+import com.greenloop.order.dto.event.NotificationEvent;
 import com.greenloop.order.dto.request.*;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.entity.Order;
@@ -16,6 +17,7 @@ import com.greenloop.order.exception.ReturnRequestNotFoundException;
 import com.greenloop.order.goship.dto.GoShipWebhookPayload;
 import com.greenloop.order.repository.OrderRepository;
 import com.greenloop.order.repository.ReturnRequestRepository;
+import com.greenloop.order.service.NotificationProducer;
 import com.greenloop.order.service.OrderService;
 import com.greenloop.order.service.TransactionService;
 import com.greenloop.order.util.OrderStatusSyncMapper;
@@ -35,10 +37,8 @@ public class GoShipWebhookService {
 
     private final OrderRepository orderRepository;
     private final ReturnRequestRepository returnRequestRepository;
-    private final OrderService orderService;
     private final ProductClient productClient;
-    private final TransactionService transactionService;
-    private final RewardClient rewardClient;
+    private final NotificationProducer notificationProducer;
 
     @Transactional
     public void handleWebhook(GoShipWebhookPayload payload) {
@@ -60,6 +60,12 @@ public class GoShipWebhookService {
                 newShippingStatus, oldOrderStatus);
         if (targetOrderStatus != null && targetOrderStatus != oldOrderStatus) {
             order.setOrderStatus(targetOrderStatus);
+            try{
+                sendShippingStatusNotification(order, targetOrderStatus, newShippingStatus);
+            }catch (Exception e){
+
+            }
+
         }
 
         handlePaymentStatusForDelivered(order, newShippingStatus);
@@ -174,6 +180,79 @@ public class GoShipWebhookService {
         }
     }
 
+    private void sendShippingStatusNotification(Order order, OrderStatus newStatus, Integer shippingStatus) {
+        if (order.getCustomerId() == null) {
+            return;
+        }
+        String title;
+        String message;
+
+        switch (newStatus) {
+            case SHIPPING:
+                    title = String.format("Đơn hàng %s đã được lấy hàng", order.getOrderCode());
+                    message = String.format("Đơn hàng %s đã được đơn vị vận chuyển %s lấy hàng.",
+                            order.getOrderCode(), order.getCarrier() != null ? order.getCarrier() : "");
+                break;
+            case DELIVERING:
+                title = String.format("Đơn hàng %s đang giao", order.getOrderCode());
+                message = String.format("Đơn hàng %s đang trên đường giao đến bạn. Vui lòng chú ý điện thoại.",
+                        order.getOrderCode());
+                break;
+
+            case DELIVERED:
+                title = String.format("Đơn hàng %s đã giao thành công", order.getOrderCode());
+                message = String.format("Đơn hàng %s đã được giao thành công. Cảm ơn bạn đã mua hàng!",
+                        order.getOrderCode());
+                break;
+
+            case DELIVERY_FAILED:
+                title = String.format("Đơn hàng %s giao không thành công", order.getOrderCode());
+                message = String.format("Đơn hàng %s giao không thành công. Chúng tôi sẽ liên hệ với bạn sớm.",
+                        order.getOrderCode());
+                break;
+
+            case RETURNING:
+                title = String.format("Đơn hàng %s đang hoàn trả", order.getOrderCode());
+                message = String.format("Đơn hàng %s đang trong quá trình hoàn trả về kho.",
+                        order.getOrderCode());
+                break;
+
+            case RETURNED:
+                title = String.format("Đơn hàng %s đã hoàn trả", order.getOrderCode());
+                message = String.format("Đơn hàng %s đã được hoàn trả về kho. Vui lòng liên hệ hotline để được hỗ trợ.",
+                        order.getOrderCode());
+                break;
+
+            case CANCELLED:
+                title = String.format("Đơn hàng %s đã bị hủy", order.getOrderCode());
+                message = String.format("Đơn hàng %s đã bị hủy. Nếu cần hỗ trợ, vui lòng liên hệ hotline.",
+                        order.getOrderCode());
+                break;
+
+            case LOST:
+                title = String.format("Đơn hàng %s bị thất lạc", order.getOrderCode());
+                message = String.format("Đơn hàng %s đã bị thất lạc trong quá trình vận chuyển. Chúng tôi sẽ liên hệ với bạn để xử lý.",
+                        order.getOrderCode());
+                break;
+
+            default:
+                return;
+        }
+
+        try {
+            notificationProducer.sendNotificationMessage(
+                    NotificationEvent.builder()
+                            .userId(order.getCustomerId())
+                            .title(title)
+                            .message(message)
+                            .build()
+            );
+            log.info("Sent notification for order {} status change to {} (shipping status: {})",
+                    order.getOrderCode(), newStatus, shippingStatus);
+        } catch (Exception e) {
+            log.error("Failed to send notification for order {}", order.getOrderCode(), e);
+        }
+    }
     private void updateProductStatusViaFeign(Order order, String oldStatus, String newStatus) {
         List<UpdateProductStatusRequest.ProductStatusUpdate> productUpdates =
                 order.getOrderItems().stream()

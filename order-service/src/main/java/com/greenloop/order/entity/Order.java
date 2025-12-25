@@ -102,6 +102,9 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    @Column(name = "original_shipping_fee", precision = 19, scale = 2)
+    private BigDecimal originalShippingFee;
+
     @Column(name = "event_id")
     private Long eventId;
 

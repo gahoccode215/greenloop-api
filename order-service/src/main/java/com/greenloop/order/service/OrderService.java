@@ -9,12 +9,12 @@ import com.greenloop.order.enums.PaymentStatus;
 
 
 public interface OrderService {
-    void updateOrderStatus(String orderId, OrderStatus newStatus);
+//    void updateOrderStatus(String orderId, OrderStatus newStatus);
+//    String findOrderIdByPaymentOrderCode(Long paymentOrderCode);
+//    void updatePaymentStatus(String orderId, PaymentStatus status);
+//    void updatePaymentTransactionId(String orderId, String transactionId);
+//    Order getOrderEntityById(String orderId);
     CheckoutResponse checkout(Long userId, CheckoutRequest request);
-    String findOrderIdByPaymentOrderCode(Long paymentOrderCode);
-    void updatePaymentStatus(String orderId, PaymentStatus status);
-    void updatePaymentTransactionId(String orderId, String transactionId);
-    Order getOrderEntityById(String orderId);
     OrderResponse getOrderById(String orderId);
     PageResponseDTO<OrderResponse> getAllOrders(Long requestingUserId, OrderFilterRequest filter);
     void cancelOrder(String orderId, String reason, Long requestingUserId, String userRole);;

@@ -7,6 +7,7 @@ import com.greenloop.order.constant.ProductStatusConstant;
 import com.greenloop.order.constant.RoleConstant;
 import com.greenloop.order.dto.ParcelDimensionDTO;
 import com.greenloop.order.dto.ProductDTO;
+import com.greenloop.order.dto.event.NotificationEvent;
 import com.greenloop.order.dto.feign.UnreserveProductsRequest;
 import com.greenloop.order.dto.redis.PendingOrderRedis;
 import com.greenloop.order.dto.request.*;
@@ -62,15 +63,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserClient userClient;
     private final RewardClient rewardClient;
     private final TransactionService transactionService;
-
-    @Override
-    @Transactional
-    public void updateOrderStatus(String orderId, OrderStatus newStatus) {
-        orderRepository.findById(orderId).ifPresent(order -> {
-            order.setOrderStatus(newStatus);
-            orderRepository.save(order);
-        });
-    }
+    private final NotificationProducer notificationProducer;
 
     @Override
     @Transactional
@@ -231,6 +224,7 @@ public class OrderServiceImpl implements OrderService {
                 .customerId(request.getCustomerId())
                 .subTotal(request.getSubTotal())
                 .discountAmount(request.getDiscountAmount())
+                .originalShippingFee(request.getOriginalShippingFee())
                 .totalPrice(request.getTotalPrice())
                 .shippingFee(request.getShippingFee())
                 .voucherUserId(request.getVoucherUserId())
@@ -293,39 +287,6 @@ public class OrderServiceImpl implements OrderService {
         return savedOrder;
     }
 
-
-    @Override
-    public String findOrderIdByPaymentOrderCode(Long paymentOrderCode) {
-        return orderRepository.findByPaymentOrderCode(paymentOrderCode)
-                .map(Order::getOrderId)
-                .orElse(null);
-    }
-
-    @Override
-    @Transactional
-    public void updatePaymentStatus(String orderId, PaymentStatus status) {
-        orderRepository.findById(orderId).ifPresent(order -> {
-            order.setPaymentStatus(status);
-            orderRepository.save(order);
-        });
-    }
-
-    @Override
-    @Transactional
-    public void updatePaymentTransactionId(String orderId, String transactionId) {
-        orderRepository.findById(orderId).ifPresent(order -> {
-            order.setPaymentTransactionId(transactionId);
-            orderRepository.save(order);
-        });
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Order getOrderEntityById(String orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-    }
-
     @Override
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(String orderId) {
@@ -375,6 +336,21 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
         order.setShippingStatus(901);
         orderRepository.save(order);
+        if (order.getCustomerId() != null) {
+            try {
+                notificationProducer.sendNotificationMessage(
+                        NotificationEvent.builder()
+                                .userId(order.getCustomerId())
+                                .title(String.format("Đơn hàng %s sẵn sàng giao", order.getOrderCode()))
+                                .message(String.format("Đơn hàng %s đã sẵn sàng để giao. Đơn vị vận chuyển %s sẽ sớm lấy hàng.",
+                                        order.getOrderCode(), shipmentResponse.getCarrier()))
+                                .build()
+                );
+                log.info("Sent notification for order {} status change to READY_TO_SHIP", order.getOrderCode());
+            } catch (Exception e) {
+                log.error("Failed to send notification for order {}", order.getOrderCode(), e);
+            }
+        }
         return ShipmentInfoResponse.builder()
                 .shipmentId(shipmentResponse.getId())
                 .trackingNumber(shipmentResponse.getTrackingNumber())
@@ -480,6 +456,22 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderStatus(OrderStatus.PROCESSING);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
+        if (order.getCustomerId() != null) {
+            try {
+                notificationProducer.sendNotificationMessage(
+                        NotificationEvent.builder()
+                                .userId(order.getCustomerId())
+                                .title(String.format("Đơn hàng %s đang được xử lý", order.getOrderCode()))
+                                .message(String.format("Đơn hàng %s đang được xử lý. Chúng tôi sẽ sớm giao hàng cho bạn.",
+                                        order.getOrderCode()))
+                                .build()
+                );
+                log.info("Sent notification for order {} status change to PROCESSING", order.getOrderCode());
+            } catch (Exception e) {
+                log.error("Failed to send notification for order {}", order.getOrderCode(), e);
+            }
+        }
+
     }
 
     @Override
@@ -497,6 +489,21 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderStatus(OrderStatus.CONFIRMED);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
+        if (order.getCustomerId() != null) {
+            try {
+                notificationProducer.sendNotificationMessage(
+                        NotificationEvent.builder()
+                                .userId(order.getCustomerId())
+                                .title(String.format("Đơn hàng %s đã được xác nhận", order.getOrderCode()))
+                                .message(String.format("Đơn hàng %s đã được xác nhận. Chúng tôi đang chuẩn bị sản phẩm cho bạn.",
+                                        order.getOrderCode()))
+                                .build()
+                );
+                log.info("Sent notification for order {} status change to CONFIRMED", order.getOrderCode());
+            } catch (Exception e) {
+                log.error("Failed to send notification for order {}", order.getOrderCode(), e);
+            }
+        }
     }
 
     @Override
@@ -1001,6 +1008,7 @@ public class OrderServiceImpl implements OrderService {
                 .totalPrice(totalPrice)
                 .shippingFee(shippingFee)
                 .voucherUserId(request.getVoucherUserId())
+                .originalShippingFee(selectedOption.getFee())
                 .voucherCode(voucherResult.getVoucherCode())
                 .orderStatus(OrderStatus.PENDING)
                 .paymentStatus(PaymentStatus.UNPAID)
@@ -1056,6 +1064,7 @@ public class OrderServiceImpl implements OrderService {
                 .subTotal(productTotal)
                 .discountAmount(discountAmount)
                 .totalPrice(totalPrice)
+                .originalShippingFee(selectedOption.getFee())
                 .shippingFee(shippingFee)
                 .voucherUserId(request.getVoucherUserId())
                 .voucherCode(voucherResult.getVoucherCode())
