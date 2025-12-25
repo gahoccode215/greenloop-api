@@ -34,7 +34,7 @@ public class CategoryController {
         return ResponseEntity.ok(
                 ApiResponseDTO.<List<CategoryResponse>>builder()
                         .data(categories)
-                        .message("Categories retrieved successfully")
+                        .message("Lấy danh sách danh mục thành công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build()
@@ -49,7 +49,7 @@ public class CategoryController {
         categoryService.createCategory(categoryRequest);
         return ResponseEntity.ok(
                 ApiResponseDTO.<Void>builder()
-                        .message("Category created successfully")
+                        .message("Tạo danh mục thành công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build()
@@ -64,7 +64,7 @@ public class CategoryController {
         categoryService.updateActiveStatus(categoryId);
         return ResponseEntity.ok(
                 ApiResponseDTO.<Void>builder()
-                        .message("Category active status updated successfully")
+                        .message("Cập nhật trạng thái danh mục thành công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build()
@@ -80,7 +80,7 @@ public class CategoryController {
         categoryService.updateCategory(categoryId, categoryRequest);
         return ResponseEntity.ok(
                 ApiResponseDTO.<Void>builder()
-                        .message("Category updated successfully")
+                        .message("Cập nhật danh mục thành công")
                         .statusCode(HttpStatus.OK.value())
                         .success(true)
                         .build());
