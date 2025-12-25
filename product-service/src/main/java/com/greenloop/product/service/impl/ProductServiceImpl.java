@@ -390,6 +390,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void changeProductEventStatus(UpdateStatusProductEventMappingRequest eventMappingRequest) {
+        List<Long> notFoundProductIds = new ArrayList<>();
         for (Long productId : eventMappingRequest.getProductIds()) {
             EventProductMapping mapping =
                     eventProductMappingRepository.findByEventIdAndProductId(eventMappingRequest.getEventId(), productId)
@@ -400,10 +401,64 @@ public class ProductServiceImpl implements ProductService {
                                     )
                             );
 
+            Product product = null;
+            try {
+                product = productRepository.findById(productId)
+                        .orElseThrow(() -> new BusinessException(
+                                "Không tìm thấy sản phẩm. Product ID: " + productId,
+                                ErrorCode.PRODUCT_NOT_FOUND
+                        ));
+            } catch (BusinessException ex) {
+                if (ex.getErrorCode().equals(ErrorCode.PRODUCT_NOT_FOUND.getCode())) {
+                    notFoundProductIds.add(productId);
+                    continue;
+                }
+                log.error("Unexpected error fetching product ID {}: {}", productId, ex.getMessage());
+            }
+
+
+            if(product != null) {
+                validateAssignTransition(
+                        mapping,
+                        eventMappingRequest.getStatus(),
+                        product
+                );
+            }
+
+
             mapping.setStatus(eventMappingRequest.getStatus());
             eventProductMappingRepository.save(mapping);
         }
+
+        if (!notFoundProductIds.isEmpty()) {
+            throw new BusinessException(
+                    "Không tìm thấy sản phẩm với các ID: " + notFoundProductIds,
+                    ErrorCode.PRODUCT_NOT_FOUND
+            );
+        }
     }
+
+    private void validateAssignTransition(
+            EventProductMapping mapping,
+            EventMappingStatus targetStatus,
+            Product product
+    ) {
+        if (mapping.getStatus() != EventMappingStatus.ASSIGNED) {
+            return;
+        }
+
+        if (targetStatus == EventMappingStatus.ASSIGNED) {
+            return;
+        }
+
+        if (product.getStatus() != ProductStatus.AVAILABLE) {
+            throw new BusinessException(
+                    "Sản phẩm đã phát sinh mua online, không thể chuyển trạng thái sự kiện: " + product.getName(),
+                    ErrorCode.INVALID_EVENT_PRODUCT_STATUS_TRANSITION
+            );
+        }
+    }
+
 
     @Override
     @Transactional
