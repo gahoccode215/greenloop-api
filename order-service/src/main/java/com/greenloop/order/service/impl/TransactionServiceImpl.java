@@ -50,7 +50,8 @@ public class TransactionServiceImpl implements TransactionService {
 //            return null;
 //        }
 
-        Optional<Transaction> existing = transactionRepository.findByOrderId(order.getOrderId());
+        Optional<Transaction> existing = transactionRepository
+                .findByOrderIdAndTransactionType(order.getOrderId(), TransactionType.PAYMENT);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -65,7 +66,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .transactionType(TransactionType.PAYMENT)
                 .orderType(OrderType.ONLINE)
                 .amount(actualRevenue)
-
                 .productTotal(order.getSubTotal())
                 .shippingFee(order.getOriginalShippingFee())
                 .discountAmount(order.getDiscountAmount())
