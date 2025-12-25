@@ -38,7 +38,8 @@ public enum ErrorCode {
 
     ECO_POINT_UPDATE_FAILED("PROD_023", "Lỗi trong quá trình cộng điểm", HttpStatus.INTERNAL_SERVER_ERROR),
     DONATION_ITEM_ALREADY_CONVERTED("PROD_024", "Vật phẩm quyên góp đã được chuyển đổi thành sản phẩm", HttpStatus.BAD_REQUEST),
-    ECO_POINT_RULE_INACTIVE("PROD_025", "Quy tắc eco point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.", HttpStatus.BAD_REQUEST);
+    ECO_POINT_RULE_INACTIVE("PROD_025", "Quy tắc eco point không hoạt động. Vui lòng chọn eco point bạn cảm thấy phù hợp hoặc liên hệ Admin.", HttpStatus.BAD_REQUEST),
+    INVALID_EVENT_PRODUCT_STATUS_TRANSITION("PROD_026", "Chuyển đổi trạng thái sản phẩm sự kiện không hợp lệ", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
