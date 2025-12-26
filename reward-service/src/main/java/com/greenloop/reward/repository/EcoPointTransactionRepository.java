@@ -22,4 +22,6 @@ public interface EcoPointTransactionRepository extends JpaRepository<EcoPointTra
           + "SUM(CASE WHEN t.type = 'ADJUST' THEN t.points ELSE 0 END) "
           + "FROM EcoPointTransaction t GROUP BY FUNCTION('DATE', t.createdAt)")
   List<Object[]> transactionTrend();
+
+  boolean existsBySourceTypeAndSourceId(SourceType sourceType, Long sourceId);
 }

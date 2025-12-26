@@ -8,5 +8,6 @@ public enum ProductStatus {
     UNAVAILABLE,  // Không khả dụng
     RETURNED,
     // Đã trả lại (từ đơn hàng thất bại),
-    IN_EVENT
+    IN_EVENT,
+    IN_TRANSIT
 }

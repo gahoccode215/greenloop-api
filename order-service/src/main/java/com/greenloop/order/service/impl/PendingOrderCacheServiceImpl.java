@@ -116,12 +116,6 @@ public class PendingOrderCacheServiceImpl implements PendingOrderCacheService {
         }
     }
 
-    @Override
-    public boolean exists(String orderId) {
-        String key = buildOrderKey(orderId);
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
-    }
-
     private String buildOrderKey(String orderId) {
         return PENDING_ORDER_KEY_PREFIX + orderId;
     }

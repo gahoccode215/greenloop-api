@@ -25,10 +25,7 @@ public class OrderDashboardController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(summary = "Lấy thống kê tổng quan đơn hàng")
     public ResponseEntity<ApiResponseDTO<OrderDashboardOverviewResponse>> getDashboardOverview() {
-
-        log.info("Admin requesting order dashboard overview");
         OrderDashboardOverviewResponse response = dashboardService.getDashboardOverview();
-
         return ResponseEntity.ok(
                 ApiResponseDTO.success(
                         "Lấy thống kê đơn hàng thành công",

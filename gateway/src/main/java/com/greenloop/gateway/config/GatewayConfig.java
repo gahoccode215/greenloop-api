@@ -90,12 +90,15 @@ public class GatewayConfig {
             r ->
                 r.path(
                         "/api/v1/orders/**",
-                                "/api/v1/orders/payment/**",
+                        "/api/v1/orders/payment/**",
                         "/api/v1/carts/**",
                         "/api/v1/checkout/**",
                         "/api/v1/goship/**",
                         "/api/v1/warehouse-setting/**",
-                        "/api/v1/simulator/shipments")
+                        "/api/v1/simulator/shipments",
+                        "/api/v1/transactions/**",
+                        "/api/v1/return-requests/**",
+                        "/api/v1/simulator/shipments/returns")
                     .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
                     .uri("lb://order-service"))
         .route(
@@ -117,6 +120,18 @@ public class GatewayConfig {
                     .filters(
                         f -> f.rewritePath("/notification-service/v3/api-docs", "/v3/api-docs"))
                     .uri("lb://notification-service"))
+        .route(
+            "ai-service",
+            r ->
+                r.path("/api/v1/vision/**")
+                    .filters(f -> f.filter(jwtAuthFilter.apply(new JwtAuthFilter.Config())))
+                    .uri("lb://ai-service"))
+        .route(
+            "ai-service-docs",
+            r ->
+                r.path("/ai-service/v3/api-docs")
+                    .filters(f -> f.rewritePath("/ai-service/v3/api-docs", "/v3/api-docs"))
+                    .uri("lb://ai-service"))
         .build();
   }
 }

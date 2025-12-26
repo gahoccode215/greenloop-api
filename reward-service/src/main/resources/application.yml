@@ -6,21 +6,9 @@ spring:
     name: reward-service
   cloud:
     function:
-      definition: ecoPointDonationConsumer;orderOfflineCreatedRewardConsumer;orderCompletedRewardConsumer;orderCheckoutVoucherUsedConsumer
+      definition:
     stream:
-      bindings:
-        ecoPointDonation-int-0:
-          destination: ecopoint-donation
-          group: ${spring.application.name}
-        orderOfflineCreatedRewardConsumer-in-0:
-          destination: order-offline-created-reward
-          group: ${spring.application.name}
-        orderCompletedRewardConsumer-in-0:
-          destination: order-completed-reward
-          group: ${spring.application.name}
-        orderCheckoutVoucherUsedConsumer-in-0:
-          destination: order-checkout-voucher-used
-          group: ${spring.application.name}
+
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/greenloop_reward_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}

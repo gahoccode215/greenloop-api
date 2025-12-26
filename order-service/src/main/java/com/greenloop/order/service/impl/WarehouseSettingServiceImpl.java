@@ -16,9 +16,6 @@ public class WarehouseSettingServiceImpl implements WarehouseSettingService {
 
     private final WarehouseSettingRepository repository;
 
-    /**
-     * Lấy entity kho (dùng nội bộ)
-     */
     @Override
     public WarehouseSetting getWarehouse() {
         return repository.findAll().stream()
@@ -26,18 +23,12 @@ public class WarehouseSettingServiceImpl implements WarehouseSettingService {
                 .orElseThrow(() -> new RuntimeException("Chưa có thông tin kho"));
     }
 
-    /**
-     * Lấy DTO kho (dùng cho API response)
-     */
     @Override
     public WarehouseSettingResponse getWarehouseResponse() {
         WarehouseSetting warehouse = getWarehouse();
         return mapToResponse(warehouse);
     }
 
-    /**
-     * Cập nhật thông tin kho
-     */
     @Override
     @Transactional
     public WarehouseSettingResponse updateWarehouse(WarehouseSetting setting) {
@@ -54,11 +45,9 @@ public class WarehouseSettingServiceImpl implements WarehouseSettingService {
         existing.setCityName(setting.getCityName());
 
         WarehouseSetting updated = repository.save(existing);
-        log.info("Đã cập nhật thông tin kho: {}", updated.getName());
 
         return mapToResponse(updated);
     }
-
 
     private WarehouseSettingResponse mapToResponse(WarehouseSetting warehouse) {
         return WarehouseSettingResponse.builder()

@@ -2,8 +2,11 @@ package com.greenloop.order.service.impl;
 
 import com.greenloop.order.dto.simulator.ShipmentSimulatorResponse;
 import com.greenloop.order.entity.Order;
+import com.greenloop.order.entity.ReturnRequest;
 import com.greenloop.order.enums.OrderStatus;
+import com.greenloop.order.enums.ReturnRequestStatus;
 import com.greenloop.order.repository.OrderRepository;
+import com.greenloop.order.repository.ReturnRequestRepository;
 import com.greenloop.order.service.ShipmentSimulatorService;
 import com.greenloop.order.util.ShippingStatusMapper;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,35 +24,47 @@ import java.util.stream.Collectors;
 public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
 
     private final OrderRepository orderRepository;
+    private final ReturnRequestRepository returnRequestRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShipmentSimulatorResponse> getActiveShipments() {
-        log.info("Fetching active shipments for simulator");
+    public List<ShipmentSimulatorResponse> getAllActiveShipments() {
+        List<ShipmentSimulatorResponse> result = new ArrayList<>();
 
-        // Lấy các đơn hàng đang active (chưa hoàn thành/hủy/thất lạc/hoàn trả)
         List<Order> activeOrders = orderRepository.findActiveShipments(
                 List.of(
-                        OrderStatus.READY_TO_SHIP,    // Chờ lấy hàng
-                        OrderStatus.SHIPPING,          // Đã lấy hàng
-                        OrderStatus.DELIVERING,        // Đang giao
-                        OrderStatus.DELIVERED,         // Đã giao (chờ staff complete)
-                        OrderStatus.DELIVERY_FAILED,   // Giao thất bại
-                        OrderStatus.RETURNING          // Đang hoàn
+                        OrderStatus.READY_TO_SHIP,
+                        OrderStatus.SHIPPING,
+                        OrderStatus.DELIVERING,
+                        OrderStatus.DELIVERED,
+                        OrderStatus.DELIVERY_FAILED,
+                        OrderStatus.RETURNING
                 )
         );
 
-        log.info("Found {} active shipments", activeOrders.size());
-
-        return activeOrders.stream()
-                .map(this::mapToSimulatorResponse)
+        List<ShipmentSimulatorResponse> orderShipments = activeOrders.stream()
+                .map(this::mapOrderToResponse)
                 .collect(Collectors.toList());
+
+        List<ReturnRequest> activeReturnRequests = returnRequestRepository
+                .findByStatusIn(List.of(
+                        ReturnRequestStatus.READY_TO_RETURN,
+                        ReturnRequestStatus.RETURNING,
+                        ReturnRequestStatus.RETURNED_TO_WAREHOUSE
+                ));
+
+        List<ShipmentSimulatorResponse> returnShipments = activeReturnRequests.stream()
+                .filter(rr -> rr.getReturnShipmentId() != null)
+                .map(this::mapReturnToResponse)
+                .collect(Collectors.toList());
+
+        result.addAll(orderShipments);
+        result.addAll(returnShipments);
+
+        return result;
     }
 
-    /**
-     * Map Order entity sang ShipmentSimulatorResponse
-     */
-    private ShipmentSimulatorResponse mapToSimulatorResponse(Order order) {
+    private ShipmentSimulatorResponse mapOrderToResponse(Order order) {
         ShipmentSimulatorResponse.ShipmentSimulatorResponseBuilder builder =
                 ShipmentSimulatorResponse.builder()
                         .orderId(order.getOrderId())
@@ -74,21 +90,90 @@ public class ShipmentSimulatorServiceImpl implements ShipmentSimulatorService {
                         .expectedDeliveryTime(order.getExpectedDeliveryTime())
                         .updatedAt(order.getUpdatedAt());
 
-        // Map thông tin shipping address nếu có
         if (order.getShippingAddress() != null) {
-            builder.receiverName(order.getShippingAddress().getReceiverName())
+            builder.note(order.getShippingAddress().getNote())
+                    .senderName(order.getShippingAddress().getWarehouseName())
+                    .senderPhone(order.getShippingAddress().getWarehousePhone())
+                    .senderAddress(order.getShippingAddress().getWarehouseAddress())
+                    .senderWardName(order.getShippingAddress().getWarehouseWardName())
+                    .senderDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .senderCityName(order.getShippingAddress().getWarehouseCityName())
+                    .receiverName(order.getShippingAddress().getReceiverName())
                     .receiverPhone(order.getShippingAddress().getReceiverPhone())
                     .receiverAddress(order.getShippingAddress().getReceiverAddress())
                     .receiverWardName(order.getShippingAddress().getReceiverWardName())
                     .receiverDistrictName(order.getShippingAddress().getReceiverDistrictName())
                     .receiverCityName(order.getShippingAddress().getReceiverCityName())
-                    .note(order.getShippingAddress().getNote())
                     .warehouseName(order.getShippingAddress().getWarehouseName())
                     .warehousePhone(order.getShippingAddress().getWarehousePhone())
                     .warehouseAddress(order.getShippingAddress().getWarehouseAddress())
                     .warehouseWardName(order.getShippingAddress().getWarehouseWardName())
                     .warehouseDistrictName(order.getShippingAddress().getWarehouseDistrictName())
                     .warehouseCityName(order.getShippingAddress().getWarehouseCityName());
+        }
+
+        return builder.build();
+    }
+
+    private ShipmentSimulatorResponse mapReturnToResponse(ReturnRequest returnRequest) {
+        Order order = orderRepository.findById(returnRequest.getOrderId()).orElse(null);
+
+        ShipmentSimulatorResponse.ShipmentSimulatorResponseBuilder builder =
+                ShipmentSimulatorResponse.builder()
+                        .returnRequestId(returnRequest.getReturnRequestId())
+                        .orderId(returnRequest.getOrderId())
+                        .orderCode(order != null ? order.getOrderCode() : null)
+                        .customerId(returnRequest.getCustomerId())
+                        .returnShipmentId(returnRequest.getReturnShipmentId())
+                        .goshipShipmentId(returnRequest.getReturnShipmentId())
+                        .returnTrackingUrl(returnRequest.getReturnTrackingUrl())
+                        .goshipTrackingUrl(returnRequest.getReturnTrackingUrl())
+                        .returnCarrier(returnRequest.getReturnCarrier())
+                        .carrier(returnRequest.getReturnCarrier())
+                        .currentReturnShippingStatus(returnRequest.getReturnShippingStatus())
+                        .currentShippingStatus(returnRequest.getReturnShippingStatus())
+                        .currentReturnShippingStatusText(ShippingStatusMapper.getStatusText(
+                                returnRequest.getReturnShippingStatus()))
+                        .currentShippingStatusText(ShippingStatusMapper.getStatusText(
+                                returnRequest.getReturnShippingStatus()))
+                        .returnRequestStatus(returnRequest.getStatus().name())
+                        .returnRequestStatusText(returnRequest.getStatus().getDescription())
+                        .returnReason(returnRequest.getReturnReason().name())
+                        .returnType(returnRequest.getReturnType().name())
+                        .originalAmount(returnRequest.getOriginalAmount())
+                        .refundAmount(returnRequest.getRefundAmount())
+                        .requestedAt(returnRequest.getRequestedAt())
+                        .approvedAt(returnRequest.getApprovedAt())
+                        .returnedAt(returnRequest.getReturnedAt())
+                        .completedAt(returnRequest.getCompletedAt())
+                        .createdAt(returnRequest.getCreatedAt())
+                        .updatedAt(returnRequest.getUpdatedAt());
+
+        if (order != null && order.getShippingAddress() != null) {
+            builder.pickupName(order.getShippingAddress().getReceiverName())
+                    .pickupPhone(order.getShippingAddress().getReceiverPhone())
+                    .pickupAddress(order.getShippingAddress().getReceiverAddress())
+                    .pickupWardName(order.getShippingAddress().getReceiverWardName())
+                    .pickupDistrictName(order.getShippingAddress().getReceiverDistrictName())
+                    .pickupCityName(order.getShippingAddress().getReceiverCityName())
+                    .senderName(order.getShippingAddress().getReceiverName())
+                    .senderPhone(order.getShippingAddress().getReceiverPhone())
+                    .senderAddress(order.getShippingAddress().getReceiverAddress())
+                    .senderWardName(order.getShippingAddress().getReceiverWardName())
+                    .senderDistrictName(order.getShippingAddress().getReceiverDistrictName())
+                    .senderCityName(order.getShippingAddress().getReceiverCityName())
+                    .warehouseName(order.getShippingAddress().getWarehouseName())
+                    .warehousePhone(order.getShippingAddress().getWarehousePhone())
+                    .warehouseAddress(order.getShippingAddress().getWarehouseAddress())
+                    .warehouseWardName(order.getShippingAddress().getWarehouseWardName())
+                    .warehouseDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .warehouseCityName(order.getShippingAddress().getWarehouseCityName())
+                    .receiverName(order.getShippingAddress().getWarehouseName())
+                    .receiverPhone(order.getShippingAddress().getWarehousePhone())
+                    .receiverAddress(order.getShippingAddress().getWarehouseAddress())
+                    .receiverWardName(order.getShippingAddress().getWarehouseWardName())
+                    .receiverDistrictName(order.getShippingAddress().getWarehouseDistrictName())
+                    .receiverCityName(order.getShippingAddress().getWarehouseCityName());
         }
 
         return builder.build();

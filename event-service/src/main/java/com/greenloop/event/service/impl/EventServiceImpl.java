@@ -40,6 +40,7 @@ public class EventServiceImpl implements EventService {
   private final UserServiceFeign userServiceFeign;
   private final EcoPointCheckInProducer ecoPointCheckInProducer;
   private final NotificationProducer notificationProducer;
+  private final RewardServiceFeign rewardServiceFeign;
 
   /**
    * Creates a new event with the provided request data and optional thumbnail image. The event's
@@ -533,65 +534,64 @@ public class EventServiceImpl implements EventService {
       }
     }
 
-      if (status == EventStatus.UPCOMING
-              || status == EventStatus.ONGOING
-              || status == EventStatus.PUBLISHED) {
+    if (status == EventStatus.UPCOMING
+        || status == EventStatus.ONGOING
+        || status == EventStatus.PUBLISHED) {
 
-          List<Long> notifiedUserIds = new ArrayList<>();
-//          notifiedUserIds.addAll(
-//                  event.getStaffAssignments().stream()
-//                          .map(EventStaffAssignment::getStaffId)
-//                          .toList()
-//          );
-//          notifiedUserIds.addAll(
-//                  event.getRegistrations().stream()
-//                          .map(EventRegistration::getUserId)
-//                          .toList()
-//          );
-          try {
-              notifiedUserIds = userServiceFeign.getAllUserIds();
-          } catch (Exception e) {
-                log.error("Failed to fetch all user IDs for notifications: {}", e.getMessage());
-          }
-
-          String title = "";
-          String message = "";
-
-          switch (status) {
-              case UPCOMING -> {
-                  title = "Sự kiện sắp diễn ra";
-                  message = "Sự kiện " + event.getName()
-                          + " sẽ diễn ra vào ngày "
-                          + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-                          + ". Hãy chuẩn bị tham gia nhé!";
-              }
-              case ONGOING -> {
-                  title = "Sự kiện đang diễn ra";
-                  message = "Sự kiện " + event.getName()
-                          + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ!";
-              }
-              case PUBLISHED -> {
-                  title = "Sự kiện đã được công bố";
-                  message = "Sự kiện " + event.getName()
-                          + " đã chính thức được công bố. Hãy theo dõi để không bỏ lỡ!";
-              }
-              default -> {
-              }
-          }
-
-          for (Long idU : notifiedUserIds) {
-              notificationProducer.sendNotificationMessage(
-                      NotificationEvent.builder()
-                              .userId(idU)
-                              .title(title)
-                              .message(message)
-                              .build()
-              );
-          }
+      List<Long> notifiedUserIds = new ArrayList<>();
+      //          notifiedUserIds.addAll(
+      //                  event.getStaffAssignments().stream()
+      //                          .map(EventStaffAssignment::getStaffId)
+      //                          .toList()
+      //          );
+      //          notifiedUserIds.addAll(
+      //                  event.getRegistrations().stream()
+      //                          .map(EventRegistration::getUserId)
+      //                          .toList()
+      //          );
+      try {
+        notifiedUserIds = userServiceFeign.getAllUserIds();
+      } catch (Exception e) {
+        log.error("Failed to fetch all user IDs for notifications: {}", e.getMessage());
       }
 
+      String title = "";
+      String message = "";
 
-      return event.getId();
+      switch (status) {
+        case UPCOMING -> {
+          title = "Sự kiện sắp diễn ra";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " sẽ diễn ra vào ngày "
+                  + event.getStartTime().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                  + ". Hãy chuẩn bị tham gia nhé!";
+        }
+        case ONGOING -> {
+          title = "Sự kiện đang diễn ra";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " hiện đang diễn ra. Hãy tham gia ngay để không bỏ lỡ!";
+        }
+        case PUBLISHED -> {
+          title = "Sự kiện đã được công bố";
+          message =
+              "Sự kiện "
+                  + event.getName()
+                  + " đã chính thức được công bố. Hãy theo dõi để không bỏ lỡ!";
+        }
+        default -> {}
+      }
+
+      for (Long idU : notifiedUserIds) {
+        notificationProducer.sendNotificationMessage(
+            NotificationEvent.builder().userId(idU).title(title).message(message).build());
+      }
+    }
+
+    return event.getId();
   }
 
   private EventDetailResponse fromEntityToDetailResponse(Event event, boolean isRegistered) {
@@ -1032,6 +1032,16 @@ public class EventServiceImpl implements EventService {
           ErrorCode.EVENT_NOT_STARTED);
     }
 
+    if (registration.getStatus().equals(RegistrationStatus.ATTENDED)) {
+      log.warn("User {} has already checked in with ticket code {}", userId, ticketCode);
+      throw new BusinessException(
+          "Mã vé đã được check-in trước đó: " + ticketCode, ErrorCode.ALREADY_CHECKED_IN);
+    }
+
+    if (now.isAfter(event.getEndTime())) {
+      throw new BusinessException(ErrorCode.EVENT_ALREADY_ENDED);
+    }
+
     registration.setStatus(RegistrationStatus.ATTENDED);
     registration.setCheckinTime(now);
     registration.updatedBy(userId);
@@ -1045,16 +1055,34 @@ public class EventServiceImpl implements EventService {
             .sourceId(registration.getId())
             .type(EcoPointType.EARNED)
             .build();
-    ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+
+    boolean ecoPointUpdated = false;
+
+    try {
+      Boolean result = rewardServiceFeign.updateEcoPoints(ecoPointTransaction);
+      ecoPointUpdated = Boolean.TRUE.equals(result);
+
+      if (!ecoPointUpdated) {
+        ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+      }
+    } catch (Exception e) {
+      ecoPointCheckInProducer.sendEcoPointDonationMessage(ecoPointTransaction);
+    }
+
+    String message =
+        ecoPointUpdated
+            ? "Bạn đã check-in thành công cho sự kiện: "
+                + event.getName()
+                + ". Bạn nhận được 5 điểm Eco Point."
+            : "Bạn đã check-in thành công cho sự kiện: "
+                + event.getName()
+                + ". Hệ thống đang xử lý cộng điểm Eco Point và sẽ cập nhật sớm nhất.";
 
     notificationProducer.sendNotificationMessage(
         NotificationEvent.builder()
             .userId(registration.getUserId())
             .title("Check-in sự kiện thành công")
-            .message(
-                "Bạn đã check-in thành công cho sự kiện: "
-                    + event.getName()
-                    + ". Bạn nhận được 5 điểm Eco Point.")
+            .message(message)
             .build());
 
     log.info("User {} successfully checked in with ticket code {}", userId, ticketCode);
@@ -1087,6 +1115,10 @@ public class EventServiceImpl implements EventService {
                       ErrorCode.REGISTRATION_NOT_FOUND);
                 });
 
+    if (registration.getStatus() == RegistrationStatus.ATTENDED) {
+      throw new BusinessException(ErrorCode.CANNOT_CANCEL_AFTER_CHECKIN);
+    }
+
     registration.setActive(false);
     registration.setStatus(RegistrationStatus.CANCELED);
     registration.updatedBy(userId);
@@ -1097,8 +1129,7 @@ public class EventServiceImpl implements EventService {
             .userId(userId)
             .title("Hủy đăng ký sự kiện thành công")
             .message("Bạn đã hủy đăng ký thành công cho sự kiện ID: " + eventId)
-            .build()
-    );
+            .build());
   }
 
   /**
@@ -1387,5 +1418,194 @@ public class EventServiceImpl implements EventService {
       throw new BusinessException(
           "Thời gian kết thúc của sự kiện không được ở quá khứ", ErrorCode.EVENT_END_TIME_PAST);
     }
+  }
+
+  @Override
+  public List<EventExportDTO> getExportData(
+      Long eventId,
+      EventStatus status,
+      Integer month,
+      Integer year,
+      LocalDateTime start,
+      LocalDateTime end,
+      boolean includeParticipants,
+      boolean includeStaff,
+      boolean includeCheckin,
+      boolean includeStaffDetails) {
+    List<Event> events = fetchEvents(eventId, status, month, year, start, end);
+    List<EventExportDTO> exportList = new ArrayList<>();
+
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    for (Event e : events) {
+      int participantsCount = e.getRegistrations().size();
+      int staffCount = e.getStaffAssignments().size();
+      long checkinCount =
+          e.getRegistrations().stream().filter(r -> r.getCheckinTime() != null).count();
+
+      boolean isFirstRow = true;
+
+      if (!includeParticipants && !includeStaffDetails) {
+        exportList.add(
+            EventExportDTO.builder()
+                .eventId(String.valueOf(e.getId()))
+                .eventCode(e.getCode())
+                .eventName(e.getName())
+                .status(e.getStatus().name())
+                .startTime(e.getStartTime().format(dateFormatter))
+                .endTime(e.getEndTime().format(dateFormatter))
+                .participantsCount(
+                    includeParticipants || includeCheckin ? String.valueOf(participantsCount) : "")
+                .staffCount(includeStaff ? String.valueOf(staffCount) : "")
+                .checkinCount(includeCheckin ? String.valueOf(checkinCount) : "")
+                .build());
+        continue;
+      }
+
+      if (includeParticipants) {
+        if (e.getRegistrations().isEmpty()) {
+          exportList.add(
+              createEventRow(
+                  e,
+                  participantsCount,
+                  staffCount,
+                  checkinCount,
+                  includeStaff,
+                  includeCheckin,
+                  dateFormatter));
+        } else {
+          for (EventRegistration reg : e.getRegistrations()) {
+            exportList.add(
+                EventExportDTO.builder()
+                    .eventId(isFirstRow ? String.valueOf(e.getId()) : "")
+                    .eventCode(isFirstRow ? e.getCode() : "")
+                    .eventName(isFirstRow ? e.getName() : "")
+                    .status(isFirstRow ? e.getStatus().name() : "")
+                    .startTime(isFirstRow ? e.getStartTime().format(dateFormatter) : "")
+                    .endTime(isFirstRow ? e.getEndTime().format(dateFormatter) : "")
+                    .participantsCount(isFirstRow ? String.valueOf(participantsCount) : "")
+                    .staffCount(isFirstRow && includeStaff ? String.valueOf(staffCount) : "")
+                    .checkinCount(isFirstRow && includeCheckin ? String.valueOf(checkinCount) : "")
+                    .userId(String.valueOf(reg.getUserId()))
+                    .qrCode(reg.getQrCode())
+                    .checkinTime(
+                        reg.getCheckinTime() != null
+                            ? reg.getCheckinTime().format(dateFormatter)
+                            : "")
+                    .registrationNote(reg.getNote() != null ? reg.getNote() : "")
+                    .registrationStatus(reg.getStatus().name())
+                    .build());
+            isFirstRow = false;
+          }
+        }
+      }
+
+      if (includeStaffDetails) {
+        if (!includeParticipants) {
+          isFirstRow = true;
+        }
+
+        if (e.getStaffAssignments().isEmpty()) {
+          if (!includeParticipants) {
+            exportList.add(
+                createEventRow(
+                    e,
+                    participantsCount,
+                    staffCount,
+                    checkinCount,
+                    true,
+                    includeCheckin,
+                    dateFormatter));
+          }
+        } else {
+          for (EventStaffAssignment sa : e.getStaffAssignments()) {
+            UserProfileResponse staff = null;
+            try {
+              staff = userServiceFeign.getUserInfoById(sa.getStaffId());
+            } catch (Exception ex) {
+              log.error(
+                  "Failed to get staff info for staffId {}: {}", sa.getStaffId(), ex.getMessage());
+            }
+
+            exportList.add(
+                EventExportDTO.builder()
+                    .eventId(isFirstRow ? String.valueOf(e.getId()) : "")
+                    .eventCode(isFirstRow ? e.getCode() : "")
+                    .eventName(isFirstRow ? e.getName() : "")
+                    .status(isFirstRow ? e.getStatus().name() : "")
+                    .startTime(isFirstRow ? e.getStartTime().format(dateFormatter) : "")
+                    .endTime(isFirstRow ? e.getEndTime().format(dateFormatter) : "")
+                    .participantsCount(
+                        isFirstRow && (includeParticipants || includeCheckin)
+                            ? String.valueOf(participantsCount)
+                            : "")
+                    .staffCount(isFirstRow ? String.valueOf(staffCount) : "")
+                    .checkinCount(isFirstRow && includeCheckin ? String.valueOf(checkinCount) : "")
+                    .staffId(String.valueOf(sa.getStaffId()))
+                    .staffName(staff != null ? staff.getFullName() : "Unknown")
+                    .isStoreManager(sa.isStoreManager() ? "Yes" : "No")
+                    .build());
+            isFirstRow = false;
+          }
+        }
+      }
+    }
+
+    return exportList;
+  }
+
+  // Helper methods
+  private List<Event> fetchEvents(
+      Long eventId,
+      EventStatus status,
+      Integer month,
+      Integer year,
+      LocalDateTime start,
+      LocalDateTime end) {
+    if (eventId != null) {
+      return eventRepository.findById(eventId).map(List::of).orElse(Collections.emptyList());
+    }
+
+    Specification<Event> spec =
+        (root, query, cb) -> {
+          List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+          if (status != null) {
+            predicates.add(cb.equal(root.get("status"), status));
+          }
+          if (month != null) {
+            predicates.add(
+                cb.equal(cb.function("MONTH", Integer.class, root.get("startTime")), month));
+          }
+          if (year != null) {
+            predicates.add(
+                cb.equal(cb.function("YEAR", Integer.class, root.get("startTime")), year));
+          }
+          if (start != null && end != null) {
+            predicates.add(cb.between(root.get("startTime"), start, end));
+          }
+          return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+    return eventRepository.findAll(spec);
+  }
+
+  private EventExportDTO createEventRow(
+      Event e,
+      int participantsCount,
+      int staffCount,
+      long checkinCount,
+      boolean includeStaff,
+      boolean includeCheckin,
+      DateTimeFormatter dateFormatter) {
+    return EventExportDTO.builder()
+        .eventId(String.valueOf(e.getId()))
+        .eventCode(e.getCode())
+        .eventName(e.getName())
+        .status(e.getStatus().name())
+        .startTime(e.getStartTime().format(dateFormatter))
+        .endTime(e.getEndTime().format(dateFormatter))
+        .participantsCount(String.valueOf(participantsCount))
+        .staffCount(includeStaff ? String.valueOf(staffCount) : "")
+        .checkinCount(includeCheckin ? String.valueOf(checkinCount) : "")
+        .build();
   }
 }

@@ -2,19 +2,15 @@ package com.greenloop.order.controller;
 
 import com.greenloop.order.dto.request.CreateShipmentRequestDTO;
 import com.greenloop.order.dto.request.OrderFilterRequest;
-import com.greenloop.order.dto.request.UpdateOrderStatusRequest;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.OrderResponse;
 import com.greenloop.order.dto.response.PageResponseDTO;
 import com.greenloop.order.dto.response.ShipmentInfoResponse;
-import com.greenloop.order.entity.Order;
 import com.greenloop.order.enums.OrderStatus;
 import com.greenloop.order.enums.OrderType;
 import com.greenloop.order.enums.PaymentMethod;
 import com.greenloop.order.enums.PaymentStatus;
 import com.greenloop.order.exception.OrderAccessDeniedException;
-import com.greenloop.order.goship.dto.CreateShipmentResponse;
-import com.greenloop.order.goship.service.GoShipService;
 import com.greenloop.order.service.OrderService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -38,7 +34,6 @@ import java.math.BigDecimal;
 public class OrderController {
 
     private final OrderService orderService;
-    private final GoShipService goShipService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'STAFF')")
@@ -192,6 +187,21 @@ public class OrderController {
         );
     }
 
+    @PostMapping("/my-orders/{orderId}/complete")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponseDTO<String>> completeMyOrder(
+            @PathVariable String orderId,
+            Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        orderService.completeOrderByCustomer(orderId, userId);
+        return ResponseEntity.ok(
+                ApiResponseDTO.success(
+                        "Hoàn thành đơn hàng thành công",
+                        null,
+                        HttpStatus.OK
+                )
+        );
+    }
 
     @PostMapping("/{orderId}/complete")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER')")
@@ -205,8 +215,6 @@ public class OrderController {
                 ApiResponseDTO.success("Hoàn thành đơn hàng thành công", null, HttpStatus.OK)
         );
     }
-
-
     @PostMapping("/{orderId}/cancel")
     @PreAuthorize("hasAnyRole('STAFF', 'ADMIN', 'MANAGER', 'CUSTOMER')")
     public ResponseEntity<ApiResponseDTO<Void>> cancelOrder(
@@ -214,20 +222,9 @@ public class OrderController {
             @RequestParam(required = false) String reason,
             Authentication authentication
             ) {
-
         Long userId = extractUserId(authentication);
         String userRole = extractRole(authentication);
-
-        log.info("Staff {} (role: {}) cancelling order {}", userId, userRole, orderId);
-
-        Order order = orderService.getOrderEntityById(orderId);
-
-        if (order.getGoshipShipmentId() != null) {
-            goShipService.cancelShipment(order.getGoshipShipmentId());
-        }
-
         orderService.cancelOrder(orderId, reason, userId, userRole);
-
         return ResponseEntity.ok(
                 ApiResponseDTO.success("Hủy đơn hàng thành công", null, HttpStatus.OK)
         );

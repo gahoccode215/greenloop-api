@@ -2,11 +2,13 @@ package com.greenloop.product.service;
 
 import com.greenloop.product.dto.request.DonationCreateRequest;
 import com.greenloop.product.dto.request.UpdateDonationItemStatusRequest;
-import com.greenloop.product.dto.response.DonationDetailResponse;
-import com.greenloop.product.dto.response.DonationResponse;
-import com.greenloop.product.dto.response.UpdateDonationItemStatusResponse;
+import com.greenloop.product.dto.response.*;
+import com.greenloop.product.enums.ConditionGrade;
+import com.greenloop.product.enums.DonationItemStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface DonationService {
@@ -20,4 +22,16 @@ public interface DonationService {
 
     UpdateDonationItemStatusResponse changeStatusDonationItems(UpdateDonationItemStatusRequest request);
 
+    PageResponseDTO<DonationItemDetailResponse> getDonationItems(String code, String name, Long donationId, DonationItemStatus status, Long eventId, Pageable pageable );
+
+    List<DonationExportDTO> getExportData(
+            Long eventId,
+            Long userId,
+            DonationItemStatus itemStatus,
+            ConditionGrade conditionGrade,
+            Long categoryId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            boolean includeItems
+    );
 }

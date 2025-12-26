@@ -29,24 +29,12 @@ public class OrderOfflineController {
     private final OrderOfflineService orderOfflineService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(
-            summary = "Create offline order",
-            description = "Tạo đơn hàng offline tại sự kiện. CASH hoàn thành ngay, BANK_TRANSFER tạo link PayOS để khách quét QR."
-    )
     @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponseDTO<OrderOfflineResponse>> createOrderOffline(
             @Valid @RequestPart("order") CreateOrderOfflineRequest request,
             @RequestPart(value = "paymentProofImage", required = false) MultipartFile paymentProofImage,
             HttpServletRequest httpRequest) {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        log.info("Staff {} creating offline order. Event: {}, Customer: {}, PaymentMethod: {}",
-                auth.getName(),
-                request.getEventId(),
-                request.getCustomerId(),
-                request.getPaymentMethod());
-
-        // 1. Validate payment method
         if (!"CASH".equals(request.getPaymentMethod()) &&
                 !"BANK_TRANSFER".equals(request.getPaymentMethod())) {
             return ResponseEntity.badRequest().body(
@@ -58,7 +46,6 @@ public class OrderOfflineController {
             );
         }
 
-        // 2. BANK_TRANSFER không cần upload ảnh nữa (dùng PayOS)
         if ("BANK_TRANSFER".equals(request.getPaymentMethod()) && paymentProofImage != null) {
             return ResponseEntity.badRequest().body(
                     ApiResponseDTO.error(
@@ -69,22 +56,18 @@ public class OrderOfflineController {
             );
         }
 
-        // 3. CASH không cần platform, BANK_TRANSFER cần platform cho returnUrl
         if ("BANK_TRANSFER".equals(request.getPaymentMethod())) {
             if (request.getPlatform() == null || request.getPlatform().isBlank()) {
-                // Default platform nếu không truyền
                 request.setPlatform("web");
                 log.info("Platform not provided, defaulting to 'web'");
             }
         }
 
-        // 4. Gọi service tạo đơn
         OrderOfflineResponse response = orderOfflineService.createOrderOffline(
                 request,
-                null  // Không truyền paymentProofImage nữa
+                null
         );
 
-        // 5. Trả response với message phù hợp
         String successMessage = buildSuccessMessage(request.getPaymentMethod(), response);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
@@ -96,9 +79,6 @@ public class OrderOfflineController {
         );
     }
 
-    /**
-     * Tạo message phù hợp theo payment method
-     */
     private String buildSuccessMessage(String paymentMethod, OrderOfflineResponse response) {
         if ("CASH".equals(paymentMethod)) {
             return String.format("Đơn hàng offline %s hoàn thành. Thanh toán tiền mặt: %,dđ",

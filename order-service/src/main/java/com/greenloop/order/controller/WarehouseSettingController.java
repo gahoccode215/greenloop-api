@@ -24,20 +24,10 @@ public class WarehouseSettingController {
 
     private final WarehouseSettingService warehouseSettingService;
 
-    /**
-     * Lấy thông tin kho hiện tại
-     */
     @GetMapping
-    @Operation(
-            summary = "Get warehouse information",
-            description = "Lấy thông tin cấu hình kho hàng hiện tại"
-    )
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF','MANAGER')")
     public ResponseEntity<ApiResponseDTO<WarehouseSettingResponse>> getWarehouse() {
-        log.info("Admin requested warehouse information");
-
         WarehouseSettingResponse warehouse = warehouseSettingService.getWarehouseResponse();
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Lấy thông tin kho thành công",
                 warehouse,
@@ -45,20 +35,11 @@ public class WarehouseSettingController {
         ));
     }
 
-    /**
-     * Cập nhật thông tin kho
-     */
+
     @PutMapping
-    @Operation(
-            summary = "Update warehouse information",
-            description = "Cập nhật thông tin cấu hình kho hàng (địa chỉ, tên, SĐT, etc.)"
-    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponseDTO<WarehouseSettingResponse>> updateWarehouse(
             @Valid @RequestBody WarehouseSettingRequest request) {
-
-        log.info("Admin updating warehouse: {} - {}", request.getName(), request.getAddress());
-
         WarehouseSetting warehouse = WarehouseSetting.builder()
                 .name(request.getName())
                 .phone(request.getPhone())
@@ -70,11 +51,7 @@ public class WarehouseSettingController {
                 .cityId(request.getCityId())
                 .cityName(request.getCityName())
                 .build();
-
         WarehouseSettingResponse updated = warehouseSettingService.updateWarehouse(warehouse);
-
-        log.info("Warehouse updated successfully: {}", updated.getName());
-
         return ResponseEntity.ok(ApiResponseDTO.success(
                 "Cập nhật thông tin kho thành công",
                 updated,

@@ -102,6 +102,9 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    @Column(name = "original_shipping_fee", precision = 19, scale = 2)
+    private BigDecimal originalShippingFee;
+
     @Column(name = "event_id")
     private Long eventId;
 
@@ -122,7 +125,16 @@ public class Order {
     private String note;
 
     @Column(name = "payment_proof_image_url", length = 500)
-    private String paymentProofImageUrl;  // URL ảnh bill
+    private String paymentProofImageUrl;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "can_create_return_request")
+    private Boolean canCreateReturnRequest = true;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

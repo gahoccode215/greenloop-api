@@ -1,6 +1,6 @@
 package com.greenloop.order.service.impl;
 
-import com.greenloop.order.client.VoucherClient;
+import com.greenloop.order.client.RewardClient;
 import com.greenloop.order.dto.response.ApiResponseDTO;
 import com.greenloop.order.dto.response.UserVoucherResponse;
 import com.greenloop.order.dto.response.VoucherDiscountResult;
@@ -22,12 +22,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
-    private final VoucherClient voucherClient;
+    private final RewardClient rewardClient;
 
-    /**
-     * Validate và tính discount cho đơn OFFLINE
-     * Không cho phép voucher FREESHIP
-     */
     @Override
     public VoucherDiscountResult validateAndCalculateOffline(
             Long voucherUserId,
@@ -39,7 +35,7 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
         try {
             ApiResponseDTO<UserVoucherResponse> response =
-                    voucherClient.validateVoucherForUser(voucherUserId);
+                    rewardClient.validateVoucherForUser(voucherUserId);
 
             if (!response.isSuccess() || response.getData() == null) {
                 throw new VoucherException("Voucher không hợp lệ hoặc không tồn tại");
@@ -57,9 +53,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
             validateVoucher(voucher, subtotal);
 
             BigDecimal discount = calculateDiscount(voucher, subtotal);
-
-            log.info("Offline voucher applied - Code: {}, Subtotal: {}, Discount: {}",
-                    voucher.getVoucherCode(), subtotal, discount);
 
             return VoucherDiscountResult.builder()
                     .voucherUserId(voucherUserId)
@@ -84,10 +77,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
         }
     }
 
-    /**
-     * Validate và tính discount cho đơn ONLINE
-     * Cho phép voucher FREESHIP, PERCENT, AMOUNT
-     */
     @Override
     public VoucherDiscountResult validateAndCalculateOnline(
             Long voucherUserId,
@@ -100,7 +89,7 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
         try {
             ApiResponseDTO<UserVoucherResponse> response =
-                    voucherClient.validateVoucherForUser(voucherUserId);
+                    rewardClient.validateVoucherForUser(voucherUserId);
 
             if (!response.isSuccess() || response.getData() == null) {
                 throw new VoucherException("Voucher không hợp lệ hoặc không tồn tại");
@@ -167,12 +156,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
 
             BigDecimal finalAmount = subtotal.subtract(productDiscount)
                     .add(shippingFee.subtract(shippingDiscount));
-
-            log.info("Online voucher applied - Code: {}, Type: {}, Subtotal: {}, ShippingFee: {}, " +
-                            "ProductDiscount: {}, ShippingDiscount: {}, FinalAmount: {}",
-                    voucher.getVoucherCode(), voucher.getVoucherType(), subtotal, shippingFee,
-                    productDiscount, shippingDiscount, finalAmount);
-
             return VoucherDiscountResult.builder()
                     .voucherUserId(voucherUserId)
                     .voucherCode(voucher.getVoucherCode())
@@ -196,9 +179,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
         }
     }
 
-    /**
-     * Validate các điều kiện chung của voucher
-     */
     private void validateVoucher(UserVoucherResponse voucher,
                                  BigDecimal subtotal) {
 
@@ -239,9 +219,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
         }
     }
 
-    /**
-     * Tính discount cho voucher PERCENT hoặc AMOUNT (cho đơn offline)
-     */
     private BigDecimal calculateDiscount(UserVoucherResponse voucher,
                                          BigDecimal subtotal) {
 
@@ -270,7 +247,6 @@ public class VoucherDiscountServiceImpl implements VoucherDiscountService {
             throw new VoucherException("Loại voucher không được hỗ trợ cho đơn offline");
         }
 
-        // Không được vượt quá subtotal
         if (discount.compareTo(subtotal) > 0) {
             discount = subtotal;
         }

@@ -14,7 +14,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-      show-sql: false
   cloudinary:
     cloudName: ${CLOUDINARY_NAME}
     apiKey: ${CLOUDINARY_API_KEY}
@@ -24,41 +23,16 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  cloud:
-    stream:
-      bindings:
-        orderCheckedOutReward-out-0:
-          destination: order-checked-out-reward
-          producer:
-            required-groups: reward-service
-        orderCheckedOutProduct-out-0:
-          destination: order-checked-out-product
-          producer:
-            required-groups: product-service
-        orderCheckoutVoucherUsed-out-0:
-          destination: order-checkout-voucher-used
-        orderOfflineCreatedProduct-out-0:
-          destination: order-offline-created-product
-        orderOfflineCreatedReward-out-0:
-          destination: order-offline-created-reward
-        orderCancelledProduct-out-0:
-          destination: order-cancelled-product
-        orderCompletedReward-out-0:
-          destination: order-completed-reward
-        orderCompletedProduct-out-0:
-          destination: order-completed-product
-      rabbit:
-        bindings:
-          orderCheckedOutProduct-out-0:
-            producer:
-              delivery-mode: PERSISTENT  # Message không mất khi RabbitMQ restart
+
   rabbitmq:
     host: ${RABBITMQ_HOST:35.198.237.130}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+
 server:
   port: 8083
+
 eureka:
   client:
     service-url:
@@ -66,6 +40,7 @@ eureka:
   instance:
     ip-address: ${ORDER_HOST:localhost}
     prefer-ip-address: true
+
 springdoc:
   api-docs:
     enabled: true
@@ -80,12 +55,14 @@ springdoc:
         url: http://${GATEWAY_HOST}/order-service/v3/api-docs
       - name: Direct
         url: http://${SERVICE_HOST:localhost}:${server.port}/v3/api-docs
+
 goship:
   token: ${GOSHIP_TOKEN}
   client-id: ${GOSHIP_CLIENT_ID}
   client-secret: ${GOSHIP_CLIENT_SECRET}
   access-token: ${GOSHIP_ACCESS_TOKEN}
   base-url: ${GOSHIP_BASE_URL:https://sandbox.goship.io/api/v2}
+
 payos:
   client-id: ${PAYOS_CLIENT_ID}
   api-key: ${PAYOS_API_KEY}
@@ -95,10 +72,13 @@ payos:
   cancel-url-web: ${PAYOS_CANCEL_URL:http://localhost:5173/payments/fail}
   cancel-url-mobile: ${PAYOS_CANCEL_URL_MOBILE:greenloop://payment-failed}
 
-
 greenloop:
   defaultImg: ${DEFAULT_IMAGE_URL:https://res.cloudinary.com/demo/image/upload/sample.jpg}
 
 order:
   redis:
-    pending-order-ttl: 900  # 15 phút (900 seconds)
+    pending-order-ttl: 900
+
+rabbitmq:
+  exchangeName: greenloop.exchange
+  notification-routing-key: notificationQueueRoutingKey

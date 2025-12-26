@@ -34,11 +34,9 @@ public class CartServiceImpl implements CartService {
     public ShippingEstimateResponse estimateShippingFee(Long customerId, EstimateShippingFeeRequest request) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
-
         if (cart.getItems().isEmpty()) {
             throw new EmptyCartException();
         }
-
         return shippingCalculationService.calculateShippingFee(
                 cart.getItems(),
                 cart.getTotalAmount(),
@@ -51,7 +49,6 @@ public class CartServiceImpl implements CartService {
     public CartResponse getCart(Long customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseGet(() -> createNewCart(customerId));
-
         return mapToCartResponse(cart);
     }
 
@@ -60,36 +57,28 @@ public class CartServiceImpl implements CartService {
     public CartResponse addToCart(Long customerId, AddToCartRequest request) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseGet(() -> createNewCart(customerId));
-
         ApiResponseDTO<ProductDTO> response = productClient.getProductDetailById(request.getProductId());
 
         if (!response.isSuccess() || response.getData() == null) {
             throw new ProductNotFoundException(request.getProductId());
         }
-
         ProductDTO product = response.getData();
-
         if (!ProductStatusConstant.AVAILABLE.equals(product.getStatus())) {
             throw new ProductNotAvailableException(product.getId());
         }
-
         boolean existsInCart = cartItemRepository
                 .findByCartIdAndProductId(cart.getId(), request.getProductId())
                 .isPresent();
-
         if (existsInCart) {
             throw new ProductAlreadyInCartException();
         }
-
         String imageUrl = (product.getImageUrls() != null && !product.getImageUrls().isEmpty())
                 ? product.getImageUrls().get(0).getProductAssetUrl()
                 : null;
-
         int weight = (product.getWeight() > 0) ? product.getWeight() : 200;
         int length = (product.getLength() > 0) ? product.getLength() : 20;
         int width = (product.getWidth() > 0) ? product.getWidth() : 15;
         int height = (product.getHeight() > 0) ? product.getHeight() : 5;
-
         CartItem newItem = CartItem.builder()
                 .cart(cart)
                 .productId(product.getId())
@@ -101,11 +90,9 @@ public class CartServiceImpl implements CartService {
                 .width(width)
                 .height(height)
                 .build();
-
         cart.addItem(newItem);
         cart.recalculateTotal();
         cartRepository.save(cart);
-
         return mapToCartResponse(cart);
     }
 
@@ -114,18 +101,14 @@ public class CartServiceImpl implements CartService {
     public CartResponse removeCartItem(Long customerId, Long cartItemId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
-
         CartItem item = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new CartItemNotFoundException(cartItemId));
-
         if (!item.getCart().getId().equals(cart.getId())) {
             throw new UnauthorizedCartAccessException();
         }
-
         cart.removeItem(item);
         cartItemRepository.delete(item);
         cartRepository.save(cart);
-
         return mapToCartResponse(cart);
     }
 
@@ -134,11 +117,9 @@ public class CartServiceImpl implements CartService {
     public void clearCart(Long customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CartNotFoundException(customerId));
-
         cart.getItems().clear();
         cart.recalculateTotal();
         cartRepository.save(cart);
-
     }
 
     private Cart createNewCart(Long customerId) {
@@ -154,7 +135,6 @@ public class CartServiceImpl implements CartService {
         List<CartItemResponse> items = cart.getItems().stream()
                 .map(this::mapToCartItemResponse)
                 .collect(Collectors.toList());
-
         return CartResponse.builder()
                 .id(cart.getId())
                 .customerId(cart.getCustomerId())

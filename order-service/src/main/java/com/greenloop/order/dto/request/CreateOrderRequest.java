@@ -27,6 +27,7 @@ public class CreateOrderRequest {
     private PaymentMethod paymentMethod;
     private Long paymentOrderCode;
     private Long eventId;
+    private BigDecimal originalShippingFee;
 
     private List<OrderItemRequest> orderItems;
     private CheckoutShippingAddressRequest shippingAddress;

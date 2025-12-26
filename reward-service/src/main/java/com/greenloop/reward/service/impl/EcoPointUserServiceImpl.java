@@ -7,16 +7,17 @@ import com.greenloop.reward.entity.EcoPointTransaction;
 import com.greenloop.reward.entity.EcoPointUser;
 import com.greenloop.reward.enums.EcoPointStatus;
 import com.greenloop.reward.enums.EcoPointType;
-import com.greenloop.reward.enums.SourceType;
+import com.greenloop.reward.enums.ErrorCode;
+import com.greenloop.reward.exception.BusinessException;
 import com.greenloop.reward.repository.EcoPointTransactionRepository;
 import com.greenloop.reward.repository.EcoPointUserRepository;
 import com.greenloop.reward.service.EcoPointUserService;
 import com.greenloop.reward.service.NotificationProducer;
+import com.greenloop.reward.service.UserServiceFeign;
+import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import com.greenloop.reward.service.UserServiceFeign;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,108 +27,116 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class EcoPointUserServiceImpl implements EcoPointUserService {
-    private final EcoPointUserRepository ecoPointUserRepository;
-    private final EcoPointTransactionRepository ecoPointTransactionRepository;
-    private final NotificationProducer notificationProducer;
-    private final UserServiceFeign userServiceFeign;
+  private final EcoPointUserRepository ecoPointUserRepository;
+  private final EcoPointTransactionRepository ecoPointTransactionRepository;
+  private final NotificationProducer notificationProducer;
+  private final UserServiceFeign userServiceFeign;
 
-    @Override
-    public void updateEcoPointUserBalance(EcoPointTransactionDTO ecoPointTransactionDTO) {
-        var ecoPointUserOpt = ecoPointUserRepository.findByUserId(ecoPointTransactionDTO.getUserId());
-        Integer finalPoints;
-        if (ecoPointUserOpt.isPresent()) {
-            EcoPointTransaction ecoPointTransaction =
-                    EcoPointTransaction.builder()
-                            .ecoPointUser(ecoPointUserOpt.get())
-                            .points(ecoPointTransactionDTO.getPoints())
-                            .type(ecoPointTransactionDTO.getType())
-                            .points(ecoPointTransactionDTO.getPoints())
-                            .userId(ecoPointTransactionDTO.getUserId())
-                            .sourceId(ecoPointTransactionDTO.getSourceId())
-                            .sourceType(ecoPointTransactionDTO.getSourceType())
-                            .description(ecoPointTransactionDTO.getDescription())
-                            .build();
-            ecoPointTransactionRepository.save(ecoPointTransaction);
-            var ecoPointUser = ecoPointUserOpt.get();
-            ecoPointUser.setTotalPoints(
-                    ecoPointUser.getTotalPoints() + ecoPointTransactionDTO.getPoints());
-            ecoPointUser.setLifetimePoints(
-                    ecoPointUser.getLifetimePoints() + ecoPointTransactionDTO.getPoints());
-            ecoPointUserRepository.save(ecoPointUser);
-            log.info("EcoPointUser save success.");
-            finalPoints = ecoPointUser.getTotalPoints();
-        } else {
-            EcoPointUser ecoPointUser =
-                    EcoPointUser.builder()
-                            .userId(ecoPointTransactionDTO.getUserId())
-                            .totalPoints(ecoPointTransactionDTO.getPoints())
-                            .lifetimePoints(ecoPointTransactionDTO.getPoints())
-                            .status(EcoPointStatus.ACTIVE)
-                            .build();
-            ecoPointUser.addEcoPointTransaction(
-                    EcoPointTransaction.builder()
-                            .ecoPointUser(ecoPointUser)
-                            .points(ecoPointTransactionDTO.getPoints())
-                            .type(ecoPointTransactionDTO.getType())
-                            .userId(ecoPointTransactionDTO.getUserId())
-                            .sourceId(ecoPointTransactionDTO.getSourceId())
-                            .sourceType(ecoPointTransactionDTO.getSourceType())
-                            .description(ecoPointTransactionDTO.getDescription())
-                            .build());
-            ecoPointUserRepository.save(ecoPointUser);
-            finalPoints = ecoPointUser.getTotalPoints();
-            log.info("EcoPointUser created and save success.");
-        }
-        NotificationEvent notificationEvent = buildNotificationEvent(ecoPointTransactionDTO, finalPoints);
-        notificationProducer.sendNotificationMessage(notificationEvent);
+  @Override
+  @Transactional
+  public boolean updateEcoPointUserBalance(EcoPointTransactionDTO dto) {
+
+    if (ecoPointTransactionRepository.existsBySourceTypeAndSourceId(
+        dto.getSourceType(), dto.getSourceId())) {
+      return true;
     }
 
-    private NotificationEvent buildNotificationEvent(EcoPointTransactionDTO dto, Integer totalPoints) {
+    EcoPointUser ecoPointUser =
+        ecoPointUserRepository
+            .findByUserId(dto.getUserId())
+            .orElseGet(
+                () -> {
+                  if (dto.getType() == EcoPointType.SPEND) {
+                    throw new BusinessException(ErrorCode.ECO_POINT_NOT_ENOUGH);
+                  }
+                  return EcoPointUser.builder()
+                      .userId(dto.getUserId())
+                      .totalPoints(0)
+                      .lifetimePoints(0)
+                      .status(EcoPointStatus.ACTIVE)
+                      .build();
+                });
 
-        String sourceText = switch (dto.getSourceType()) {
-            case DONATION -> "hoạt động trao đổi";
-            case ORDER    -> "đơn hàng";
-            case EVENT    -> "sự kiện";
-            case ADMIN -> null;
-            case VOUCHER_EXCHANGE -> null;
+    if (dto.getType() == EcoPointType.SPEND) {
+      int spend = Math.abs(dto.getPoints());
+      if (ecoPointUser.getTotalPoints() < spend) {
+        throw new BusinessException(ErrorCode.ECO_POINT_NOT_ENOUGH);
+      }
+    }
+
+    EcoPointTransaction tx =
+        EcoPointTransaction.builder()
+            .userId(dto.getUserId())
+            .points(dto.getPoints())
+            .type(dto.getType())
+            .sourceType(dto.getSourceType())
+            .sourceId(dto.getSourceId())
+            .description(dto.getDescription())
+            .build();
+
+    ecoPointUser.addEcoPointTransaction(tx);
+
+    ecoPointUser.setTotalPoints(ecoPointUser.getTotalPoints() + dto.getPoints());
+
+    if (dto.getType() == EcoPointType.EARNED) {
+      ecoPointUser.setLifetimePoints(ecoPointUser.getLifetimePoints() + dto.getPoints());
+    }
+
+    ecoPointUserRepository.save(ecoPointUser);
+
+    notificationProducer.sendNotificationMessage(
+        buildNotificationEvent(dto, ecoPointUser.getTotalPoints()));
+
+    return true;
+  }
+
+  private NotificationEvent buildNotificationEvent(
+      EcoPointTransactionDTO dto, Integer totalPoints) {
+
+    String sourceText =
+        switch (dto.getSourceType()) {
+          case DONATION -> "hoạt động trao đổi";
+          case ORDER -> "đơn hàng";
+          case EVENT -> "sự kiện";
+          case ADMIN -> null;
+          case VOUCHER_EXCHANGE -> null;
         };
 
-        String title;
-        String message;
+    String title;
+    String message;
 
-        switch (dto.getType()) {
-            case EARNED -> {
-                title = "Điểm vừa được cộng!";
-                message = String.format(
-                        "Bạn vừa nhận được +%d điểm từ %s. Tổng điểm hiện tại: %d.",
-                        dto.getPoints(), sourceText, totalPoints
-                );
-            }
-            case SPEND -> {
-                title = "Bạn vừa sử dụng điểm";
-                message = String.format(
-                        "Bạn đã tiêu %d điểm cho %s. Tổng điểm hiện tại: %d.",
-                        dto.getPoints(), sourceText, totalPoints
-                );
-            }
-            case ADJUST -> {
-                title = "Điểm của bạn đã thay đổi";
-                message = String.format(
-                        "Hệ thống đã điều chỉnh %d điểm. Lý do: %s",
-                        dto.getPoints(),
-                        dto.getDescription() != null ? dto.getDescription() : "Không có mô tả"
-                );
-            }
-            default -> throw new IllegalStateException("Unsupported eco point type");
-        }
-
-        return NotificationEvent.builder()
-                .userId(dto.getUserId())
-                .title(title)
-                .message(message)
-                .build();
+    switch (dto.getType()) {
+      case EARNED -> {
+        title = "Điểm vừa được cộng!";
+        message =
+            String.format(
+                "Bạn vừa nhận được +%d điểm từ %s. Tổng điểm hiện tại: %d.",
+                dto.getPoints(), sourceText, totalPoints);
+      }
+      case SPEND -> {
+        title = "Bạn vừa sử dụng điểm";
+        message =
+            String.format(
+                "Bạn đã tiêu %d điểm cho %s. Tổng điểm hiện tại: %d.",
+                dto.getPoints(), sourceText, totalPoints);
+      }
+      case ADJUST -> {
+        title = "Điểm của bạn đã thay đổi";
+        message =
+            String.format(
+                "Hệ thống đã điều chỉnh %d điểm. Lý do: %s",
+                dto.getPoints(),
+                dto.getDescription() != null ? dto.getDescription() : "Không có mô tả");
+      }
+      default -> throw new IllegalStateException("Unsupported eco point type");
     }
 
+    return NotificationEvent.builder()
+        .userId(dto.getUserId())
+        .title(title)
+        .message(message)
+        .build();
+  }
 
   @Override
   public EcoPointUserResponse getEcoPointOfUser(Long userId) {
@@ -177,102 +186,58 @@ public class EcoPointUserServiceImpl implements EcoPointUserService {
         .build();
   }
 
-    @Override
-    public EcoPointLeaderboardResponse getEcoPointUserDTOByUser() {
-        Long userId;
-        try {
-            userId = getCurrentUserId();
-        } catch (Exception e) {
-            userId = null;
-        }
+  @Override
+  public EcoPointLeaderboardResponse getEcoPointUserDTOByUser() {
+    Long userId;
+    try {
+      userId = getCurrentUserId();
+    } catch (Exception e) {
+      userId = null;
+    }
 
-        List<EcoPointUserDTO> topUsers =
-                ecoPointUserRepository.findTopLifetimeUsers().stream()
-                        .map(row -> {
-                            Long id = ((Number) row[0]).longValue();
-                            Long lifetimePoints = ((Number) row[2]).longValue();
+    List<EcoPointUserDTO> topUsers =
+        ecoPointUserRepository.findTopLifetimeUsers().stream()
+            .map(
+                row -> {
+                  Long id = ((Number) row[0]).longValue();
+                  Long lifetimePoints = ((Number) row[2]).longValue();
 
-                            UserProfileResponse userInfo;
-                            try {
-                                userInfo = userServiceFeign.getUserInfoById(id);
-                            } catch (Exception e) {
-                                userInfo = null;
-                            }
-                            String name = userInfo != null ? userInfo.getFullName() : "Unknown";
+                  UserProfileResponse userInfo;
+                  try {
+                    userInfo = userServiceFeign.getUserInfoById(id);
+                  } catch (Exception e) {
+                    userInfo = null;
+                  }
+                  String name = userInfo != null ? userInfo.getFullName() : "Unknown";
 
-                            return EcoPointUserDTO.builder()
-                                    .userId(id)
-                                    .name(name)
-                                    .lifetimePoints(lifetimePoints)
-                                    .build();
-                        })
-                        .collect(Collectors.toList());
+                  return EcoPointUserDTO.builder()
+                      .userId(id)
+                      .name(name)
+                      .lifetimePoints(lifetimePoints)
+                      .build();
+                })
+            .collect(Collectors.toList());
 
+    if (userId != null) {
+      Optional<EcoPointUser> currentUserOpt = ecoPointUserRepository.findByUserId(userId);
 
-        if (userId != null) {
-            Optional<EcoPointUser> currentUserOpt = ecoPointUserRepository.findByUserId(userId);
+      if (currentUserOpt.isPresent()) {
+        EcoPointUser currentUser = currentUserOpt.get();
 
-            if (currentUserOpt.isPresent()) {
-                EcoPointUser currentUser = currentUserOpt.get();
-
-                Long higherCount = ecoPointUserRepository.countUsersWithMoreLifetimePoints(userId);
-                int currentRank = higherCount.intValue() + 1;
-
-                return EcoPointLeaderboardResponse.builder()
-                        .currentUserId(userId)
-                        .currentUserRank(currentRank)
-                        .currentUserPoints(currentUser.getTotalPoints())
-                        .topUsers(topUsers)
-                        .build();
-            }
-        }
+        Long higherCount = ecoPointUserRepository.countUsersWithMoreLifetimePoints(userId);
+        int currentRank = higherCount.intValue() + 1;
 
         return EcoPointLeaderboardResponse.builder()
-                .topUsers(topUsers)
-                .build();
-    }
-
-
-    @Override
-  public void addEcoPointsForOfflineOrder(
-      Long customerId, Integer points, String orderId, String orderCode) {
-    EcoPointTransactionDTO transactionDTO =
-        EcoPointTransactionDTO.builder()
-            .userId(customerId)
-            .points(points)
-            .type(EcoPointType.EARNED)
-            .sourceType(SourceType.ORDER)
-            .sourceId((long) Math.abs(orderId.hashCode()))
-            .description("Mua hàng offline - " + orderCode)
+            .currentUserId(userId)
+            .currentUserRank(currentRank)
+            .currentUserPoints(currentUser.getTotalPoints())
+            .topUsers(topUsers)
             .build();
-
-    updateEcoPointUserBalance(transactionDTO);
-    log.info(
-        "Added {} eco points for customer {} from offline order {}", points, customerId, orderCode);
-  }
-
-    @Override
-    public void addEcoPointsForOnlineOrder(
-            Long customerId, Integer points, String orderId, String orderCode) {
-
-        EcoPointTransactionDTO transactionDTO =
-                EcoPointTransactionDTO.builder()
-                        .userId(customerId)
-                        .points(points)
-                        .type(EcoPointType.EARNED)
-                        .sourceType(SourceType.ORDER)
-                        .sourceId((long) Math.abs(orderId.hashCode()))
-                        .description("Hoàn thành đơn hàng online - " + orderCode)
-                        .build();
-
-        updateEcoPointUserBalance(transactionDTO);
-
-        log.info(
-                "Added {} eco points for customer {} from online order {}",
-                points,
-                customerId,
-                orderCode);
+      }
     }
+
+    return EcoPointLeaderboardResponse.builder().topUsers(topUsers).build();
+  }
 
   private Long getCurrentUserId() {
     return Long.valueOf(

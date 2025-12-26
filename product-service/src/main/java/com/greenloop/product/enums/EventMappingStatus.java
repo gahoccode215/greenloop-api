@@ -5,5 +5,6 @@ public enum EventMappingStatus {
     PREPARED,
     DISPLAYED,
     SOLD_OUT,
-    RETURNED
+    RETURNED,
+    LOST
 }

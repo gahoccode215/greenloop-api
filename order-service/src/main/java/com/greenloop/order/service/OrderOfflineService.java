@@ -7,6 +7,5 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface OrderOfflineService {
     OrderOfflineResponse createOrderOffline(CreateOrderOfflineRequest request, MultipartFile paymentProofImage);
-    void publishOrderOfflineCreatedEventDelayed(Order order);
 
 }

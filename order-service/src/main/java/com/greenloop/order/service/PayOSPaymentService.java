@@ -30,13 +30,17 @@ public class PayOSPaymentService {
     @Value("${payos.cancel-url-mobile}")
     private String cancelUrlMobile;
 
-    public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount, String platform) {
+    public PayOSPaymentResponse createPaymentUrl(String orderId, BigDecimal amount, String platform, Boolean isOrderOffline) {
         try {
             long orderCode = System.currentTimeMillis() / 1000;
             String returnUrl = getReturnUrl(platform);
             String cancelUrl = getCancelUrl(platform);
             log.info("RETURN URL:{}", returnUrl);
             log.info("CANCEL URL:{}", cancelUrl);
+            if (isOrderOffline) {
+                returnUrl = "https://green-loop-web-fe-g6pj.vercel.app/admin/orders/";
+                cancelUrl = "https://green-loop-web-fe-g6pj.vercel.app/admin/orders/";
+            }
             CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
                     .amount(amount.longValue())

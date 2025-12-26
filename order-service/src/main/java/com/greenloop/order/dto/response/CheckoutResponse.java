@@ -22,7 +22,6 @@ public class CheckoutResponse {
     private String paymentUrl;
     private String message;
     private LocalDateTime createdAt;
-
     private BigDecimal discountAmount;
     private String voucherCode;
     private BigDecimal originalShippingFee;

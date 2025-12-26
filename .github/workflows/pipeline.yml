@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ gateway, eureka, notification-service, user-service, event-service, reward-service, product-service, order-service ]
+        service: [ gateway, eureka, notification-service, user-service, event-service, reward-service, product-service, order-service, ai-service ]
 
     steps:
       - name: Checkout source code
@@ -82,7 +82,7 @@ jobs:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     strategy:
       matrix:
-        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE, EVENT_SERVICE, REWARD_SERVICE, PRODUCT_SERVICE, ORDER_SERVICE ]
+        service: [ API_GATEWAY, NOTIFICATION_SERVICE, USER_SERVICE, EVENT_SERVICE, REWARD_SERVICE, PRODUCT_SERVICE, ORDER_SERVICE, AI_SERVICE ]
 
     steps:
       - name: Deploy ${{ matrix.service }} to VM
@@ -93,7 +93,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "Deploying ${{ matrix.service }} to VM..."
-            cd /home/thanhnt143.dev/greenloop
+            cd /home/thanhnt.tech/greenloop
             sudo docker-compose down --remove-orphans
             sudo docker system prune -f
             sudo docker-compose pull

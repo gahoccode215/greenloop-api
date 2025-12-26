@@ -69,3 +69,5 @@ hs_err_pid*
 /*.event
 /.env.event
 /.env.reward
+/.env.ai
+/ai-service/src/main/resources/*.json

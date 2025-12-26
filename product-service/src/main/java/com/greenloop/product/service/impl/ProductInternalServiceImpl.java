@@ -1,5 +1,7 @@
 package com.greenloop.product.service.impl;
 
+import com.greenloop.product.dto.feign.UnreserveProductsRequest;
+import com.greenloop.product.dto.request.*;
 import com.greenloop.product.dto.response.EventProductMappingResponse;
 import com.greenloop.product.dto.response.ProductAssetResponse;
 import com.greenloop.product.dto.response.ProductResponse;
@@ -16,8 +18,8 @@ import com.greenloop.product.repository.DonationItemRepository;
 import com.greenloop.product.repository.EventProductMappingRepository;
 import com.greenloop.product.repository.ProductRepository;
 import com.greenloop.product.service.ProductInternalService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,7 +29,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ProductInternalServiceImpl implements ProductInternalService {
 
     private final ProductRepository productRepository;
@@ -36,8 +37,6 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
     @Override
     public void validateProductsForOfflineOrder(Long eventId, List<Long> productIds) {
-        log.info("Validating {} products for offline order at event {}", productIds.size(), eventId);
-
         for (Long productId : productIds) {
             Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new ProductNotFoundException(
@@ -86,31 +85,22 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                         ErrorCode.PRODUCT_NOT_DISPLAYED
                 );
             }
-
-            log.debug("Product {} validated successfully for event {}", productId, eventId);
         }
-
-        log.info("All {} products validated successfully for event {}", productIds.size(), eventId);
     }
 
     @Override
     public ProductResponse getProductById(Long productId) {
-        log.info("Fetching product details for productId: {}", productId);
-
-        // 1. Lấy Product entity
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(
                         "Không tìm thấy sản phẩm với ID: " + productId));
 
-        // 2. Lấy DonationItem nếu có
         DonationItem donationItem = null;
         if (product.getDonationItemId() != null) {
             donationItem = donationItemRepository.findById(product.getDonationItemId())
                     .orElse(null);
         }
 
-        // 3. Map sang ProductResponse
-        ProductResponse response = ProductResponse.builder()
+        return ProductResponse.builder()
                 .id(product.getId())
                 .code(product.getCode())
                 .name(product.getName())
@@ -133,16 +123,95 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
-
-        log.debug("Product details fetched successfully: id={}, name={}, ecoPointValue={}",
-                product.getId(), product.getName(), product.getEcoPointValue());
-
-        return response;
     }
 
-    /**
-     * Map Event Mappings sang DTO
-     */
+    @Override
+    @Transactional
+    public void reserveProducts(ReserveProductsRequest request) {
+        for (ReserveProductsRequest.ProductReserve item : request.getProducts()) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+
+            if (product.getStatus() != ProductStatus.AVAILABLE) {
+                throw new BusinessException(
+                        "Sản phẩm " + product.getCode() + " không ở trạng thái AVAILABLE",
+                        ErrorCode.PRODUCT_NOT_AVAILABLE
+                );
+            }
+
+            product.setStatus(ProductStatus.RESERVED);
+            productRepository.save(product);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unreserveProducts(UnreserveProductsRequest request) {
+        for (Long productId : request.getProductIds()) {
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + productId));
+
+            if (product.getStatus() == ProductStatus.RESERVED) {
+                product.setStatus(ProductStatus.AVAILABLE);
+                productRepository.save(product);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void markProductsAsSold(MarkProductsSoldRequest request) {
+        for (MarkProductsSoldRequest.ProductSold item : request.getProducts()) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + item.getProductId()));
+
+            if (product.getStatus() == ProductStatus.RESERVED) {
+                product.setStatus(ProductStatus.SOLD);
+                productRepository.save(product);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void updateProductStatus(UpdateProductStatusRequest request) {
+        for (UpdateProductStatusRequest.ProductStatusUpdate update : request.getProductUpdates()) {
+            Product product = productRepository.findById(update.getProductId())
+                    .orElseThrow(() -> new ProductNotFoundException(
+                            "Không tìm thấy sản phẩm với ID: " + update.getProductId()));
+
+            ProductStatus newStatus = ProductStatus.valueOf(update.getNewStatus());
+            product.setStatus(newStatus);
+            productRepository.save(product);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void markOfflineProductsAsSold(MarkOfflineProductsSoldRequest request) {
+        for (MarkOfflineProductsSoldRequest.ProductSold productSold : request.getProducts()) {
+            Long productId = productSold.getProductId();
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException("Không tìm thấy sản phẩm với ID " + productId));
+
+            product.setStatus(ProductStatus.SOLD);
+            productRepository.save(product);
+
+            EventProductMapping mapping = eventProductMappingRepository
+                    .findByEventIdAndProductId(request.getEventId(), productId)
+                    .orElseThrow(() -> new RuntimeException(
+                            String.format("EventProductMapping not found for eventId: %d, productId: %d",
+                                    request.getEventId(), productId)));
+
+            mapping.setStatus(EventMappingStatus.SOLD_OUT);
+            eventProductMappingRepository.save(mapping);
+        }
+    }
+
     private List<EventProductMappingResponse> mapEventMappings(Product product) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -158,16 +227,13 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Map ProductAssets sang DTO
-     */
     private List<ProductAssetResponse> mapProductAssets(Set<ProductAsset> assets) {
         if (assets == null) {
             return List.of();
         }
 
         return assets.stream()
-                .filter(ProductAsset::getIsActive) // Chỉ lấy asset active
+                .filter(ProductAsset::getIsActive)
                 .map(asset -> ProductAssetResponse.builder()
                         .productAssetId(asset.getId())
                         .productAssetUrl(asset.getImageUrl())
